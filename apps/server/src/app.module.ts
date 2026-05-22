@@ -7,6 +7,10 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { StorageModule } from "./storage/storage.module";
 import { OrganizationModule } from "./organization/organization.module";
 import { EmployeesModule } from "./employees/employees.module";
+import { TimeEntriesModule } from "./time-entries/time-entries.module";
+import { SitesModule } from "./sites/sites.module";
+import { ShiftsModule } from "./shifts/shifts.module";
+import { LogbookModule } from "./logbook/logbook.module";
 
 @Module({
   imports: [
@@ -17,6 +21,10 @@ import { EmployeesModule } from "./employees/employees.module";
     StorageModule,
     OrganizationModule,
     EmployeesModule,
+    TimeEntriesModule,
+    SitesModule,
+    ShiftsModule,
+    LogbookModule,
   ],
   controllers: [HealthController],
 })

@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Loader,
   Lock,
+  LogOut,
   RefreshCw,
   X,
 } from "lucide-react-native";
@@ -25,6 +26,7 @@ import {
   Screen,
 } from "@/components/ui";
 import { getSession, type Session } from "@/features/auth/auth.storage";
+import { signOut } from "@/features/auth/auth.api";
 import { useTheme } from "@/theme";
 import {
   clearProfile,
@@ -33,6 +35,7 @@ import {
   upsertProfile,
   type AgentProfile,
 } from "@/features/profile/profile.storage";
+import { MyEmployeeCard } from "@/features/profile/MyEmployeeCard";
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
@@ -233,6 +236,8 @@ export default function ProfileScreen() {
           contentContainerStyle={{ paddingBottom: 32 }}
         >
           <View className="gap-4">
+            <MyEmployeeCard />
+
             <Card className="gap-4">
               <Text
                 className="text-base font-semibold"
@@ -559,6 +564,18 @@ export default function ProfileScreen() {
                 <X size={18} color={colors.foreground} />
                 <Text className="ml-2" style={{ color: colors.foreground }}>
                   Annuler
+                </Text>
+              </Button>
+              <Button
+                variant="outline"
+                onPress={async () => {
+                  await signOut();
+                  router.replace("/(auth)/login");
+                }}
+              >
+                <LogOut size={18} color={colors.destructive} />
+                <Text className="ml-2" style={{ color: colors.destructive }}>
+                  Se déconnecter
                 </Text>
               </Button>
             </View>

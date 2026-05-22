@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "expo run:android",
+    "start": "expo start",
+    "start:web": "expo start --web",
+    "start:android": "expo start --android",
+    "start:ios": "expo start --ios",
     "lint": "expo lint",
     "lint:clean": "expo lint --no-cache",
     "lint:fix": "expo lint --fix",

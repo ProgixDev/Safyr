@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { router } from "expo-router";
 import { getSession } from "@/features/auth/auth.storage";
+import { fetchCurrentSession } from "@/features/auth/auth.api";
 import { Screen } from "@/components/ui";
 import { getBodyFont, getHeadingFont } from "@/utils/fonts";
 
@@ -11,19 +12,24 @@ export default function Index() {
   useEffect(() => {
     let mounted = true;
 
-    // Add a small delay to ensure the layout is mounted
     const timer = setTimeout(async () => {
       if (!mounted) return;
 
       try {
-        const session = await getSession();
+        const cached = await getSession();
+        if (cached) {
+          router.replace("/(app)/(tabs)");
+        }
+
+        const fresh = await fetchCurrentSession();
         if (!mounted) return;
 
-        router.replace(session ? "/(app)/(tabs)" : "/(auth)/login");
+        router.replace(fresh ? "/(app)/(tabs)" : "/(auth)/login");
       } catch (error) {
         console.error("Navigation error:", error);
+        router.replace("/(auth)/login");
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }, 100);
 

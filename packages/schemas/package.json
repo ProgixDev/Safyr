@@ -8,7 +8,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./organization": "./src/organization.ts",
-    "./employee": "./src/employee.ts"
+    "./employee": "./src/employee.ts",
+    "./time-entry": "./src/time-entry.ts",
+    "./site": "./src/site.ts",
+    "./shift": "./src/shift.ts",
+    "./logbook": "./src/logbook.ts"
   },
   "typesVersions": {
     "*": {
@@ -17,6 +21,18 @@
       ],
       "employee": [
         "src/employee.ts"
+      ],
+      "time-entry": [
+        "src/time-entry.ts"
+      ],
+      "site": [
+        "src/site.ts"
+      ],
+      "shift": [
+        "src/shift.ts"
+      ],
+      "logbook": [
+        "src/logbook.ts"
       ]
     }
   },

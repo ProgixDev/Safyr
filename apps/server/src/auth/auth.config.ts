@@ -90,6 +90,8 @@ export function createAuth({ env, prisma, email }: AuthDeps) {
     expo(),
   ];
 
+  const isProd = env.NODE_ENV === "production";
+
   return betterAuth({
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
@@ -98,10 +100,12 @@ export function createAuth({ env, prisma, email }: AuthDeps) {
     emailAndPassword: { enabled: false },
     plugins,
     advanced: {
-      useSecureCookies: true,
+      // En dev (localhost HTTP) on ne peut pas utiliser le préfixe __Secure-
+      // ni Secure=true ni SameSite=None — le navigateur refuse le cookie.
+      useSecureCookies: isProd,
       defaultCookieAttributes: {
-        sameSite: "none",
-        secure: true,
+        sameSite: isProd ? "none" : "lax",
+        secure: isProd,
         httpOnly: true,
       },
     },

@@ -20,13 +20,18 @@ const navItems: NavItem[] = [
     icon: MapPin,
   },
   {
+    label: "Live (réel)",
+    href: "/dashboard/geolocation/live-api",
+    icon: MapPin,
+  },
+  {
     label: "Zone Géolocalisée",
     href: "/dashboard/geolocation/zones",
     icon: Square,
   },
   {
     label: "Pointage",
-    href: "/dashboard/geolocation/presence",
+    href: "/dashboard/geolocation/pointage",
     icon: CheckCircle,
   },
   {

@@ -5,6 +5,7 @@ import { EmailService } from "@/email/email.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { createAuth, type Auth } from "./auth.config";
 import { AuthController } from "./auth.controller";
+import { DevLoginController } from "./dev-login.controller";
 import { AUTH } from "./auth.tokens";
 
 export { AUTH };
@@ -22,7 +23,7 @@ export { AUTH };
       ): Auth => createAuth({ env, prisma, email }),
     },
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, DevLoginController],
   exports: [AUTH],
 })
 export class AuthModule {}

@@ -231,11 +231,26 @@ export function MenuDrawer({ visible, onClose }: MenuDrawerProps) {
                             gap: 12,
                           }}
                         >
-                          <Image
-                            source={require("../../../assets/images/Logo.png")}
-                            style={{ width: 36, height: 36 }}
-                            contentFit="contain"
-                          />
+                          <View
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 8,
+                              backgroundColor: "#22d3ee",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: "#0f172a",
+                                fontSize: 18,
+                                fontWeight: "700",
+                              }}
+                            >
+                              S
+                            </Text>
+                          </View>
                           <Text
                             style={{
                               fontSize: 24,

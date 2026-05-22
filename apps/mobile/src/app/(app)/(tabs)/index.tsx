@@ -325,11 +325,18 @@ export default function HomeDashboardScreen() {
             </Text>
             <View style={{ gap: 8 }}>
               <QuickAction
+                icon={<Clock size={18} color={colors.primary} />}
+                label="Pointage"
+                subtitle="Prise / fin de service"
+                colors={colors}
+                onPress={() => router.push("/(app)/pointage")}
+              />
+              <QuickAction
                 icon={<ClipboardList size={18} color={colors.primary} />}
                 label="Main courante"
-                subtitle="Nouveau rapport"
+                subtitle="Nouvel événement"
                 colors={colors}
-                onPress={() => router.push("/(app)/(tabs)/main-courante")}
+                onPress={() => router.push("/(app)/main-courante/new-api")}
               />
               <QuickAction
                 icon={<MapPin size={18} color={colors.primary} />}

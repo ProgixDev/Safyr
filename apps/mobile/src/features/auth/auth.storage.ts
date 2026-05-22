@@ -1,11 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
-const SESSION_KEY = "safyr.session.v1";
+const SESSION_KEY = "safyr.session.v2";
+const TOKEN_KEY = "safyr.bearer.v2";
 
 export type Session = {
   userId: string;
   fullName: string;
+  email: string;
 };
 
 async function setSecureItem(key: string, value: string) {
@@ -54,7 +56,6 @@ export async function setSession(session: Session): Promise<void> {
   if (!ok) {
     await AsyncStorage.setItem(SESSION_KEY, raw);
   } else {
-    // best-effort cleanup for legacy storage
     await AsyncStorage.removeItem(SESSION_KEY);
   }
 }
@@ -65,5 +66,30 @@ export async function clearSession(): Promise<void> {
     await AsyncStorage.removeItem(SESSION_KEY);
   } else {
     await AsyncStorage.removeItem(SESSION_KEY);
+  }
+  await clearBearerToken();
+}
+
+export async function getBearerToken(): Promise<string | null> {
+  return (
+    (await getSecureItem(TOKEN_KEY)) ?? (await AsyncStorage.getItem(TOKEN_KEY))
+  );
+}
+
+export async function setBearerToken(token: string): Promise<void> {
+  const ok = await setSecureItem(TOKEN_KEY, token);
+  if (!ok) {
+    await AsyncStorage.setItem(TOKEN_KEY, token);
+  } else {
+    await AsyncStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+export async function clearBearerToken(): Promise<void> {
+  const ok = await deleteSecureItem(TOKEN_KEY);
+  if (!ok) {
+    await AsyncStorage.removeItem(TOKEN_KEY);
+  } else {
+    await AsyncStorage.removeItem(TOKEN_KEY);
   }
 }

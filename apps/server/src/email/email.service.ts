@@ -6,11 +6,22 @@ import type { Env } from "@/config/env";
 import { MagicLinkEmail } from "@/email/templates/magic-link";
 import { OtpEmail } from "@/email/templates/otp";
 
+export type DevEmailRecord = {
+  to: string;
+  subject: string;
+  html: string;
+  meta?: Record<string, unknown>;
+  sentAt: string;
+};
+
+const DEV_INBOX_LIMIT = 50;
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly transport: Transporter | null;
   private readonly isDev: boolean;
+  private readonly devInbox: DevEmailRecord[] = [];
 
   constructor(@Inject(ENV) private readonly env: Env) {
     this.isDev = env.NODE_ENV === "development";
@@ -21,6 +32,15 @@ export class EmailService {
           port: env.SMTP_PORT,
           auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
         });
+  }
+
+  getDevInbox(filter?: { email?: string; limit?: number }): DevEmailRecord[] {
+    const limit = filter?.limit ?? 20;
+    const email = filter?.email?.toLowerCase();
+    return this.devInbox
+      .filter((r) => !email || r.to.toLowerCase() === email)
+      .slice(-limit)
+      .reverse();
   }
 
   async checkConnection(): Promise<{
@@ -55,6 +75,12 @@ export class EmailService {
         (payload.meta ? ` meta=${JSON.stringify(payload.meta)}` : ""),
     );
     this.logger.debug(`[DEV] HTML body:\n${payload.html}`);
+
+    // Garde une "boîte de réception" en mémoire pour l'endpoint dev
+    this.devInbox.push({ ...payload, sentAt: new Date().toISOString() });
+    if (this.devInbox.length > DEV_INBOX_LIMIT) {
+      this.devInbox.splice(0, this.devInbox.length - DEV_INBOX_LIMIT);
+    }
   }
 
   async sendMagicLink(

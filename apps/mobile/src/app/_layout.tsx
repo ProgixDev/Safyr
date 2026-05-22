@@ -4,7 +4,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "@/theme";
 import { NotificationsProvider } from "@/features/notifications/NotificationsContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import "./global.css";
 
@@ -12,25 +11,12 @@ import "./global.css";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  // Load Aldrich (headings) + Space Grotesk (body) fonts from local assets
-  const [fontsLoaded, fontError] = useFonts({
-    "Aldrich-Regular": require("../../assets/fonts/Aldrich-Regular.ttf"),
-    "SpaceGrotesk-Regular": require("../../assets/fonts/SpaceGrotesk-Regular.ttf"),
-    "SpaceGrotesk-Medium": require("../../assets/fonts/SpaceGrotesk-Medium.ttf"),
-    "SpaceGrotesk-SemiBold": require("../../assets/fonts/SpaceGrotesk-SemiBold.ttf"),
-    "SpaceGrotesk-Bold": require("../../assets/fonts/SpaceGrotesk-Bold.ttf"),
-  });
-
+  // Custom fonts (Aldrich + Space Grotesk) are not bundled in this repo —
+  // we let the system font handle headings/body until proper .ttf files
+  // are added under apps/mobile/assets/fonts/.
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      // Fonts are loaded (or failed), hide splash screen
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
+    SplashScreen.hideAsync();
+  }, []);
 
   return (
     <SafeAreaProvider>

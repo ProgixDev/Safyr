@@ -36,6 +36,11 @@ const navItems: NavItem[] = [
     icon: RotateCcw,
   },
   {
+    label: "Vacations",
+    href: "/dashboard/planning/vacations",
+    icon: Calendar,
+  },
+  {
     label: "Planning",
     href: "/dashboard/planning/schedule",
     icon: Calendar,

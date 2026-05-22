@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
     icon: Building2,
     children: [
       { label: "Mon entreprise", href: "/dashboard/hr/entreprise" },
+      { label: "Sites & Postes", href: "/dashboard/hr/sites" },
       { label: "Clients", href: "/dashboard/hr/entreprise/clients" },
       {
         label: "Sous-traitants",

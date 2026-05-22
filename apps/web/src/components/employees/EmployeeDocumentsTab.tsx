@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
+  useDeleteCertification,
+  useEmployee,
   useEmployeeCompliance,
   useUploadMemberDocument,
 } from "@/hooks/employees";
@@ -20,14 +22,38 @@ import {
   AlertCircle,
   Clock,
   XCircle,
+  Pencil,
 } from "lucide-react";
-import type {
-  Employee,
-  Document,
-  Certification,
-  CNAPSAccess,
-} from "@/lib/types";
+import type { Employee, Document, CNAPSAccess } from "@/lib/types";
+import type { Certification as ApiCertification } from "@safyr/api-client";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { CertificationFormDialog } from "./CertificationFormDialog";
+import { Modal } from "@/components/ui/modal";
+import { formatDate } from "@/lib/date-utils";
+
+type CertStatus = "valid" | "expired" | "expiring-soon" | "pending-renewal";
+
+function computeCertStatus(expiryIso: string): CertStatus {
+  const expiry = new Date(expiryIso).getTime();
+  if (Number.isNaN(expiry)) return "pending-renewal";
+  const now = Date.now();
+  const days = (expiry - now) / 86_400_000;
+  if (days < 0) return "expired";
+  if (days <= 60) return "expiring-soon";
+  return "valid";
+}
+
+const CERTIFICATION_LABELS: Record<ApiCertification["type"], string> = {
+  CQP_APS: "CQP/APS",
+  CNAPS: "Carte Professionnelle CNAPS",
+  SSIAP1: "SSIAP 1",
+  SSIAP2: "SSIAP 2",
+  SSIAP3: "SSIAP 3",
+  SST: "SST",
+  VM: "Visite Médicale",
+  H0B0: "H0B0",
+  FIRE: "Habilitation Incendie",
+};
 
 interface EmployeeDocumentsTabProps {
   employee: Employee;
@@ -39,7 +65,19 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
     string | null
   >(null);
   const { data: compliance } = useEmployeeCompliance(employee.id);
+  const { data: apiEmployee } = useEmployee(employee.id);
   const uploadMutation = useUploadMemberDocument(employee.id);
+  const deleteCertMutation = useDeleteCertification(employee.id);
+  const [certDialogOpen, setCertDialogOpen] = useState(false);
+  const [certEditing, setCertEditing] = useState<ApiCertification | null>(null);
+  const [certToDelete, setCertToDelete] = useState<ApiCertification | null>(
+    null,
+  );
+
+  const apiCertifications = useMemo<ApiCertification[]>(
+    () => apiEmployee?.certifications ?? [],
+    [apiEmployee],
+  );
 
   const openFilePicker = (requirementId: string) => {
     setPendingRequirementId(requirementId);
@@ -114,54 +152,7 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
     },
   ]);
 
-  const [certifications] = useState<Certification[]>([
-    {
-      id: "1",
-      type: "CQP_APS",
-      number: "CQP-2019-12345",
-      issueDate: new Date("2019-06-15"),
-      expiryDate: new Date("2029-06-15"),
-      fileUrl: "/documents/cqp-aps.pdf",
-      issuer: "CPNEFP Sécurité Privée",
-      verified: true,
-      status: "valid",
-    },
-    {
-      id: "2",
-      type: "CNAPS",
-      number: "CNP-75-2020-001-23456",
-      issueDate: new Date("2020-01-10"),
-      expiryDate: new Date("2025-01-10"),
-      fileUrl: "/documents/cnaps.pdf",
-      issuer: "CNAPS",
-      verified: true,
-      status: "expiring-soon",
-    },
-    {
-      id: "3",
-      type: "SSIAP1",
-      number: "SSIAP1-2021-456",
-      issueDate: new Date("2021-03-20"),
-      expiryDate: new Date("2024-03-20"),
-      fileUrl: "/documents/ssiap1.pdf",
-      issuer: "Centre de Formation Sécurité",
-      verified: true,
-      status: "expired",
-    },
-    {
-      id: "4",
-      type: "SST",
-      number: "SST-2023-789",
-      issueDate: new Date("2023-05-15"),
-      expiryDate: new Date("2025-05-15"),
-      fileUrl: "/documents/sst.pdf",
-      issuer: "INRS",
-      verified: true,
-      status: "valid",
-    },
-  ]);
-
-  const getCertificationStatusBadge = (status: Certification["status"]) => {
+  const getCertificationStatusBadge = (status: CertStatus) => {
     const config = {
       valid: {
         variant: "default" as const,
@@ -187,20 +178,8 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
     return config[status];
   };
 
-  const getCertificationLabel = (type: Certification["type"]) => {
-    const labels = {
-      CQP_APS: "CQP/APS",
-      CNAPS: "Carte Professionnelle CNAPS",
-      SSIAP1: "SSIAP 1",
-      SSIAP2: "SSIAP 2",
-      SSIAP3: "SSIAP 3",
-      SST: "SST",
-      VM: "Visite Médicale",
-      H0B0: "H0B0",
-      FIRE: "Habilitation Incendie",
-    };
-    return labels[type] || type;
-  };
+  const getCertificationLabel = (type: ApiCertification["type"]) =>
+    CERTIFICATION_LABELS[type] ?? type;
 
   const documentColumns: ColumnDef<Document>[] = [
     {
@@ -246,12 +225,13 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
     },
   ];
 
-  const certificationColumns: ColumnDef<Certification>[] = [
+  const certificationColumns: ColumnDef<ApiCertification>[] = [
     {
       key: "status",
       label: "Statut",
       render: (cert) => {
-        const statusConfig = getCertificationStatusBadge(cert.status);
+        const status = computeCertStatus(cert.expiryDate);
+        const statusConfig = getCertificationStatusBadge(status);
         return <div className={`w-3 h-3 rounded-full ${statusConfig.color}`} />;
       },
     },
@@ -285,22 +265,25 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
       label: "Date d'expiration",
       sortable: true,
       render: (cert) => {
-        const statusConfig = getCertificationStatusBadge(cert.status);
-        const daysUntilExpiry = Math.ceil(
-          (cert.expiryDate.getTime() - new Date().getTime()) /
-            (1000 * 60 * 60 * 24),
-        );
+        const status = computeCertStatus(cert.expiryDate);
+        const statusConfig = getCertificationStatusBadge(status);
+        const expiryMs = new Date(cert.expiryDate).getTime();
+        const daysUntilExpiry = Number.isNaN(expiryMs)
+          ? null
+          : Math.ceil((expiryMs - Date.now()) / 86_400_000);
         return (
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span>{cert.expiryDate.toLocaleDateString("fr-FR")}</span>
+              <span>{formatDate(cert.expiryDate)}</span>
               <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
             </div>
-            {cert.status !== "expired" && daysUntilExpiry <= 90 && (
-              <span className="text-xs text-orange-600 font-medium">
-                {daysUntilExpiry} jours restants
-              </span>
-            )}
+            {status !== "expired" &&
+              daysUntilExpiry !== null &&
+              daysUntilExpiry <= 90 && (
+                <span className="text-xs text-orange-600 font-medium">
+                  {daysUntilExpiry} jours restants
+                </span>
+              )}
           </div>
         );
       },
@@ -552,45 +535,94 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
       {/* Diplomas */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Diplômes</CardTitle>
-          <Button>
+          <CardTitle>Diplômes & Certifications</CardTitle>
+          <Button
+            onClick={() => {
+              setCertEditing(null);
+              setCertDialogOpen(true);
+            }}
+          >
             <Upload className="mr-2 h-4 w-4" />
             Ajouter une certification
           </Button>
         </CardHeader>
         <CardContent>
           <DataTable
-            data={certifications}
+            data={apiCertifications}
             columns={certificationColumns}
             searchKeys={["type", "number", "issuer"]}
             searchPlaceholder="Rechercher une certification..."
             itemsPerPage={10}
-            filters={[
-              {
-                key: "status",
-                label: "Statut",
-                options: [
-                  { value: "all", label: "Tous" },
-                  { value: "valid", label: "Valide" },
-                  { value: "expiring-soon", label: "Expire bientôt" },
-                  { value: "expired", label: "Expiré" },
-                  { value: "pending-renewal", label: "À renouveler" },
-                ],
-              },
-            ]}
-            actions={() => (
+            actions={(cert) => (
               <div className="flex gap-2">
-                <Button variant="ghost" size="icon">
-                  <Eye className="h-4 w-4" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setCertEditing(cert);
+                    setCertDialogOpen(true);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon">
-                  <Download className="h-4 w-4" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setCertToDelete(cert)}
+                  className="text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             )}
           />
         </CardContent>
       </Card>
+
+      <CertificationFormDialog
+        open={certDialogOpen}
+        onOpenChange={(open) => {
+          setCertDialogOpen(open);
+          if (!open) setCertEditing(null);
+        }}
+        memberId={employee.id}
+        existing={certEditing}
+      />
+
+      <Modal
+        open={!!certToDelete}
+        onOpenChange={(open) => !open && setCertToDelete(null)}
+        type="warning"
+        title="Supprimer la certification"
+        description="Cette action est irréversible."
+        closable={false}
+        actions={{
+          secondary: {
+            label: "Annuler",
+            onClick: () => setCertToDelete(null),
+            variant: "outline",
+          },
+          primary: {
+            label: deleteCertMutation.isPending ? "Suppression..." : "Supprimer",
+            variant: "destructive",
+            disabled: deleteCertMutation.isPending,
+            onClick: async () => {
+              if (!certToDelete) return;
+              await deleteCertMutation.mutateAsync(certToDelete.id);
+              setCertToDelete(null);
+            },
+          },
+        }}
+      >
+        {certToDelete && (
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {getCertificationLabel(certToDelete.type)}
+            </span>{" "}
+            — n° {certToDelete.number}
+          </p>
+        )}
+      </Modal>
 
       {/* Direct DRACAR Access */}
       <Card>

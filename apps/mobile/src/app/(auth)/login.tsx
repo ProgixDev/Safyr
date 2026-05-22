@@ -8,33 +8,67 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { Button, Card, Input, Screen } from "@/components/ui";
-import { setSession } from "@/features/auth/auth.storage";
+import {
+  requestEmailOtp,
+  verifyEmailOtp,
+  MobileApiError,
+} from "@/features/auth/auth.api";
 import { getBodyFont, getHeadingFont } from "@/utils/fonts";
 
-export default function LoginScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+type Step = "email" | "otp";
 
-  const canSubmit = useMemo(
-    () =>
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && password.length >= 1,
-    [email, password],
+export default function LoginScreen() {
+  const [step, setStep] = useState<Step>("email");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const emailValid = useMemo(
+    () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
+    [email],
   );
 
-  async function onSubmit() {
-    if (!canSubmit) return;
+  async function handleRequestOtp() {
+    if (!emailValid) return;
     setLoading(true);
+    setErrorMessage(null);
     try {
-      // MVP mock auth — replace with real API later.
-      await new Promise((r) => setTimeout(r, 700));
-      await setSession({ userId: "agent_001", fullName: "Agent Demo" });
-      router.replace("/(app)/(tabs)");
-    } catch {
-      Alert.alert("Connexion impossible", "Veuillez réessayer.");
+      await requestEmailOtp(email);
+      setStep("otp");
+    } catch (error) {
+      const message =
+        error instanceof MobileApiError
+          ? error.message
+          : "Impossible d'envoyer le code";
+      setErrorMessage(message);
+      Alert.alert("Code non envoyé", message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleVerifyOtp() {
+    if (otp.trim().length < 4) return;
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      await verifyEmailOtp(email, otp);
+      router.replace("/(app)/(tabs)");
+    } catch (error) {
+      const message =
+        error instanceof MobileApiError ? error.message : "Code invalide";
+      setErrorMessage(message);
+      Alert.alert("Connexion impossible", message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleChangeEmail() {
+    setStep("email");
+    setOtp("");
+    setErrorMessage(null);
   }
 
   return (
@@ -55,59 +89,96 @@ export default function LoginScreen() {
               className="mt-2 text-sm text-muted-foreground"
               style={{ fontFamily: getBodyFont("400") }}
             >
-              Connectez-vous à votre espace agent
+              {step === "email"
+                ? "Recevez un code à 6 chiffres par e-mail"
+                : `Code envoyé à ${email}`}
             </Text>
           </View>
 
           <Card className="gap-4">
-            <View>
+            {step === "email" ? (
+              <>
+                <View>
+                  <Text
+                    className="mb-2 text-sm font-medium text-foreground"
+                    style={{ fontFamily: getBodyFont("500") }}
+                  >
+                    Email
+                  </Text>
+                  <Input
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    placeholder="prenom.nom@entreprise.com"
+                    returnKeyType="send"
+                    onSubmitEditing={handleRequestOtp}
+                  />
+                </View>
+
+                <Button
+                  onPress={handleRequestOtp}
+                  disabled={!emailValid || loading}
+                  className="mt-2"
+                >
+                  {loading ? "Envoi..." : "Recevoir un code"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <View>
+                  <Text
+                    className="mb-2 text-sm font-medium text-foreground"
+                    style={{ fontFamily: getBodyFont("500") }}
+                  >
+                    Code OTP
+                  </Text>
+                  <Input
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    placeholder="123456"
+                    maxLength={6}
+                    returnKeyType="done"
+                    onSubmitEditing={handleVerifyOtp}
+                  />
+                </View>
+
+                <Button
+                  onPress={handleVerifyOtp}
+                  disabled={otp.trim().length < 4 || loading}
+                  className="mt-2"
+                >
+                  {loading ? "Vérification..." : "Valider le code"}
+                </Button>
+
+                <View className="flex-row justify-between">
+                  <Text
+                    onPress={handleChangeEmail}
+                    className="text-xs text-primary"
+                    style={{ fontFamily: getBodyFont("500") }}
+                  >
+                    Changer d&apos;email
+                  </Text>
+                  <Text
+                    onPress={handleRequestOtp}
+                    className="text-xs text-primary"
+                    style={{ fontFamily: getBodyFont("500") }}
+                  >
+                    Renvoyer le code
+                  </Text>
+                </View>
+              </>
+            )}
+
+            {errorMessage && (
               <Text
-                className="mb-2 text-sm font-medium text-foreground"
-                style={{ fontFamily: getBodyFont("500") }}
+                className="text-xs text-destructive"
+                style={{ fontFamily: getBodyFont("400") }}
               >
-                Email
+                {errorMessage}
               </Text>
-              <Input
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                placeholder="prenom.nom@entreprise.com"
-                returnKeyType="next"
-              />
-            </View>
-
-            <View>
-              <Text
-                className="mb-2 text-sm font-medium text-foreground"
-                style={{ fontFamily: getBodyFont("500") }}
-              >
-                Mot de passe
-              </Text>
-              <Input
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                secureTextEntry
-                returnKeyType="done"
-                onSubmitEditing={onSubmit}
-              />
-            </View>
-
-            <Button
-              onPress={onSubmit}
-              disabled={!canSubmit || loading}
-              className="mt-2"
-            >
-              {loading ? "Connexion..." : "Se connecter"}
-            </Button>
-
-            <Text
-              className="text-xs text-muted-foreground"
-              style={{ fontFamily: getBodyFont("400") }}
-            >
-              Mode démo: entrez n&apos;importe quel email + mot de passe.
-            </Text>
+            )}
           </Card>
         </View>
       </KeyboardAvoidingView>

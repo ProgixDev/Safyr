@@ -175,6 +175,8 @@ model Member {
   addressRecord  MemberAddress?
   bankDetails    MemberBankDetails?
   certifications Certification[]
+  timeEntries    TimeEntry[]
+  logbookEvents  LogbookEvent[]
 
   @@unique([organizationId, employeeNumber])
   @@index([organizationId])
@@ -316,5 +318,144 @@ model Document {
   @@index([uploaderId])
   @@index([requirementId])
   @@map("document")
+}
+
+model TimeEntry {
+  id             String @id @default(cuid())
+  organizationId String
+  memberId       String
+  member         Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  siteName  String?
+  source    String   @default("gps") // "gps" | "qr" | "manual"
+
+  clockInAt  DateTime
+  clockInLat Float?
+  clockInLng Float?
+
+  clockOutAt  DateTime?
+  clockOutLat Float?
+  clockOutLng Float?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([memberId])
+  @@index([organizationId, clockInAt])
+  @@map("time_entry")
+}
+
+model Site {
+  id             String @id @default(cuid())
+  organizationId String
+
+  name        String
+  clientName  String?
+  address     String?
+  city        String?
+  postalCode  String?
+  country     String  @default("France")
+  latitude    Float?
+  longitude   Float?
+  geofenceRadiusMeters Int?
+
+  notes  String?
+  active Boolean @default(true)
+
+  posts        Post[]
+  logbookEvents LogbookEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("site")
+}
+
+model Post {
+  id     String @id @default(cuid())
+  siteId String
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  name                  String
+  description           String?
+  requiredCertifications String[] @default([])
+  defaultStartTime      String? // "07:00"
+  defaultEndTime        String? // "19:00"
+  active                Boolean  @default(true)
+
+  shifts Shift[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([siteId, name])
+  @@index([siteId])
+  @@map("post")
+}
+
+model Shift {
+  id             String @id @default(cuid())
+  organizationId String
+
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // Optionnel: l'agent affecté (null = à pourvoir)
+  memberId String?
+
+  startAt DateTime
+  endAt   DateTime
+
+  status String  @default("planned") // "planned" | "confirmed" | "cancelled" | "completed"
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([postId])
+  @@index([memberId])
+  @@index([organizationId, startAt])
+  @@map("shift")
+}
+
+model LogbookEvent {
+  id             String @id @default(cuid())
+  organizationId String
+
+  memberId String?
+  member   Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  type     String // "event" | "incident" | "action" | "control"
+  category String? // "intrusion" | "fire" | "patrol" | "visitor" | ...
+  severity String   @default("low") // "low" | "medium" | "high" | "critical"
+  title    String
+  description String?
+
+  occurredAt DateTime @default(now())
+  latitude   Float?
+  longitude  Float?
+
+  status      String   @default("open") // "open" | "validated" | "closed" | "rejected"
+  validatorId String?
+  validatedAt DateTime?
+  validationComment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([memberId])
+  @@index([siteId])
+  @@index([organizationId, occurredAt])
+  @@map("logbook_event")
 }
 
