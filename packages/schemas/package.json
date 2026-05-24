@@ -2,41 +2,40 @@
   "name": "@safyr/schemas",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./organization": "./src/organization.ts",
-    "./employee": "./src/employee.ts",
-    "./time-entry": "./src/time-entry.ts",
-    "./site": "./src/site.ts",
-    "./shift": "./src/shift.ts",
-    "./logbook": "./src/logbook.ts"
-  },
-  "typesVersions": {
-    "*": {
-      "organization": [
-        "src/organization.ts"
-      ],
-      "employee": [
-        "src/employee.ts"
-      ],
-      "time-entry": [
-        "src/time-entry.ts"
-      ],
-      "site": [
-        "src/site.ts"
-      ],
-      "shift": [
-        "src/shift.ts"
-      ],
-      "logbook": [
-        "src/logbook.ts"
-      ]
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./organization": {
+      "types": "./dist/organization.d.ts",
+      "default": "./dist/organization.js"
+    },
+    "./employee": {
+      "types": "./dist/employee.d.ts",
+      "default": "./dist/employee.js"
+    },
+    "./time-entry": {
+      "types": "./dist/time-entry.d.ts",
+      "default": "./dist/time-entry.js"
+    },
+    "./site": {
+      "types": "./dist/site.d.ts",
+      "default": "./dist/site.js"
+    },
+    "./shift": {
+      "types": "./dist/shift.d.ts",
+      "default": "./dist/shift.js"
+    },
+    "./logbook": {
+      "types": "./dist/logbook.d.ts",
+      "default": "./dist/logbook.js"
     }
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "lint": "echo \"(no lint)\"",
     "typecheck": "tsc --noEmit",
     "format": "echo \"(no format)\"",

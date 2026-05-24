@@ -12,7 +12,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 
-type LoginMode = "otp" | "magic-link";
+type LoginMode = "password" | "otp" | "magic-link";
 type Status = "idle" | "sending" | "verifying" | "error";
 const LOGIN_DRAFT_KEY = "safyr-login-draft";
 
@@ -24,29 +24,26 @@ interface LoginDraft {
 }
 
 function getLoginDraft(): LoginDraft {
-  if (typeof window === "undefined") {
-    return {
-      mode: "otp",
-      email: "",
-      otpRequested: false,
-      otpRequestedEmail: null,
-    };
-  }
+  const defaults: LoginDraft = {
+    mode: "password",
+    email: "",
+    otpRequested: false,
+    otpRequestedEmail: null,
+  };
+
+  if (typeof window === "undefined") return defaults;
 
   const rawDraft = sessionStorage.getItem(LOGIN_DRAFT_KEY);
-  if (!rawDraft) {
-    return {
-      mode: "otp",
-      email: "",
-      otpRequested: false,
-      otpRequestedEmail: null,
-    };
-  }
+  if (!rawDraft) return defaults;
 
   try {
     const draft = JSON.parse(rawDraft) as Partial<LoginDraft>;
+    const mode: LoginMode =
+      draft.mode === "magic-link" || draft.mode === "otp" || draft.mode === "password"
+        ? draft.mode
+        : "password";
     return {
-      mode: draft.mode === "magic-link" ? "magic-link" : "otp",
+      mode,
       email: typeof draft.email === "string" ? draft.email : "",
       otpRequested: Boolean(draft.otpRequested),
       otpRequestedEmail:
@@ -56,12 +53,7 @@ function getLoginDraft(): LoginDraft {
     };
   } catch {
     sessionStorage.removeItem(LOGIN_DRAFT_KEY);
-    return {
-      mode: "otp",
-      email: "",
-      otpRequested: false,
-      otpRequestedEmail: null,
-    };
+    return defaults;
   }
 }
 
@@ -76,6 +68,7 @@ export function LoginForm() {
     draft.otpRequestedEmail,
   );
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -110,6 +103,22 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    if (mode === "password") {
+      setStatus("verifying");
+      const { error } = await authClient.signIn.email({
+        email: email.trim(),
+        password,
+      });
+      if (error) {
+        setStatus("error");
+        setErrorMessage(error.message ?? "Email ou mot de passe invalide");
+        return;
+      }
+      sessionStorage.removeItem(LOGIN_DRAFT_KEY);
+      router.replace("/dashboard");
+      return;
+    }
 
     if (mode === "otp") {
       if (!otpRequested) {
@@ -155,7 +164,25 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#2d4160]/60 bg-[#111c30]/60 p-1">
+      <div className="grid grid-cols-3 gap-2 rounded-xl border border-[#2d4160]/60 bg-[#111c30]/60 p-1">
+        <button
+          type="button"
+          onClick={() => {
+            setMode("password");
+            setStatus("idle");
+            setErrorMessage(null);
+            setMagicLinkSent(false);
+            setOtpRequested(false);
+            setOtp("");
+          }}
+          className={`h-10 min-h-10 rounded-lg text-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.96] ${
+            mode === "password"
+              ? "bg-[#22d3ee] text-[#0f172a]"
+              : "text-[#94a3b8] hover:text-white"
+          }`}
+        >
+          Mot de passe
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -225,6 +252,26 @@ export function LoginForm() {
           className="w-full h-12 px-4 rounded-xl bg-[#1e293b]/80 border border-[#2d4160]/60 text-white placeholder:text-[#475569] focus:outline-none focus:border-[#22d3ee]/50 focus:ring-2 focus:ring-[#22d3ee]/20 transition-[border-color,box-shadow] duration-200"
         />
       </div>
+
+      {mode === "password" && (
+        <div className="space-y-2">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-[#94a3b8]"
+          >
+            Mot de passe
+          </label>
+          <input
+            id="password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            className="w-full h-12 px-4 rounded-xl bg-[#1e293b]/80 border border-[#2d4160]/60 text-white placeholder:text-[#475569] focus:outline-none focus:border-[#22d3ee]/50 focus:ring-2 focus:ring-[#22d3ee]/20 transition-[border-color,box-shadow] duration-200"
+          />
+        </div>
+      )}
 
       {mode === "otp" && otpRequested && (
         <div className="space-y-2">
@@ -308,11 +355,13 @@ export function LoginForm() {
           </>
         ) : (
           <>
-            {mode === "otp"
-              ? otpRequested
-                ? "Valider le code"
-                : "Recevoir un code"
-              : "Recevoir un lien de connexion"}
+            {mode === "password"
+              ? "Se connecter"
+              : mode === "otp"
+                ? otpRequested
+                  ? "Valider le code"
+                  : "Recevoir un code"
+                : "Recevoir un lien de connexion"}
           </>
         )}
       </motion.button>

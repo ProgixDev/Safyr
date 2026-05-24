@@ -1,19 +1,9 @@
-import { betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
-import {
-  admin,
-  bearer,
-  emailOTP,
-  magicLink,
-  organization,
-  twoFactor,
-  username,
-} from "better-auth/plugins";
-import { expo } from "@better-auth/expo";
+// better-auth est ESM-only — on l'importe dynamiquement pour rester
+// compatible avec NestJS compilé en CommonJS (Vercel serverless).
 import type { PrismaClient } from "../../generated/prisma/client";
 import type { Env } from "@/config/env";
 import type { EmailService } from "@/email/email.service";
-import { ac, safyrRoles } from "./auth.access-control";
+import { buildAccessControl } from "./auth.access-control";
 
 interface AuthDeps {
   env: Env;
@@ -21,7 +11,29 @@ interface AuthDeps {
   email: EmailService;
 }
 
-export function createAuth({ env, prisma, email }: AuthDeps) {
+export async function createAuth({ env, prisma, email }: AuthDeps) {
+  const [
+    { betterAuth },
+    { prismaAdapter },
+    {
+      admin,
+      bearer,
+      emailOTP,
+      magicLink,
+      organization,
+      twoFactor,
+      username,
+    },
+    { expo },
+    { ac, safyrRoles },
+  ] = await Promise.all([
+    import("better-auth"),
+    import("better-auth/adapters/prisma"),
+    import("better-auth/plugins"),
+    import("@better-auth/expo"),
+    buildAccessControl(),
+  ]);
+
   const plugins = [
     organization({
       ac,
@@ -116,4 +128,4 @@ export function createAuth({ env, prisma, email }: AuthDeps) {
   });
 }
 
-export type Auth = ReturnType<typeof createAuth>;
+export type Auth = Awaited<ReturnType<typeof createAuth>>;

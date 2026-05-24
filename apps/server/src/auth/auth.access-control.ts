@@ -1,11 +1,7 @@
-import { createAccessControl } from "better-auth/plugins/access";
-import {
-  defaultStatements,
-  ownerAc,
-} from "better-auth/plugins/organization/access";
+// better-auth est ESM-only — wrappé en dynamic import pour rester
+// compatible CommonJS (NestJS / Vercel serverless).
 
 const statement = {
-  ...defaultStatements,
   employee: ["create", "read", "update", "delete"],
   payroll: ["read", "generate", "approve"],
   planning: ["read", "write", "publish"],
@@ -15,27 +11,40 @@ const statement = {
   logbook: ["read", "write"],
 } as const;
 
-export const ac = createAccessControl(statement);
+export async function buildAccessControl() {
+  const [{ createAccessControl }, { defaultStatements, ownerAc }] =
+    await Promise.all([
+      import("better-auth/plugins/access"),
+      import("better-auth/plugins/organization/access"),
+    ]);
 
-export const owner = ac.newRole({
-  ...ownerAc.statements,
-  employee: ["create", "read", "update", "delete"],
-  payroll: ["read", "generate", "approve"],
-  planning: ["read", "write", "publish"],
-  billing: ["read", "write"],
-  accounting: ["read", "write"],
-  geolocation: ["read"],
-  logbook: ["read", "write"],
-});
+  const fullStatement = {
+    ...defaultStatements,
+    ...statement,
+  } as const;
 
-export const agent = ac.newRole({
-  employee: ["read"],
-  planning: ["read"],
-  logbook: ["read", "write"],
-  geolocation: ["read"],
-});
+  const ac = createAccessControl(fullStatement);
 
-export const safyrRoles = {
-  owner,
-  agent,
-};
+  const owner = ac.newRole({
+    ...ownerAc.statements,
+    employee: ["create", "read", "update", "delete"],
+    payroll: ["read", "generate", "approve"],
+    planning: ["read", "write", "publish"],
+    billing: ["read", "write"],
+    accounting: ["read", "write"],
+    geolocation: ["read"],
+    logbook: ["read", "write"],
+  });
+
+  const agent = ac.newRole({
+    employee: ["read"],
+    planning: ["read"],
+    logbook: ["read", "write"],
+    geolocation: ["read"],
+  });
+
+  return {
+    ac,
+    safyrRoles: { owner, agent },
+  };
+}

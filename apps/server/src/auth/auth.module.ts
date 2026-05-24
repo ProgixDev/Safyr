@@ -6,6 +6,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { createAuth, type Auth } from "./auth.config";
 import { AuthController } from "./auth.controller";
 import { DevLoginController } from "./dev-login.controller";
+import { DevSeedController } from "./dev-seed.controller";
 import { AUTH } from "./auth.tokens";
 
 export { AUTH };
@@ -16,14 +17,14 @@ export { AUTH };
     {
       provide: AUTH,
       inject: [ENV, PrismaService, EmailService],
-      useFactory: (
+      useFactory: async (
         env: Env,
         prisma: PrismaService,
         email: EmailService,
-      ): Auth => createAuth({ env, prisma, email }),
+      ): Promise<Auth> => createAuth({ env, prisma, email }),
     },
   ],
-  controllers: [AuthController, DevLoginController],
+  controllers: [AuthController, DevLoginController, DevSeedController],
   exports: [AUTH],
 })
 export class AuthModule {}
