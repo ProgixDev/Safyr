@@ -109,3 +109,4 @@ docs/assets
 docs/.obsidian
 assets
 tsconfig.tsbuildinfo
+.vercel
