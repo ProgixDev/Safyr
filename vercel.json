@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "bun install --no-frozen-lockfile",
-  "buildCommand": "cd packages/schemas && bun run build && cd ../../apps/server && bunx prisma generate && bunx prisma db push --accept-data-loss && bunx nest build",
+  "buildCommand": "cd packages/schemas && bun run build && cd ../../apps/server && bunx prisma generate && bunx nest build",
   "outputDirectory": ".",
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
