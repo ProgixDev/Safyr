@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
+import { CompanySearch } from "@/components/ui/company-search";
 import { Textarea } from "@/components/ui/textarea";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
@@ -455,6 +456,21 @@ export default function SousTraitantsPage() {
           <h3 className="text-lg font-medium">
             Informations de l&apos;entreprise
           </h3>
+          <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3">
+            <p className="mb-2 text-sm font-medium">
+              Remplissage automatique (annuaire des entreprises)
+            </p>
+            <CompanySearch
+              onSelect={(c) =>
+                setNewSousTraitant((prev) => ({
+                  ...prev,
+                  name: c.name,
+                  siret: c.siret,
+                  address: c.address,
+                }))
+              }
+            />
+          </div>
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>

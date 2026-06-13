@@ -37,6 +37,16 @@ import {
   WidgetGrid,
   PersonnaliserButton,
 } from "@/components/ui/widget-customizer";
+import {
+  ContractTypePieWidget,
+  EmployeeStatusPieWidget,
+  TrainingStatusBarWidget,
+  StaffFlowBarWidget,
+  HeadcountTrendLineWidget,
+  ComplianceRadarWidget,
+  RadialGauge,
+  MiniDonut,
+} from "@/components/hr/HRDashboardCharts";
 
 // ── Widget type with component ────────────────────────────────────────
 
@@ -119,18 +129,14 @@ function AbsenceWidget({ isLoading }: { isLoading: boolean }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div>
-            <span className="text-4xl font-light tracking-tight">3.2%</span>
-            <span className="ml-2 text-sm text-muted-foreground">ce mois</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Objectif: 2.5%</span>
-              <span className="text-orange-500">+0.7%</span>
-            </div>
-            <Progress value={78} className="h-2" />
-          </div>
+        <div className="space-y-3">
+          <RadialGauge
+            value={3.2}
+            max={5}
+            color="#fb923c"
+            display="3.2%"
+            caption="Objectif 2.5%"
+          />
           <div className="grid grid-cols-2 gap-4 pt-2 border-t">
             <div>
               <p className="text-xs text-muted-foreground">Congés</p>
@@ -537,13 +543,13 @@ function DelegationHoursWidget({ isLoading }: { isLoading: boolean }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div>
-            <span className="text-4xl font-light tracking-tight">156h</span>
-            <span className="ml-2 text-sm text-muted-foreground">
-              utilisées
-            </span>
-          </div>
+        <div className="space-y-3">
+          <RadialGauge
+            value={78}
+            color="#3b82f6"
+            display="156h"
+            caption="sur 200h · 78%"
+          />
           <div className="grid grid-cols-2 gap-4 pt-2 border-t">
             <div>
               <p className="text-xs text-muted-foreground">Allouées</p>
@@ -553,10 +559,6 @@ function DelegationHoursWidget({ isLoading }: { isLoading: boolean }) {
               <p className="text-xs text-muted-foreground">Restantes</p>
               <p className="text-lg font-light text-emerald-400">44h</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
-            <span className="text-emerald-400">78% utilisé</span>
           </div>
         </div>
       </CardContent>
@@ -587,27 +589,19 @@ function CostPerEmployeeWidget({ isLoading }: { isLoading: boolean }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div>
-            <span className="text-4xl font-light tracking-tight">2,850€</span>
-            <span className="ml-2 text-sm text-muted-foreground">
-              moy./mois
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
+        <div className="space-y-2">
+          <MiniDonut
+            data={[
+              { name: "Salaire brut", value: 2150, color: "#34d399" },
+              { name: "Charges", value: 700, color: "#fb923c" },
+            ]}
+            centerValue="2 850€"
+            centerCaption="moy./mois"
+          />
+          <div className="flex items-center justify-center gap-2 text-sm pt-1">
             <TrendingUp className="h-4 w-4 text-red-400" />
             <span className="text-red-400">+4.2%</span>
             <span className="text-muted-foreground">vs mois dernier</span>
-          </div>
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-            <div>
-              <p className="text-xs text-muted-foreground">Salaire brut</p>
-              <p className="text-lg font-light">2,150€</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Charges</p>
-              <p className="text-lg font-light">700€</p>
-            </div>
           </div>
         </div>
       </CardContent>
@@ -638,18 +632,13 @@ function EmployerChargesWidget({ isLoading }: { isLoading: boolean }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div>
-            <span className="text-4xl font-light tracking-tight">28.5%</span>
-            <span className="ml-2 text-sm text-muted-foreground">
-              du salaire brut
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <TrendingUp className="h-4 w-4 text-orange-400" />
-            <span className="text-orange-400">+0.3%</span>
-            <span className="text-muted-foreground">vs année dernière</span>
-          </div>
+        <div className="space-y-3">
+          <RadialGauge
+            value={28.5}
+            color="#a855f7"
+            display="28.5%"
+            caption="du salaire brut"
+          />
           <div className="grid grid-cols-2 gap-4 pt-2 border-t">
             <div>
               <p className="text-xs text-muted-foreground">Total mensuel</p>
@@ -689,18 +678,13 @@ function GenderEqualityWidget({ isLoading }: { isLoading: boolean }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div>
-            <span className="text-4xl font-light tracking-tight">87/100</span>
-            <span className="ml-2 text-sm text-muted-foreground">points</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Objectif: 85/100</span>
-              <span className="text-emerald-400">+2 points</span>
-            </div>
-            <Progress value={87} className="h-2" />
-          </div>
+        <div className="space-y-3">
+          <RadialGauge
+            value={87}
+            color="#ec4899"
+            display="87/100"
+            caption="Objectif 85"
+          />
           <div className="grid grid-cols-2 gap-4 pt-2 border-t">
             <div>
               <p className="text-xs text-muted-foreground">Femmes</p>
@@ -740,26 +724,18 @@ function HRForecastWidget({ isLoading }: { isLoading: boolean }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div>
-            <span className="text-4xl font-light tracking-tight">+8</span>
-            <span className="ml-2 text-sm text-muted-foreground">
-              embauches prévues
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-            <div>
-              <p className="text-xs text-muted-foreground">Départs prévus</p>
-              <p className="text-lg font-light text-red-400">-3</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Croissance</p>
-              <p className="text-lg font-light text-emerald-400">+2.7%</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
+        <div className="space-y-2">
+          <MiniDonut
+            data={[
+              { name: "Embauches", value: 8, color: "#34d399" },
+              { name: "Départs", value: 3, color: "#ef4444" },
+            ]}
+            centerValue="+5"
+            centerCaption="solde net"
+          />
+          <div className="flex items-center justify-center gap-2 text-sm pt-1">
             <Activity className="h-4 w-4 text-blue-400" />
-            <span className="text-blue-400">Budget formation: 45K€</span>
+            <span className="text-blue-400">Croissance +2.7%</span>
           </div>
         </div>
       </CardContent>
@@ -790,24 +766,16 @@ function SalaryMaintenanceWidget({ isLoading }: { isLoading: boolean }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div>
-            <span className="text-4xl font-light tracking-tight">12</span>
-            <span className="ml-2 text-sm text-muted-foreground">
-              cas actifs
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-            <div>
-              <p className="text-xs text-muted-foreground">Maladie</p>
-              <p className="text-lg font-light">8</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">AT/MP</p>
-              <p className="text-lg font-light">4</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
+        <div className="space-y-2">
+          <MiniDonut
+            data={[
+              { name: "Maladie", value: 8, color: "#fb923c" },
+              { name: "AT/MP", value: 4, color: "#ef4444" },
+            ]}
+            centerValue="12"
+            centerCaption="cas actifs"
+          />
+          <div className="flex items-center justify-center gap-2 text-sm pt-1">
             <TrendingUp className="h-4 w-4 text-red-400" />
             <span className="text-red-400">Coût: 28K€/mois</span>
           </div>
@@ -840,13 +808,13 @@ function RecruitmentKPIsWidget({ isLoading }: { isLoading: boolean }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div>
-            <span className="text-4xl font-light tracking-tight">78%</span>
-            <span className="ml-2 text-sm text-muted-foreground">
-              taux de succès
-            </span>
-          </div>
+        <div className="space-y-3">
+          <RadialGauge
+            value={78}
+            color="#14b8a6"
+            display="78%"
+            caption="taux de succès"
+          />
           <div className="grid grid-cols-2 gap-4 pt-2 border-t">
             <div>
               <p className="text-xs text-muted-foreground">Délai moyen</p>
@@ -856,10 +824,6 @@ function RecruitmentKPIsWidget({ isLoading }: { isLoading: boolean }) {
               <p className="text-xs text-muted-foreground">Coût/embauche</p>
               <p className="text-lg font-light">3,200€</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
-            <span className="text-emerald-400">+5% vs trimestre dernier</span>
           </div>
         </div>
       </CardContent>
@@ -1042,12 +1006,63 @@ const defaultWidgetConfigs: HRWidgetConfig[] = [
     visible: true,
   },
   {
+    id: "contractTypePie",
+    name: "Graphique — Répartition des contrats",
+    component: ContractTypePieWidget,
+    visible: true,
+    span: "md:col-span-2 lg:col-span-2",
+  },
+  {
+    id: "employeeStatusPie",
+    name: "Graphique — Effectif par statut",
+    component: EmployeeStatusPieWidget,
+    visible: true,
+    span: "md:col-span-2 lg:col-span-2",
+  },
+  {
+    id: "trainingStatusBar",
+    name: "Graphique — Formations & habilitations",
+    component: TrainingStatusBarWidget,
+    visible: true,
+    span: "md:col-span-2 lg:col-span-2",
+  },
+  {
+    id: "staffFlowBar",
+    name: "Graphique — Embauches & départs",
+    component: StaffFlowBarWidget,
+    visible: true,
+    span: "md:col-span-2 lg:col-span-2",
+  },
+  {
+    id: "headcountTrendLine",
+    name: "Graphique — Évolution de l'effectif",
+    component: HeadcountTrendLineWidget,
+    visible: true,
+    span: "md:col-span-2 lg:col-span-2",
+  },
+  {
+    id: "complianceRadar",
+    name: "Graphique — Radar conformité",
+    component: ComplianceRadarWidget,
+    visible: true,
+    span: "md:col-span-2 lg:col-span-2",
+  },
+  {
     id: "quickActions",
     name: "Actions rapides",
     component: QuickActionsWidget,
     visible: true,
     span: "md:col-span-2 lg:col-span-4",
   },
+];
+
+const CHART_WIDGET_IDS = [
+  "contractTypePie",
+  "employeeStatusPie",
+  "trainingStatusBar",
+  "staffFlowBar",
+  "headcountTrendLine",
+  "complianceRadar",
 ];
 
 const hrWidgetMap = new Map<string, HRWidgetConfig>(
@@ -1146,6 +1161,21 @@ export default function HRDashboardPage() {
               ))}
           </div>
 
+          {/* Charts Row - Histogrammes & Camemberts */}
+          {visibleWidgets.some((config) =>
+            CHART_WIDGET_IDS.includes(config.id),
+          ) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {visibleWidgets
+                .filter((config) => CHART_WIDGET_IDS.includes(config.id))
+                .map((config) => (
+                  <div key={config.id} className="h-full">
+                    {renderWidget(config)}
+                  </div>
+                ))}
+            </div>
+          )}
+
           {/* Second Row - Training & Alerts */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {visibleWidgets
@@ -1173,6 +1203,7 @@ export default function HRDashboardPage() {
                     "alerts",
                     "pendingRequests",
                     "quickActions",
+                    ...CHART_WIDGET_IDS,
                   ].includes(config.id),
               )
               .map((config) => (

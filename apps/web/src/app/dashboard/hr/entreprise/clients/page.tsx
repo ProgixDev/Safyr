@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { CompanySearch } from "@/components/ui/company-search";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import {
@@ -367,6 +368,10 @@ export default function ClientsPage() {
             searchKey="name"
             searchPlaceholder="Rechercher un client..."
             actions={clientActions}
+            onRowClick={handleView}
+            rowClassName={() =>
+              "cursor-pointer transition-colors hover:bg-accent"
+            }
           />
         </CardContent>
       </Card>
@@ -389,6 +394,24 @@ export default function ClientsPage() {
         }}
       >
         <div className="space-y-4">
+          <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3">
+            <p className="mb-2 text-sm font-medium">
+              Remplissage automatique (annuaire des entreprises)
+            </p>
+            <CompanySearch
+              onSelect={(c) =>
+                setNewClient((prev) => ({
+                  ...prev,
+                  name: c.name,
+                  siret: c.siret,
+                  numTVA: c.tva,
+                  address: c.address,
+                  city: c.city,
+                  postalCode: c.postalCode,
+                }))
+              }
+            />
+          </div>
           <div>
             <Label htmlFor="name">Nom du client</Label>
             <Input

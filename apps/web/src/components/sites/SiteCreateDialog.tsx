@@ -1,20 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import { CreateSiteSchema, type CreateSiteDto } from "@safyr/schemas/site";
-import { ApiError } from "@safyr/api-client";
+import {
+  ApiError,
+  type Site,
+  type UpdateSitePayload,
+} from "@safyr/api-client";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateSite } from "@/hooks/sites";
+import { useCreateSite, useUpdateSite } from "@/hooks/sites";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
+  existing?: Site | null;
 }
 
 const empty: CreateSiteDto = {
@@ -31,12 +36,41 @@ const empty: CreateSiteDto = {
   active: true,
 };
 
-export function SiteCreateDialog({ open, onOpenChange, onCreated }: Props) {
-  const mutation = useCreateSite();
+function toDto(s: Site): CreateSiteDto {
+  return {
+    name: s.name,
+    clientName: s.clientName ?? "",
+    address: s.address ?? "",
+    city: s.city ?? "",
+    postalCode: s.postalCode ?? "",
+    country: s.country ?? "France",
+    latitude: s.latitude ?? undefined,
+    longitude: s.longitude ?? undefined,
+    geofenceRadiusMeters: s.geofenceRadiusMeters ?? undefined,
+    notes: s.notes ?? "",
+    active: s.active,
+  };
+}
+
+export function SiteCreateDialog({
+  open,
+  onOpenChange,
+  onCreated,
+  existing,
+}: Props) {
+  const isEdit = !!existing;
+  const createMutation = useCreateSite();
+  const updateMutation = useUpdateSite(existing?.id ?? "");
+  const mutation = isEdit ? updateMutation : createMutation;
   const [globalError, setGlobalError] = useState<string | null>(null);
 
+  const defaultValues = useMemo<CreateSiteDto>(
+    () => (existing ? toDto(existing) : empty),
+    [existing],
+  );
+
   const form = useForm({
-    defaultValues: empty,
+    defaultValues,
     validators: { onChange: CreateSiteSchema },
     onSubmit: async ({ value }) => {
       setGlobalError(null);
@@ -49,14 +83,18 @@ export function SiteCreateDialog({ open, onOpenChange, onCreated }: Props) {
           postalCode: value.postalCode?.trim() || undefined,
           notes: value.notes?.trim() || undefined,
         };
-        await mutation.mutateAsync(payload);
+        if (isEdit && existing) {
+          await updateMutation.mutateAsync(payload as UpdateSitePayload);
+        } else {
+          await createMutation.mutateAsync(payload);
+        }
         onCreated?.();
         onOpenChange(false);
       } catch (error) {
         const message =
           error instanceof ApiError
             ? error.message
-            : "Échec de la création";
+            : "Échec de l'enregistrement";
         setGlobalError(message);
       }
     },
@@ -64,10 +102,10 @@ export function SiteCreateDialog({ open, onOpenChange, onCreated }: Props) {
 
   useEffect(() => {
     if (open) {
-      form.reset(empty);
+      form.reset(defaultValues);
       setGlobalError(null);
     }
-  }, [open, form]);
+  }, [open, defaultValues, form]);
 
   return (
     <Modal
@@ -75,7 +113,7 @@ export function SiteCreateDialog({ open, onOpenChange, onCreated }: Props) {
       onOpenChange={onOpenChange}
       type="form"
       size="lg"
-      title="Nouveau site"
+      title={isEdit ? "Modifier le site" : "Nouveau site"}
       description="Référentiel des sites clients (lieu d'intervention)"
       actions={{
         secondary: {
@@ -84,7 +122,11 @@ export function SiteCreateDialog({ open, onOpenChange, onCreated }: Props) {
           variant: "outline",
         },
         primary: {
-          label: mutation.isPending ? "Création..." : "Créer le site",
+          label: mutation.isPending
+            ? "Enregistrement..."
+            : isEdit
+              ? "Mettre à jour"
+              : "Créer le site",
           onClick: () => form.handleSubmit(),
           disabled: mutation.isPending,
         },

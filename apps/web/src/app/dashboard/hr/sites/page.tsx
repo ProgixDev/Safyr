@@ -1,24 +1,44 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Plus, Building2, MapPin, Users, Briefcase } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Building2,
+  MapPin,
+  Users,
+  Briefcase,
+  MoreVertical,
+  Eye,
+  Edit3,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Modal } from "@/components/ui/modal";
 import { useSites, useDeleteSite } from "@/hooks/sites";
 import { SiteCreateDialog } from "@/components/sites/SiteCreateDialog";
 import type { Site } from "@safyr/api-client";
 
 export default function SitesPage() {
+  const router = useRouter();
   const { data, isLoading } = useSites();
   const deleteMutation = useDeleteSite();
   const sites = useMemo<Site[]>(() => data ?? [], [data]);
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [toEdit, setToEdit] = useState<Site | null>(null);
   const [toDelete, setToDelete] = useState<Site | null>(null);
 
   const totalPosts = sites.reduce((acc, s) => acc + s.posts.length, 0);
@@ -147,26 +167,52 @@ export default function SitesPage() {
             }
             searchPlaceholder="Rechercher par site, client, ville…"
             actions={(s) => (
-              <div className="flex gap-2">
-                <Button asChild variant="ghost" size="sm">
-                  <Link href={`/dashboard/hr/sites/${s.id}`}>Détails</Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive"
-                  onClick={() => setToDelete(s)}
-                >
-                  Supprimer
-                </Button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/dashboard/hr/sites/${s.id}`)}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Voir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setToEdit(s)}>
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    Modifier
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setToDelete(s)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Supprimer
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
+            onRowClick={(s) => router.push(`/dashboard/hr/sites/${s.id}`)}
+            rowClassName={() =>
+              "cursor-pointer transition-colors hover:bg-accent"
+            }
             getRowId={(s) => s.id}
           />
         </CardContent>
       </Card>
 
       <SiteCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      <SiteCreateDialog
+        open={!!toEdit}
+        existing={toEdit}
+        onOpenChange={(o) => !o && setToEdit(null)}
+      />
 
       <Modal
         open={!!toDelete}

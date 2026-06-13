@@ -113,7 +113,6 @@ export default function Hero() {
             transition={{
               duration: 4 + i * 0.5,
               delay: p.delay,
-              repeat: Infinity,
               ease: "easeInOut",
             }}
           />
@@ -164,8 +163,6 @@ export default function Hero() {
                             transition={{
                               duration: 2.4,
                               delay: 1.2 + i * 0.08,
-                              repeat: Infinity,
-                              repeatDelay: 4,
                               ease: "linear",
                             }}
                           />
@@ -346,7 +343,7 @@ export default function Hero() {
           </span>
           <motion.div
             animate={{ y: [0, 5, 0] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 1.6, ease: "easeInOut" }}
           >
             <ChevronDown size={16} className="text-[#3d5170]" />
           </motion.div>

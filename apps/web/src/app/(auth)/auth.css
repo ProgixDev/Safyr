@@ -57,7 +57,8 @@
     40px 70px,
     0 0,
     40px 70px;
-  animation: patternShiftLogin 20s linear infinite;
+  /* Animation désactivée : animer background-position repeignait tout l'écran
+     à chaque frame en continu (très coûteux, surtout avec le backdrop-blur). */
 }
 
 .auth-pattern-register {
@@ -118,7 +119,7 @@
     40px 70px,
     0 0,
     40px 70px;
-  animation: patternShiftRegister 20s linear infinite;
+  /* Animation désactivée pour la performance (repaint continu). */
 }
 
 .auth-pattern-forgot {
@@ -161,7 +162,7 @@
     0 0,
     40px 70px,
     40px 70px;
-  animation: patternShiftForgot 20s linear infinite;
+  /* Animation désactivée pour la performance (repaint continu). */
 }
 
 .auth-pattern-reset {
@@ -204,7 +205,7 @@
     0 0,
     40px 70px,
     40px 70px;
-  animation: patternShiftReset 20s linear infinite;
+  /* Animation désactivée pour la performance (repaint continu). */
 }
 
 .auth-pattern-verify {
@@ -247,7 +248,7 @@
     0 0,
     40px 70px,
     40px 70px;
-  animation: patternShiftVerify 20s linear infinite;
+  /* Animation désactivée pour la performance (repaint continu). */
 }
 
 @keyframes patternShiftLogin {

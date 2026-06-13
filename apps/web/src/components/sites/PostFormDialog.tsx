@@ -16,7 +16,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCreatePost, useUpdatePost } from "@/hooks/sites";
+
+// Postes prédéfinis (le menu permet aussi d'en saisir un manuellement).
+const POSTE_OPTIONS = [
+  "Agent de sécurité",
+  "Agent Cynophile",
+  "Agent d'accueil",
+  "Rondier",
+  "SSIAP1",
+  "SSIAP2",
+  "SSIAP3",
+  "Chef de poste",
+  "Opérateur vidéo",
+];
 
 interface Props {
   open: boolean;
@@ -62,6 +82,7 @@ export function PostFormDialog({ open, onOpenChange, siteId, existing }: Props) 
   const createMutation = useCreatePost(siteId);
   const updateMutation = useUpdatePost(siteId);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [customMode, setCustomMode] = useState(false);
 
   const defaultValues = useMemo<CreatePostDto>(
     () => (existing ? toDto(existing) : empty),
@@ -103,6 +124,9 @@ export function PostFormDialog({ open, onOpenChange, siteId, existing }: Props) 
     if (open) {
       form.reset(defaultValues);
       setGlobalError(null);
+      setCustomMode(
+        !!defaultValues.name && !POSTE_OPTIONS.includes(defaultValues.name),
+      );
     }
   }, [open, defaultValues, form]);
 
@@ -138,17 +162,51 @@ export function PostFormDialog({ open, onOpenChange, siteId, existing }: Props) 
         className="space-y-4"
       >
         <form.Field name="name">
-          {(field: AnyFieldApi) => (
-            <div className="space-y-2">
-              <Label>Nom du poste *</Label>
-              <Input
-                value={(field.state.value as string) ?? ""}
-                onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="Accueil principal"
-              />
-              <FieldError field={field} />
-            </div>
-          )}
+          {(field: AnyFieldApi) => {
+            const value = (field.state.value as string) ?? "";
+            const isPreset = POSTE_OPTIONS.includes(value);
+            const showCustom = customMode || (value !== "" && !isPreset);
+            return (
+              <div className="space-y-2">
+                <Label>Nom du poste *</Label>
+                <Select
+                  value={isPreset ? value : showCustom ? "__custom__" : ""}
+                  onValueChange={(v) => {
+                    if (v === "__custom__") {
+                      setCustomMode(true);
+                      field.handleChange("");
+                    } else {
+                      setCustomMode(false);
+                      field.handleChange(v);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir un poste…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {POSTE_OPTIONS.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__custom__">
+                      Autre (saisir un nom)…
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {showCustom && (
+                  <Input
+                    autoFocus
+                    value={value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    placeholder="Nom du poste personnalisé"
+                  />
+                )}
+                <FieldError field={field} />
+              </div>
+            );
+          }}
         </form.Field>
 
         <form.Field name="description">

@@ -12,6 +12,15 @@ import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import {
   Building2,
   FileText,
   Download,
@@ -27,6 +36,8 @@ import {
   Gift,
   User,
   Eye,
+  MoreVertical,
+  Receipt,
 } from "lucide-react";
 
 interface DirigeantInfo {
@@ -262,6 +273,79 @@ const mockDocuments: Document[] = [
   },
 ];
 
+// Champ "lecture / édition" avec cadre — même rendu que Mon entreprise.
+function Field({
+  label,
+  value,
+  onChange,
+  isEditing,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  isEditing: boolean;
+  type?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-base font-medium">{label}</Label>
+      <Input
+        type={type}
+        value={value}
+        disabled={!isEditing}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "text-base",
+          !isEditing &&
+            "bg-muted/30 border-transparent shadow-none cursor-default focus-visible:ring-0",
+        )}
+      />
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 border-b py-2 last:border-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium">{value}</span>
+    </div>
+  );
+}
+
+const CLIENT_FIELDS: { key: keyof Client; label: string; type?: string }[] = [
+  { key: "name", label: "Nom du client" },
+  { key: "siret", label: "SIRET" },
+  { key: "numTVA", label: "Num TVA" },
+  { key: "address", label: "Adresse" },
+  { key: "city", label: "Ville" },
+  { key: "postalCode", label: "Code postal" },
+  { key: "country", label: "Pays" },
+  { key: "sector", label: "Secteur" },
+  { key: "contactPerson", label: "Personne de contact" },
+  { key: "email", label: "Email", type: "email" },
+  { key: "phone", label: "Téléphone" },
+];
+
+const DIRIGEANT_FIELDS: {
+  key: keyof DirigeantInfo;
+  label: string;
+  type?: string;
+}[] = [
+  { key: "nom", label: "Nom" },
+  { key: "prenom", label: "Prénom" },
+  { key: "fonction", label: "Fonction" },
+  { key: "dateNomination", label: "Date de nomination", type: "date" },
+  { key: "dateNaissance", label: "Date de naissance", type: "date" },
+  { key: "lieuNaissance", label: "Lieu de naissance" },
+  { key: "nationalite", label: "Nationalité" },
+  { key: "numeroSecuriteSociale", label: "Numéro de sécurité sociale" },
+  { key: "adresse", label: "Adresse" },
+  { key: "email", label: "Email", type: "email" },
+  { key: "telephone", label: "Téléphone" },
+];
+
 export default function ClientDetailPage({
   params,
 }: {
@@ -274,12 +358,15 @@ export default function ClientDetailPage({
   const [client, setClient] = useState<Client | null>(
     mockClients.find((c) => c.id === id) || null,
   );
-  const [contracts] = useState<ClientContract[]>(
+  const [contracts, setContracts] = useState<ClientContract[]>(
     mockContracts.filter((c) => c.clientId === id),
   );
-  const [gifts] = useState<ClientGift[]>(
+  const [gifts, setGifts] = useState<ClientGift[]>(
     mockGifts.filter((g) => g.clientId === id),
   );
+  const [viewContract, setViewContract] = useState<ClientContract | null>(null);
+  const [viewGift, setViewGift] = useState<ClientGift | null>(null);
+  const [giftReceipts, setGiftReceipts] = useState<Record<string, string>>({});
   const [documents, setDocuments] = useState<Document[]>(
     mockDocuments.filter((doc) => doc.clientId === id),
   );
@@ -381,6 +468,28 @@ export default function ClientDetailPage({
 
   const handleBulkDownload = () => {
     console.log("Downloading documents:", selectedDocuments);
+  };
+
+  const handleDeleteContract = (c: ClientContract) =>
+    setContracts((prev) => prev.filter((x) => x.id !== c.id));
+
+  const handleDeleteGift = (g: ClientGift) =>
+    setGifts((prev) => prev.filter((x) => x.id !== g.id));
+
+  const handleUploadReceipt = (g: ClientGift) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*,application/pdf";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) setGiftReceipts((prev) => ({ ...prev, [g.id]: file.name }));
+    };
+    input.click();
+  };
+
+  const handleDownloadReceipt = (g: ClientGift) => {
+    // Mock : le reçu/facture sera servi par le backend une fois branché.
+    console.log("Télécharger le reçu/facture du cadeau:", g.id, giftReceipts[g.id]);
   };
 
   const contractColumns: ColumnDef<ClientContract>[] = [
@@ -613,179 +722,40 @@ export default function ClientDetailPage({
 
       <Tabs defaultValue="info" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="info">Informations</TabsTrigger>
-          <TabsTrigger value="contrats">Contrats</TabsTrigger>
-          <TabsTrigger value="cadeaux">Cadeaux</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="info" className="text-base">
+            Informations
+          </TabsTrigger>
+          <TabsTrigger value="contrats" className="text-base">
+            Contrats
+          </TabsTrigger>
+          <TabsTrigger value="cadeaux" className="text-base">
+            Cadeaux
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="text-base">
+            Documents
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Building2 className="h-5 w-5" />
                 Informations entreprise
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">Nom du client</Label>
-                  {isEditing ? (
-                    <Input
-                      id="name"
-                      value={client.name}
-                      onChange={(e) =>
-                        setClient({ ...client, name: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.name}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="siret">SIRET</Label>
-                  {isEditing ? (
-                    <Input
-                      id="siret"
-                      value={client.siret || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, siret: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.siret || "-"}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="numTVA">Num TVA</Label>
-                  {isEditing ? (
-                    <Input
-                      id="numTVA"
-                      value={client.numTVA || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, numTVA: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.numTVA || "-"}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="address">Adresse</Label>
-                  {isEditing ? (
-                    <Input
-                      id="address"
-                      value={client.address || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, address: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.address || "-"}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="city">Ville</Label>
-                  {isEditing ? (
-                    <Input
-                      id="city"
-                      value={client.city || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, city: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.city || "-"}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="postalCode">Code postal</Label>
-                  {isEditing ? (
-                    <Input
-                      id="postalCode"
-                      value={client.postalCode || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, postalCode: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.postalCode || "-"}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="country">Pays</Label>
-                  {isEditing ? (
-                    <Input
-                      id="country"
-                      value={client.country || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, country: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.country || "-"}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="sector">Secteur</Label>
-                  {isEditing ? (
-                    <Input
-                      id="sector"
-                      value={client.sector || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, sector: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.sector || "-"}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="contactPerson">Personne de contact</Label>
-                  {isEditing ? (
-                    <Input
-                      id="contactPerson"
-                      value={client.contactPerson || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, contactPerson: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">
-                      {client.contactPerson || "-"}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  {isEditing ? (
-                    <Input
-                      id="email"
-                      type="email"
-                      value={client.email || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, email: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.email || "-"}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="phone">Téléphone</Label>
-                  {isEditing ? (
-                    <Input
-                      id="phone"
-                      value={client.phone || ""}
-                      onChange={(e) =>
-                        setClient({ ...client, phone: e.target.value })
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm mt-1">{client.phone || "-"}</p>
-                  )}
-                </div>
+                {CLIENT_FIELDS.map((f) => (
+                  <Field
+                    key={f.key}
+                    label={f.label}
+                    type={f.type}
+                    isEditing={isEditing}
+                    value={(client[f.key] as string) ?? ""}
+                    onChange={(v) => setClient({ ...client, [f.key]: v })}
+                  />
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -793,262 +763,28 @@ export default function ClientDetailPage({
           {client.dirigeant && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <User className="h-5 w-5" />
                   Informations du dirigeant
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="dirigeant-nom">Nom</Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-nom"
-                        value={client.dirigeant.nom}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              nom: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">{client.dirigeant.nom}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-prenom">Prénom</Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-prenom"
-                        value={client.dirigeant.prenom}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              prenom: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">{client.dirigeant.prenom}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-fonction">Fonction</Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-fonction"
-                        value={client.dirigeant.fonction}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              fonction: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">
-                        {client.dirigeant.fonction}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-dateNomination">
-                      Date de nomination
-                    </Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-dateNomination"
-                        type="date"
-                        value={client.dirigeant.dateNomination}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              dateNomination: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">
-                        {new Date(
-                          client.dirigeant.dateNomination,
-                        ).toLocaleDateString("fr-FR")}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-dateNaissance">
-                      Date de naissance
-                    </Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-dateNaissance"
-                        type="date"
-                        value={client.dirigeant.dateNaissance}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              dateNaissance: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">
-                        {new Date(
-                          client.dirigeant.dateNaissance,
-                        ).toLocaleDateString("fr-FR")}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-lieuNaissance">
-                      Lieu de naissance
-                    </Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-lieuNaissance"
-                        value={client.dirigeant.lieuNaissance}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              lieuNaissance: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">
-                        {client.dirigeant.lieuNaissance}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-nationalite">Nationalité</Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-nationalite"
-                        value={client.dirigeant.nationalite}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              nationalite: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">
-                        {client.dirigeant.nationalite}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-numeroSecuriteSociale">
-                      Numéro de sécurité sociale
-                    </Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-numeroSecuriteSociale"
-                        value={client.dirigeant.numeroSecuriteSociale}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              numeroSecuriteSociale: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">
-                        {client.dirigeant.numeroSecuriteSociale}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-adresse">Adresse</Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-adresse"
-                        value={client.dirigeant.adresse}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              adresse: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">{client.dirigeant.adresse}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-email">Email</Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-email"
-                        type="email"
-                        value={client.dirigeant.email}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              email: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">{client.dirigeant.email}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="dirigeant-telephone">Téléphone</Label>
-                    {isEditing ? (
-                      <Input
-                        id="dirigeant-telephone"
-                        value={client.dirigeant.telephone}
-                        onChange={(e) =>
-                          setClient({
-                            ...client,
-                            dirigeant: {
-                              ...client.dirigeant!,
-                              telephone: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-sm mt-1">
-                        {client.dirigeant.telephone}
-                      </p>
-                    )}
-                  </div>
+                  {DIRIGEANT_FIELDS.map((f) => (
+                    <Field
+                      key={f.key}
+                      label={f.label}
+                      type={f.type}
+                      isEditing={isEditing}
+                      value={client.dirigeant![f.key] ?? ""}
+                      onChange={(v) =>
+                        setClient({
+                          ...client,
+                          dirigeant: { ...client.dirigeant!, [f.key]: v },
+                        })
+                      }
+                    />
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -1059,7 +795,7 @@ export default function ClientDetailPage({
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <FileText className="h-5 w-5" />
                   Contrats
                 </CardTitle>
@@ -1075,6 +811,39 @@ export default function ClientDetailPage({
                 columns={contractColumns}
                 searchKey="description"
                 searchPlaceholder="Rechercher un contrat..."
+                onRowClick={(c) => setViewContract(c)}
+                rowClassName={() =>
+                  "cursor-pointer transition-colors hover:bg-accent"
+                }
+                actions={(c) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setViewContract(c)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Voir
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setViewContract(c)}>
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        Modifier
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteContract(c)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Supprimer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               />
             </CardContent>
           </Card>
@@ -1084,7 +853,7 @@ export default function ClientDetailPage({
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <Gift className="h-5 w-5" />
                   Suivi des cadeaux
                 </CardTitle>
@@ -1100,6 +869,51 @@ export default function ClientDetailPage({
                 columns={giftColumns}
                 searchKey="giftDescription"
                 searchPlaceholder="Rechercher un cadeau..."
+                onRowClick={(g) => setViewGift(g)}
+                rowClassName={() =>
+                  "cursor-pointer transition-colors hover:bg-accent"
+                }
+                actions={(g) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setViewGift(g)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Voir
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setViewGift(g)}>
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        Modifier
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          giftReceipts[g.id]
+                            ? handleDownloadReceipt(g)
+                            : handleUploadReceipt(g)
+                        }
+                      >
+                        <Receipt className="mr-2 h-4 w-4" />
+                        {giftReceipts[g.id]
+                          ? "Télécharger le reçu/facture"
+                          : "Téléverser un reçu/facture"}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteGift(g)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Supprimer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               />
             </CardContent>
           </Card>
@@ -1109,7 +923,7 @@ export default function ClientDetailPage({
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <FileText className="h-5 w-5" />
                   Documents
                 </CardTitle>
@@ -1166,8 +980,10 @@ export default function ClientDetailPage({
                       <div className="flex items-center gap-3">
                         <FileText className="h-4 w-4 text-muted-foreground" />
                         <div>
-                          <p className="text-sm font-medium">{docType.name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-base font-medium">
+                            {docType.name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
                             {docType.category}
                           </p>
                         </div>
@@ -1290,6 +1106,110 @@ export default function ClientDetailPage({
             />
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={!!viewContract}
+        onOpenChange={(o) => !o && setViewContract(null)}
+        type="form"
+        title="Détail du contrat"
+        actions={{
+          primary: {
+            label: "Fermer",
+            onClick: () => setViewContract(null),
+            variant: "outline" as const,
+          },
+        }}
+      >
+        {viewContract && (
+          <div className="space-y-1 text-base">
+            <DetailRow label="Description" value={viewContract.description} />
+            <DetailRow
+              label="Date de début"
+              value={new Date(viewContract.startDate).toLocaleDateString(
+                "fr-FR",
+              )}
+            />
+            <DetailRow
+              label="Date de fin"
+              value={
+                viewContract.endDate
+                  ? new Date(viewContract.endDate).toLocaleDateString("fr-FR")
+                  : "Indéterminée"
+              }
+            />
+            <DetailRow
+              label="Statut"
+              value={getStatusText(viewContract.status)}
+            />
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={!!viewGift}
+        onOpenChange={(o) => !o && setViewGift(null)}
+        type="form"
+        title="Détail du cadeau"
+        actions={{
+          primary: {
+            label: "Fermer",
+            onClick: () => setViewGift(null),
+            variant: "outline" as const,
+          },
+        }}
+      >
+        {viewGift && (
+          <div className="space-y-3 text-base">
+            <div className="space-y-1">
+              <DetailRow
+                label="Description"
+                value={viewGift.giftDescription}
+              />
+              <DetailRow
+                label="Date"
+                value={new Date(viewGift.date).toLocaleDateString("fr-FR")}
+              />
+              <DetailRow
+                label="Valeur HT"
+                value={viewGift.valueHT ? `${viewGift.valueHT} €` : "-"}
+              />
+              <DetailRow
+                label="TVA"
+                value={viewGift.tva ? `${viewGift.tva} €` : "-"}
+              />
+              <DetailRow
+                label="Valeur TTC"
+                value={viewGift.valueTTC ? `${viewGift.valueTTC} €` : "-"}
+              />
+              <DetailRow label="Notes" value={viewGift.notes || "-"} />
+              <DetailRow
+                label="Reçu / Facture"
+                value={giftReceipts[viewGift.id] ?? "Aucun"}
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleUploadReceipt(viewGift)}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Téléverser un reçu
+              </Button>
+              {giftReceipts[viewGift.id] && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownloadReceipt(viewGift)}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Télécharger
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

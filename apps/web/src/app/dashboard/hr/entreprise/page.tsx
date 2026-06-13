@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,9 +18,19 @@ import {
   CheckCircle2,
   Calendar,
   Loader2,
+  Pencil,
+  Save,
+  X,
+  BellRing,
+  ImagePlus,
+  Clock,
 } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { ApiError, type UpdateOrganizationPayload } from "@safyr/api-client";
+import {
+  ApiError,
+  type UpdateOrganizationPayload,
+  type ComplianceItem,
+} from "@safyr/api-client";
 import {
   useOrganization,
   useOrganizationCompliance,
@@ -28,14 +38,126 @@ import {
   useCreateRepresentative,
   useUploadOrganizationDocument,
 } from "@/hooks/organization";
-import { getSignedUrl } from "@safyr/api-client";
+import { getSignedUrl, uploadFile } from "@safyr/api-client";
 import {
   UpdateOrganizationDto,
   UpdateOrganizationSchema,
 } from "@safyr/schemas/organization";
-import { EditableFormField } from "@/components/ui/editable-form-field";
+import { FormFieldRow } from "@/components/ui/form-field-row";
+import { CompanySearch } from "@/components/ui/company-search";
 import { PhoneField } from "@/components/ui/phone-field";
 import { formatDate, formatDateForInput } from "@/lib/date-utils";
+
+// Cadences de renouvellement (en mois) par type de document.
+const RENEWAL_MONTHS: Record<string, number> = {
+  fiscale: 6,
+  urssaf: 6,
+  assurance_rc: 12,
+  kbis: 3,
+};
+// Documents suivis par date d'expiration (et non par cadence).
+const EXPIRY_TYPES = new Set([
+  "carte_pro_dirigeant",
+  "carte_pro_entreprise",
+  "cni_dirigeant",
+]);
+
+function addMonths(date: Date, months: number) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+type DocAlert = {
+  id: string;
+  label: string;
+  message: string;
+  level: "danger" | "warning";
+  date?: string;
+};
+
+function computeDocumentAlerts(items: ComplianceItem[]): DocAlert[] {
+  const now = new Date();
+  const soon = new Date(now);
+  soon.setDate(soon.getDate() + 30);
+  const soonExpiry = new Date(now);
+  soonExpiry.setDate(soonExpiry.getDate() + 60);
+
+  const alerts: DocAlert[] = [];
+  for (const item of items) {
+    const { type, name, id, isRequired } = item.requirement;
+    const doc = item.document;
+
+    if (type in RENEWAL_MONTHS) {
+      const cadence = RENEWAL_MONTHS[type];
+      const freq = cadence === 12 ? "tous les ans" : `tous les ${cadence} mois`;
+      if (!doc) {
+        alerts.push({
+          id,
+          label: name,
+          message: `À télécharger (${freq})`,
+          level: "danger",
+        });
+      } else {
+        const due = addMonths(new Date(doc.createdAt), cadence);
+        if (due < now) {
+          alerts.push({
+            id,
+            label: name,
+            message: `Renouvellement dépassé (${freq})`,
+            level: "danger",
+            date: due.toISOString(),
+          });
+        } else if (due < soon) {
+          alerts.push({
+            id,
+            label: name,
+            message: `À renouveler bientôt (${freq})`,
+            level: "warning",
+            date: due.toISOString(),
+          });
+        }
+      }
+      continue;
+    }
+
+    if (EXPIRY_TYPES.has(type)) {
+      if (!doc || !doc.expiryDate) {
+        if (isRequired) {
+          alerts.push({
+            id,
+            label: name,
+            message: "À télécharger",
+            level: "danger",
+          });
+        }
+      } else {
+        const exp = new Date(doc.expiryDate);
+        if (exp < now) {
+          alerts.push({
+            id,
+            label: name,
+            message: "Expiré",
+            level: "danger",
+            date: doc.expiryDate,
+          });
+        } else if (exp < soonExpiry) {
+          alerts.push({
+            id,
+            label: name,
+            message: "Expire bientôt",
+            level: "warning",
+            date: doc.expiryDate,
+          });
+        }
+      }
+    }
+  }
+
+  return alerts.sort((a, b) =>
+    a.level === b.level ? 0 : a.level === "danger" ? -1 : 1,
+  );
+}
 
 export default function InformationEntreprisePage() {
   const { data: organization, isLoading: isOrgLoading } = useOrganization();
@@ -74,6 +196,9 @@ function EntrepriseContent({
   const updateOrgMutation = useUpdateOrganization();
   const createRepMutation = useCreateRepresentative();
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
   const defaultValues = useMemo<UpdateOrganizationDto>(() => {
     const rep = organization.representative;
     return {
@@ -97,31 +222,60 @@ function EntrepriseContent({
     validators: {
       onChange: UpdateOrganizationSchema,
     },
-  });
-
-  const handleSave = async (
-    payload: UpdateOrganizationPayload,
-    path: string,
-  ) => {
-    try {
-      await updateOrgMutation.mutateAsync(payload);
-    } catch (error) {
-      if (error instanceof ApiError && error.code === "VALIDATION_ERROR") {
-        const details = error.details as { path: string; message: string }[];
-        let relevantMessage: string | undefined;
-        for (const detail of details) {
-          form.setFieldMeta(detail.path as never, (prev) => ({
-            ...prev,
-            errors: [detail.message],
-          }));
-          if (detail.path === path) relevantMessage = detail.message;
-        }
-        if (relevantMessage) {
-          throw new Error(relevantMessage);
+    onSubmit: async ({ value }) => {
+      setFormError(null);
+      const rep = value.representative;
+      const payload: UpdateOrganizationPayload = {
+        name: value.name,
+        shareCapital: value.shareCapital,
+        authorizationNumber: value.authorizationNumber,
+        email: value.email,
+        phone: value.phone,
+        siret: value.siret,
+        ape: value.ape,
+        address: value.address,
+        ...(rep
+          ? {
+              representative: {
+                firstName: rep.firstName,
+                lastName: rep.lastName,
+                birthDate: rep.birthDate,
+                birthPlace: rep.birthPlace,
+                nationality: rep.nationality,
+                address: rep.address,
+                email: rep.email,
+                phone: rep.phone,
+                position: rep.position,
+                appointmentDate: rep.appointmentDate,
+                socialSecurityNumber: rep.socialSecurityNumber,
+              },
+            }
+          : {}),
+      };
+      try {
+        await updateOrgMutation.mutateAsync(payload);
+        setIsEditing(false);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === "VALIDATION_ERROR") {
+          const details = error.details as { path: string; message: string }[];
+          for (const detail of details) {
+            form.setFieldMeta(detail.path as never, (prev) => ({
+              ...prev,
+              errors: [detail.message],
+            }));
+          }
+          setFormError("Veuillez corriger les champs en rouge.");
+        } else {
+          setFormError("Une erreur est survenue lors de l'enregistrement.");
         }
       }
-      throw error;
-    }
+    },
+  });
+
+  const handleCancel = () => {
+    form.reset();
+    setFormError(null);
+    setIsEditing(false);
   };
 
   const handleCreateRepresentative = () => {
@@ -176,6 +330,49 @@ function EntrepriseContent({
     window.open(url, "_blank");
   };
 
+  // ── Logo ──────────────────────────────────────────────────────────
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (organization.logo) {
+      getSignedUrl(organization.logo)
+        .then((url) => active && setLogoUrl(url))
+        .catch(() => active && setLogoUrl(null));
+    } else {
+      setLogoUrl(null);
+    }
+    return () => {
+      active = false;
+    };
+  }, [organization.logo]);
+
+  const handleLogoUpload = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      setLogoUploading(true);
+      setLogoError(null);
+      try {
+        const { key } = await uploadFile(file);
+        await updateOrgMutation.mutateAsync({ logo: key });
+      } catch {
+        setLogoError("Échec du téléversement du logo");
+      } finally {
+        setLogoUploading(false);
+      }
+    };
+    input.click();
+  };
+
+  // ── Alertes de renouvellement ─────────────────────────────────────
+  const alerts = useMemo(() => computeDocumentAlerts(compliance), [compliance]);
+
   const representative = organization.representative;
   const totalDocs = compliance.length;
   let validDocs = 0;
@@ -208,13 +405,43 @@ function EntrepriseContent({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start gap-4">
+        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border bg-muted/30 flex items-center justify-center">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt="Logo de l'entreprise"
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <Building2 className="h-8 w-8 text-muted-foreground" />
+          )}
+        </div>
         <div>
           <h1 className="text-3xl font-bold">Information Entreprise</h1>
           <p className="text-muted-foreground">
             Gestion des informations et documents administratifs de
             l&apos;entreprise
           </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={handleLogoUpload}
+            disabled={logoUploading}
+          >
+            {logoUploading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <ImagePlus className="mr-2 h-4 w-4" />
+            )}
+            {organization.logo ? "Changer le logo" : "Télécharger le logo"}
+          </Button>
+          {logoError && (
+            <p className="mt-1 text-sm text-destructive">{logoError}</p>
+          )}
         </div>
       </div>
 
@@ -251,95 +478,145 @@ function EntrepriseContent({
 
       <Tabs defaultValue="info" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 rounded-xl">
-          <TabsTrigger value="info">Informations</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="info" className="text-base">
+            Informations
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="text-base">
+            Documents
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="info">
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                <CardTitle>Informations de l&apos;entreprise</CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  <CardTitle className="text-xl">
+                    Informations de l&apos;entreprise
+                  </CardTitle>
+                </div>
+                {!isEditing ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Modifier
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancel}
+                      disabled={updateOrgMutation.isPending}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Annuler
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => form.handleSubmit()}
+                      disabled={updateOrgMutation.isPending}
+                    >
+                      {updateOrgMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="mr-2 h-4 w-4" />
+                      )}
+                      Enregistrer
+                    </Button>
+                  </div>
+                )}
               </div>
+              {formError && (
+                <p className="text-sm text-destructive mt-2">{formError}</p>
+              )}
             </CardHeader>
             <CardContent className="space-y-6">
+              {isEditing && (
+                <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3">
+                  <p className="mb-2 text-sm font-medium">
+                    Remplissage automatique (annuaire des entreprises)
+                  </p>
+                  <CompanySearch
+                    onSelect={(c) => {
+                      form.setFieldValue("name", c.name);
+                      if (c.siret) form.setFieldValue("siret", c.siret);
+                      if (c.ape) form.setFieldValue("ape", c.ape);
+                      if (c.address) form.setFieldValue("address", c.address);
+                    }}
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Recherchez par nom ou SIREN pour pré-remplir nom, SIRET, code
+                    APE et adresse.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <form.Field name="name">
                   {(field) => (
-                    <EditableFormField
+                    <FormFieldRow
                       field={field}
                       label="Nom de l'entreprise"
-                      onSave={(val) =>
-                        handleSave({ name: val as string }, "name")
-                      }
+                      editing={isEditing}
                     >
                       <Input placeholder="Nom" />
-                    </EditableFormField>
+                    </FormFieldRow>
                   )}
                 </form.Field>
                 <form.Field name="siret">
                   {(field) => (
-                    <EditableFormField
+                    <FormFieldRow
                       field={field}
                       label="SIRET"
-                      onSave={(val) =>
-                        handleSave({ siret: val as string }, "siret")
-                      }
+                      editing={isEditing}
                     >
                       <Input placeholder="Numéro SIRET" />
-                    </EditableFormField>
+                    </FormFieldRow>
                   )}
                 </form.Field>
               </div>
 
               <form.Field name="address">
                 {(field) => (
-                  <EditableFormField
+                  <FormFieldRow
                     field={field}
                     label="Adresse"
-                    onSave={(val) =>
-                      handleSave({ address: val as string }, "address")
-                    }
+                    editing={isEditing}
                   >
                     <Textarea placeholder="Adresse complète" />
-                  </EditableFormField>
+                  </FormFieldRow>
                 )}
               </form.Field>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <form.Field name="shareCapital">
                   {(field) => (
-                    <EditableFormField
+                    <FormFieldRow
                       field={field}
                       label="Capital Social (€)"
                       className="flex-1"
-                      onSave={(val) =>
-                        handleSave(
-                          { shareCapital: val as string },
-                          "shareCapital",
-                        )
-                      }
+                      editing={isEditing}
                     >
                       <Input placeholder="0" />
-                    </EditableFormField>
+                    </FormFieldRow>
                   )}
                 </form.Field>
                 <form.Field name="authorizationNumber">
                   {(field) => (
-                    <EditableFormField
+                    <FormFieldRow
                       field={field}
                       label="N° Autorisation CNAPS"
                       className="flex-1"
-                      onSave={(val) =>
-                        handleSave(
-                          { authorizationNumber: val as string },
-                          "authorizationNumber",
-                        )
-                      }
+                      editing={isEditing}
                     >
                       <Input placeholder="AUT-..." />
-                    </EditableFormField>
+                    </FormFieldRow>
                   )}
                 </form.Field>
               </div>
@@ -347,28 +624,24 @@ function EntrepriseContent({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <form.Field name="email">
                   {(field) => (
-                    <EditableFormField
+                    <FormFieldRow
                       field={field}
                       label="Email de l'entreprise"
-                      onSave={(val) =>
-                        handleSave({ email: val as string }, "email")
-                      }
+                      editing={isEditing}
                     >
                       <Input type="email" placeholder="email@entreprise.com" />
-                    </EditableFormField>
+                    </FormFieldRow>
                   )}
                 </form.Field>
                 <form.Field name="phone">
                   {(field) => (
-                    <EditableFormField
+                    <FormFieldRow
                       field={field}
                       label="Téléphone de l'entreprise"
-                      onSave={(val) =>
-                        handleSave({ phone: val as string }, "phone")
-                      }
+                      editing={isEditing}
                     >
                       <PhoneField placeholder="01 23 45 67 89" />
-                    </EditableFormField>
+                    </FormFieldRow>
                   )}
                 </form.Field>
               </div>
@@ -379,7 +652,7 @@ function EntrepriseContent({
                     <Building2 className="h-5 w-5" />
                     Informations du dirigeant
                   </h3>
-                  {!representative && (
+                  {isEditing && !representative && (
                     <Button
                       type="button"
                       size="sm"
@@ -399,38 +672,24 @@ function EntrepriseContent({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <form.Field name="representative.lastName">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Nom"
-                            onSave={(val) =>
-                              handleSave(
-                                {
-                                  representative: { lastName: val as string },
-                                },
-                                "representative.lastName",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <Input placeholder="Nom" />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                       <form.Field name="representative.firstName">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Prénom"
-                            onSave={(val) =>
-                              handleSave(
-                                {
-                                  representative: { firstName: val as string },
-                                },
-                                "representative.firstName",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <Input placeholder="Prénom" />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                     </div>
@@ -438,38 +697,24 @@ function EntrepriseContent({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <form.Field name="representative.position">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Fonction"
-                            onSave={(val) =>
-                              handleSave(
-                                { representative: { position: val as string } },
-                                "representative.position",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <Input placeholder="Fonction" />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                       <form.Field name="representative.appointmentDate">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Date de nomination"
-                            onSave={(val) =>
-                              handleSave(
-                                {
-                                  representative: {
-                                    appointmentDate: val as string,
-                                  },
-                                },
-                                "representative.appointmentDate",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <Input type="date" />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                     </div>
@@ -477,42 +722,24 @@ function EntrepriseContent({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <form.Field name="representative.birthDate">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Date de naissance"
-                            onSave={(val) =>
-                              handleSave(
-                                {
-                                  representative: {
-                                    birthDate: val as string,
-                                  },
-                                },
-                                "representative.birthDate",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <Input type="date" />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                       <form.Field name="representative.birthPlace">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Lieu de naissance"
-                            onSave={(val) =>
-                              handleSave(
-                                {
-                                  representative: {
-                                    birthPlace: val as string,
-                                  },
-                                },
-                                "representative.birthPlace",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <Input placeholder="Ville, Pays" />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                     </div>
@@ -520,106 +747,61 @@ function EntrepriseContent({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <form.Field name="representative.nationality">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Nationalité"
-                            onSave={(val) =>
-                              handleSave(
-                                {
-                                  representative: {
-                                    nationality: val as string,
-                                  },
-                                },
-                                "representative.nationality",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <Input placeholder="Nationalité" />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                       <form.Field name="representative.socialSecurityNumber">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Numéro de sécurité sociale"
-                            onSave={(val) =>
-                              handleSave(
-                                {
-                                  representative: {
-                                    socialSecurityNumber: val as string,
-                                  },
-                                },
-                                "representative.socialSecurityNumber",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <Input placeholder="1 00..." />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                     </div>
 
                     <form.Field name="representative.address">
                       {(field) => (
-                        <EditableFormField
+                        <FormFieldRow
                           field={field}
                           label="Adresse personnelle"
-                          onSave={(val) =>
-                            handleSave(
-                              {
-                                representative: {
-                                  address: val as string,
-                                },
-                              },
-                              "representative.address",
-                            )
-                          }
+                          editing={isEditing}
                         >
                           <Textarea placeholder="Adresse complète" />
-                        </EditableFormField>
+                        </FormFieldRow>
                       )}
                     </form.Field>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <form.Field name="representative.email">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Email personnel"
-                            onSave={(val) =>
-                              handleSave(
-                                {
-                                  representative: {
-                                    email: val as string,
-                                  },
-                                },
-                                "representative.email",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <Input type="email" placeholder="email@perso.com" />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                       <form.Field name="representative.phone">
                         {(field) => (
-                          <EditableFormField
+                          <FormFieldRow
                             field={field}
                             label="Téléphone personnel"
-                            onSave={(val) =>
-                              handleSave(
-                                {
-                                  representative: {
-                                    phone: val as string,
-                                  },
-                                },
-                                "representative.phone",
-                              )
-                            }
+                            editing={isEditing}
                           >
                             <PhoneField placeholder="06 12 34 56 78" />
-                          </EditableFormField>
+                          </FormFieldRow>
                         )}
                       </form.Field>
                     </div>
@@ -630,6 +812,32 @@ function EntrepriseContent({
                   </p>
                 )}
               </div>
+
+              {isEditing && (
+                <div className="flex items-center justify-end gap-2 border-t pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancel}
+                    disabled={updateOrgMutation.isPending}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Annuler
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => form.handleSubmit()}
+                    disabled={updateOrgMutation.isPending}
+                  >
+                    {updateOrgMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Enregistrer
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -638,7 +846,70 @@ function EntrepriseContent({
           <div className="space-y-6">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <BellRing className="h-5 w-5 text-warning" />
+                  Alertes de renouvellement
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {alerts.length === 0 ? (
+                  <div className="flex items-center gap-2 text-base text-muted-foreground">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    Aucune alerte — tous les documents sont à jour.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {alerts.map((a) => (
+                      <div
+                        key={a.id}
+                        className={`flex items-center justify-between rounded-md border px-3 py-2.5 ${
+                          a.level === "danger"
+                            ? "border-destructive/30 bg-destructive/10"
+                            : "border-warning/30 bg-warning/10"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {a.level === "danger" ? (
+                            <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+                          ) : (
+                            <Clock className="h-5 w-5 shrink-0 text-warning" />
+                          )}
+                          <div>
+                            <p className="text-base font-medium">{a.label}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {a.message}
+                              {a.date ? ` — échéance ${formatDate(a.date)}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUpload(a.id)}
+                          disabled={uploadingId === a.id}
+                        >
+                          {uploadingId === a.id ? (
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="mr-1 h-4 w-4" />
+                          )}
+                          Téléverser
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Règles : attestations fiscale &amp; URSSAF tous les 6 mois ·
+                  assurance tous les ans · Kbis tous les 3 mois · cartes pro à
+                  l&apos;expiration.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
                   <ExternalLink className="h-4 w-4" />
                   Liens Rapides
                 </CardTitle>
@@ -654,7 +925,7 @@ function EntrepriseContent({
                       key={link.name}
                       variant="outline"
                       size="sm"
-                      className="flex-1 h-8 text-xs"
+                      className="flex-1 h-9 text-sm"
                       onClick={() => window.open(link.url, "_blank")}
                     >
                       {link.name}
@@ -668,7 +939,7 @@ function EntrepriseContent({
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-lg">
                     <FileCheck className="h-5 w-5" />
                     Documents Administratifs
                   </CardTitle>
@@ -697,7 +968,7 @@ function EntrepriseContent({
                               className={`w-2 h-2 rounded-full ${meta.dot}`}
                             ></div>
                             <div>
-                              <p className="font-medium text-sm">
+                              <p className="font-medium text-base">
                                 {item.requirement.name}
                                 {item.requirement.isRequired && (
                                   <span className="text-destructive ml-1">
@@ -708,12 +979,12 @@ function EntrepriseContent({
                               <div className="flex items-center gap-2 mt-0.5">
                                 <Badge
                                   variant={meta.variant}
-                                  className="text-xs h-5"
+                                  className="text-sm h-6"
                                 >
                                   {meta.label}
                                 </Badge>
                                 {item.document?.expiryDate && (
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-sm text-muted-foreground">
                                     Expire le{" "}
                                     {formatDate(item.document.expiryDate)}
                                   </span>
@@ -726,31 +997,31 @@ function EntrepriseContent({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0"
+                                className="h-8 w-8 p-0"
                                 onClick={() =>
                                   handleDownload(item.document!.storageKey)
                                 }
                               >
-                                <Download className="h-3 w-3" />
+                                <Download className="h-4 w-4" />
                               </Button>
                             )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 w-7 p-0"
+                              className="h-8 w-8 p-0"
                               onClick={() => handleUpload(item.requirement.id)}
                               disabled={uploadingId === item.requirement.id}
                             >
                               {uploadingId === item.requirement.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <Upload className="h-3 w-3" />
+                                <Upload className="h-4 w-4" />
                               )}
                             </Button>
                           </div>
                         </div>
                         {uploadErrors[item.requirement.id] && (
-                          <p className="text-xs text-destructive mt-2">
+                          <p className="text-sm text-destructive mt-2">
                             {uploadErrors[item.requirement.id]}
                           </p>
                         )}

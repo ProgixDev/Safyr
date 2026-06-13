@@ -14,21 +14,23 @@ interface InfoCardProps {
 }
 
 const InfoCard = React.forwardRef<HTMLDivElement, InfoCardProps>(
-  ({ icon: Icon, title, value, subtext, color, className }, ref) => {
-    const bgColor = `bg-${color}-100`;
-    const textColor = `text-${color}-600`;
+  // `color` est conservé pour compatibilité avec les appels existants mais n'est
+  // plus utilisé : les cartes sont neutres (pas de fond/texte coloré).
+  ({ icon: Icon, title, value, subtext, className }, ref) => {
     return (
       <Card ref={ref} className={cn("", className)}>
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className={`p-3 ${bgColor} rounded-full`}>
-              <Icon className={`h-6 w-6 ${textColor}`} />
+            <div className="p-3 bg-muted rounded-full">
+              <Icon className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
-              <p className={`text-sm font-medium ${textColor}`}>{title}</p>
-              <p className={`text-2xl font-bold ${textColor}`}>{value}</p>
+              <p className="text-sm font-semibold text-foreground">{title}</p>
+              <p className="text-2xl font-bold text-foreground">{value}</p>
               {subtext && (
-                <p className="text-xs text-muted-foreground">{subtext}</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {subtext}
+                </p>
               )}
             </div>
           </div>

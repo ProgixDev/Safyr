@@ -1024,7 +1024,6 @@ export default function HowItWorks() {
                 transition={{
                   duration: 1.4,
                   delay: i * 0.2,
-                  repeat: Infinity,
                   ease: "easeInOut",
                 }}
               />

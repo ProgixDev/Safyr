@@ -1,10 +1,19 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
-  reactCompiler: true,
+  // React Compiler ajoute de l'overhead de compilation par fichier : on l'active
+  // uniquement pour les builds de production afin de garder le dev fluide.
+  reactCompiler: process.env.NODE_ENV === "production",
   // Skip TS/lint errors during build to unblock Vercel deploys.
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
+  // Fixe la racine du workspace sur le monorepo : sinon Next remonte jusqu'à
+  // C:\Users\Hp (à cause d'un package-lock.json traîné là) et surveille tout le
+  // dossier personnel, ce qui ralentit énormément le dev sur Windows.
+  turbopack: {
+    root: path.join(__dirname, "..", ".."),
+  },
   // Optimisations de performance
   compress: true,
   poweredByHeader: false,

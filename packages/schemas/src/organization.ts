@@ -133,6 +133,7 @@ export const UpdateRepresentativeSchema = z.object({
 
 export const UpdateOrganizationSchema = z.object({
   name: optionalText(150),
+  logo: z.string().trim().max(500).optional(),
   shareCapital: ShareCapitalSchema,
   authorizationNumber: AuthorizationNumberSchema,
   email: EmailSchema,

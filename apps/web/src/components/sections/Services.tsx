@@ -117,8 +117,6 @@ function ServiceCard({
           transition={{
             duration: 2.2,
             delay: index * 0.15,
-            repeat: Infinity,
-            repeatDelay: 1.8,
             ease: "easeOut",
           }}
         />
