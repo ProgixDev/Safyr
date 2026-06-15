@@ -7,8 +7,11 @@ WORKDIR /app
 # Copie du monorepo (.dockerignore exclut node_modules, .next, secrets…)
 COPY . .
 
-# Dépendances du workspace
-RUN bun install --no-frozen-lockfile
+# Dépendances du workspace.
+# --linker=hoisted : node_modules à plat (façon npm) au lieu du linker isolé
+# (.bun symlinks) de bun. Sinon `node` charge @nestjs/common en double sur Linux
+# -> la métadonnée @Global est perdue -> la DI casse (PrismaService/EmailService).
+RUN bun install --no-frozen-lockfile --linker=hoisted
 
 # Le serveur importe @safyr/schemas depuis dist → on le build
 RUN cd packages/schemas && bun run build
