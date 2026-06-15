@@ -35,6 +35,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { PersonnelRegisterEntry } from "@/lib/types";
+import { EMPLOYEE_POSTE_OPTIONS, QUALIFICATION_OPTIONS } from "@/lib/hr-options";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
@@ -483,7 +484,6 @@ export default function PersonnelRegisterPage() {
                   <SelectItem value="CDI">CDI</SelectItem>
                   <SelectItem value="CDD">CDD</SelectItem>
                   <SelectItem value="apprentice">Apprenti</SelectItem>
-                  <SelectItem value="interim">Intérim</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -574,7 +574,6 @@ export default function PersonnelRegisterPage() {
                   <SelectItem value="CDI">CDI</SelectItem>
                   <SelectItem value="CDD">CDD</SelectItem>
                   <SelectItem value="apprentice">Apprenti</SelectItem>
-                  <SelectItem value="interim">Intérim</SelectItem>
                   <SelectItem value="other">Autre</SelectItem>
                 </SelectContent>
               </Select>
@@ -603,29 +602,57 @@ export default function PersonnelRegisterPage() {
             </div>
 
             <div>
-              <Label htmlFor="position">Poste *</Label>
-              <Input
-                id="position"
-                value={formData.position}
-                onChange={(e) =>
-                  setFormData({ ...formData, position: e.target.value })
+              <Label>Poste *</Label>
+              <Select
+                value={formData.position || undefined}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, position: value })
                 }
-                placeholder="Ex: Agent de sécurité"
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir un poste…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EMPLOYEE_POSTE_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="qualification">Qualification *</Label>
-              <Input
-                id="qualification"
-                value={formData.qualification}
-                onChange={(e) =>
-                  setFormData({ ...formData, qualification: e.target.value })
-                }
-                placeholder="Ex: CQP APS"
-              />
+            <div className="col-span-3">
+              <Label>Qualification * (plusieurs choix possibles)</Label>
+              <div className="flex flex-wrap gap-2 pt-1.5">
+                {QUALIFICATION_OPTIONS.map((q) => {
+                  const current = formData.qualification
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  const selected = current.includes(q);
+                  return (
+                    <Badge
+                      key={q}
+                      variant={selected ? "default" : "outline"}
+                      className="cursor-pointer select-none"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          qualification: (selected
+                            ? current.filter((c) => c !== q)
+                            : [...current, q]
+                          ).join(", "),
+                        })
+                      }
+                    >
+                      {q}
+                    </Badge>
+                  );
+                })}
+              </div>
             </div>
 
             <div>

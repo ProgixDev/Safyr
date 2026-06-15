@@ -311,7 +311,7 @@ export default function SalaryMaintenanceAnalysisPage() {
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => handleViewDetails(maintenance)}>
                 <Eye className="h-4 w-4 mr-2" />
-                Examiner
+                Voir
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleEdit(maintenance)}>
                 <Edit className="h-4 w-4 mr-2" />
@@ -331,7 +331,7 @@ export default function SalaryMaintenanceAnalysisPage() {
         open={isViewModalOpen}
         onOpenChange={setIsViewModalOpen}
         type="details"
-        title="Examiner le maintien de salaire"
+        title="Voir le maintien de salaire"
         size="lg"
       >
         {selectedMaintenance && (

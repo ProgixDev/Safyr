@@ -490,7 +490,7 @@ export default function ExpenseReportsPage() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleViewItem(item)}>
               <Eye className="mr-2 h-4 w-4" />
-              Examiner
+              Voir
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEditReport(item.reportId)}>
               <Pencil className="mr-2 h-4 w-4" />

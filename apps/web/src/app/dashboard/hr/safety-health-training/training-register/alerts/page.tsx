@@ -319,7 +319,7 @@ export default function TrainingAlertsPage() {
                 className="flex items-center gap-2"
               >
                 <Eye className="h-4 w-4" />
-                Examiner
+                Voir
               </DropdownMenuItem>
               {alert.status !== "acknowledged" && (
                 <DropdownMenuItem

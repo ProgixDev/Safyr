@@ -27,9 +27,10 @@ function DisciplineTabs() {
   const setActive = (value: string) => {
     const query = new URLSearchParams(params.toString());
     query.set("tab", value);
-    router.replace(`/dashboard/hr/lifecycle/discipline?${query.toString()}`, {
-      scroll: false,
-    });
+    router.replace(
+      `/dashboard/hr/collaborators/discipline?${query.toString()}`,
+      { scroll: false },
+    );
   };
 
   return (

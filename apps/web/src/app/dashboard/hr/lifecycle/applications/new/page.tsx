@@ -17,15 +17,9 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Save } from "lucide-react";
 import { JobApplication } from "@/lib/types";
+import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 
-const commonPositions = [
-  "Agent de sécurité",
-  "Chef d'équipe",
-  "Superviseur",
-  "Agent de prévention",
-  "Technicien sécurité",
-  "Autre",
-];
+const commonPositions = EMPLOYEE_POSTE_OPTIONS;
 
 export default function NewApplicationPage() {
   const router = useRouter();

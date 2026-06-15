@@ -33,6 +33,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { JobApplication } from "@/lib/types";
+import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 
@@ -102,14 +103,7 @@ const statusColors = {
   rejected: "destructive",
 } as const;
 
-const commonPositions = [
-  "Agent de sécurité",
-  "Chef d'équipe",
-  "Superviseur",
-  "Agent de prévention",
-  "Technicien sécurité",
-  "Autre",
-];
+const commonPositions = EMPLOYEE_POSTE_OPTIONS;
 
 export default function ApplicationsPage() {
   const [applications, setApplications] =

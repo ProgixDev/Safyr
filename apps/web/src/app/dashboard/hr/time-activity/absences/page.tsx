@@ -31,12 +31,17 @@ import {
   Eye,
   MoreVertical,
   Trash2,
+  Pencil,
+  History,
 } from "lucide-react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { TimeOffRequest } from "@/lib/types";
 import {
   mockTimeOffRequests,
@@ -65,6 +70,20 @@ export default function TimeManagementPage() {
   const [validationComment, setValidationComment] = useState("");
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<TimeOffRequest | null>(
+    null,
+  );
+  const [editData, setEditData] = useState({
+    type: "vacation" as TimeOffRequest["type"],
+    startDate: "",
+    endDate: "",
+    reason: "",
+  });
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [historyRequest, setHistoryRequest] = useState<TimeOffRequest | null>(
+    null,
+  );
 
   // Mock employee data for selection
   const mockEmployees = [
@@ -277,6 +296,51 @@ export default function TimeManagementPage() {
     }
   };
 
+  const toIso = (d: Date) => new Date(d).toISOString().split("T")[0];
+
+  const handleEdit = (request: TimeOffRequest) => {
+    setEditingRequest(request);
+    setEditData({
+      type: request.type,
+      startDate: toIso(request.startDate),
+      endDate: toIso(request.endDate),
+      reason: request.reason ?? "",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingRequest) return;
+    const start = new Date(editData.startDate);
+    const end = new Date(editData.endDate);
+    const totalDays = Math.max(
+      1,
+      Math.round((end.getTime() - start.getTime()) / 86400000) + 1,
+    );
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === editingRequest.id
+          ? {
+              ...r,
+              type: editData.type,
+              startDate: start,
+              endDate: end,
+              reason: editData.reason,
+              totalDays,
+              updatedAt: new Date(),
+            }
+          : r,
+      ),
+    );
+    setIsEditModalOpen(false);
+    setEditingRequest(null);
+  };
+
+  const handleHistory = (request: TimeOffRequest) => {
+    setHistoryRequest(request);
+    setIsHistoryModalOpen(true);
+  };
+
   const requestColumns: ColumnDef<TimeOffRequest>[] = [
     {
       key: "employee",
@@ -356,50 +420,53 @@ export default function TimeManagementPage() {
   ];
 
   const requestActions = (request: TimeOffRequest) => (
-    <Popover>
-      <PopoverTrigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm">
           <MoreVertical className="h-4 w-4" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-48">
-        <div className="px-2 py-1.5 text-sm font-semibold">Actions</div>
-        <div className="border-t my-1" />
-        <button
-          className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm"
-          onClick={() => handleViewDetails(request)}
-        >
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleViewDetails(request)}>
           <Eye className="mr-2 h-4 w-4" />
           Voir
-        </button>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleEdit(request)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Modifier
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleHistory(request)}>
+          <History className="mr-2 h-4 w-4" />
+          Historique
+        </DropdownMenuItem>
         {request.status === "pending" && (
           <>
-            <button
-              className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm"
-              onClick={() => handleValidation(true, request.id)}
-            >
-              <CheckCircle className="mr-2 h-4 w-4" />
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleValidation(true, request.id)}>
+              <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
               Approuver
-            </button>
-            <button
-              className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm text-red-600"
+            </DropdownMenuItem>
+            <DropdownMenuItem
               onClick={() => handleValidation(false, request.id)}
+              className="text-red-600"
             >
               <XCircle className="mr-2 h-4 w-4" />
               Refuser
-            </button>
+            </DropdownMenuItem>
           </>
         )}
-        <div className="border-t my-1" />
-        <button
-          className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm text-red-600"
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
           onClick={() => handleDeleteClick(request)}
+          className="text-red-600"
         >
           <Trash2 className="mr-2 h-4 w-4" />
           Supprimer
-        </button>
-      </PopoverContent>
-    </Popover>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   return (
@@ -938,6 +1005,133 @@ export default function TimeManagementPage() {
           <span className="font-semibold">{requestToDelete?.employeeName}</span>{" "}
           ({requestToDelete?.type}) ? Cette action est irréversible.
         </p>
+      </Modal>
+
+      {/* Modifier (correction) */}
+      <Modal
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        type="form"
+        title="Modifier la demande"
+        actions={{
+          primary: { label: "Enregistrer", onClick: handleSaveEdit },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setIsEditModalOpen(false),
+            variant: "outline",
+          },
+        }}
+      >
+        <div className="space-y-4">
+          <div>
+            <Label>Type</Label>
+            <Select
+              value={editData.type}
+              onValueChange={(v) =>
+                setEditData({ ...editData, type: v as TimeOffRequest["type"] })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vacation">Congés payés</SelectItem>
+                <SelectItem value="sick_leave">Arrêt maladie</SelectItem>
+                <SelectItem value="unpaid_leave">Congé sans solde</SelectItem>
+                <SelectItem value="maternity_leave">Congé maternité</SelectItem>
+                <SelectItem value="paternity_leave">Congé paternité</SelectItem>
+                <SelectItem value="family_event">Événement familial</SelectItem>
+                <SelectItem value="training">Formation</SelectItem>
+                <SelectItem value="cse_delegation">Délégation CSE</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Date de début</Label>
+              <Input
+                type="date"
+                value={editData.startDate}
+                onChange={(e) =>
+                  setEditData({ ...editData, startDate: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Date de fin</Label>
+              <Input
+                type="date"
+                value={editData.endDate}
+                onChange={(e) =>
+                  setEditData({ ...editData, endDate: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Motif</Label>
+            <Textarea
+              value={editData.reason}
+              onChange={(e) =>
+                setEditData({ ...editData, reason: e.target.value })
+              }
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Les informations proviennent du planning ; vous pouvez les corriger
+            ici si besoin.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Historique */}
+      <Modal
+        open={isHistoryModalOpen}
+        onOpenChange={setIsHistoryModalOpen}
+        type="form"
+        title="Historique de la demande"
+        actions={{
+          primary: {
+            label: "Fermer",
+            onClick: () => setIsHistoryModalOpen(false),
+            variant: "outline",
+          },
+        }}
+      >
+        {historyRequest && (
+          <div className="space-y-3 text-sm">
+            <div className="flex gap-3">
+              <span className="w-40 shrink-0 text-muted-foreground">
+                {new Date(historyRequest.createdAt).toLocaleString("fr-FR")}
+              </span>
+              <span>Demande créée</span>
+            </div>
+            {historyRequest.validatedAt && (
+              <div className="flex gap-3">
+                <span className="w-40 shrink-0 text-muted-foreground">
+                  {new Date(historyRequest.validatedAt).toLocaleString("fr-FR")}
+                </span>
+                <span>
+                  {historyRequest.status === "approved"
+                    ? "Approuvée"
+                    : "Refusée"}
+                  {historyRequest.validatedBy
+                    ? ` par ${historyRequest.validatedBy}`
+                    : ""}
+                  {historyRequest.validationComment
+                    ? ` — « ${historyRequest.validationComment} »`
+                    : ""}
+                </span>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <span className="w-40 shrink-0 text-muted-foreground">
+                {new Date(historyRequest.updatedAt).toLocaleString("fr-FR")}
+              </span>
+              <span>Dernière modification</span>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

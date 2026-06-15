@@ -210,6 +210,25 @@ const variableTypeLabels: Record<PayrollVariableType, string> = {
   autres_indemnites: "Autres Indemnités",
 };
 
+// Types de variables non-horaires (primes/indemnités) — colonnes de la vue par salarié.
+const NON_HOUR_TYPES: PayrollVariableType[] = [
+  "prime",
+  "indemnite_habillage",
+  "tenue",
+  "frais_restauration",
+  "nbre_paniers",
+  "nbre_deplacement",
+  "autres_indemnites",
+];
+
+// Une ligne = un salarié, avec le cumul de ses variables par type.
+type EmployeePivot = {
+  employeeId: string;
+  employeeName: string;
+  amounts: Record<string, number>;
+  total: number;
+};
+
 // Helper to compute initial state from URL params
 function getInitialStateFromParams(searchParams: URLSearchParams) {
   const employeeId = searchParams.get("employeeId");
@@ -544,6 +563,80 @@ export default function PayrollVariablesPage() {
 
   const filteredVariables = variables.filter((v) => !v.type.startsWith("h_"));
 
+  const [viewMode, setViewMode] = useState<"consolidated" | "detailed">(
+    "consolidated",
+  );
+
+  const pivotRows = useMemo<EmployeePivot[]>(() => {
+    const map = new Map<string, EmployeePivot>();
+    for (const v of filteredVariables) {
+      let row = map.get(v.employeeId);
+      if (!row) {
+        row = {
+          employeeId: v.employeeId,
+          employeeName: v.employeeName,
+          amounts: {},
+          total: 0,
+        };
+        map.set(v.employeeId, row);
+      }
+      row.amounts[v.type] = (row.amounts[v.type] ?? 0) + v.amount;
+      if (!v.type.startsWith("nbre_")) row.total += v.amount;
+    }
+    return Array.from(map.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variables]);
+
+  const pivotColumns: ColumnDef<EmployeePivot>[] = [
+    {
+      key: "employee",
+      label: "Employé",
+      icon: Users,
+      sortable: true,
+      sortValue: (r) => r.employeeName,
+      render: (r) => (
+        <div>
+          <Link
+            href={`/dashboard/hr/collaborators/${r.employeeId}`}
+            className="font-medium text-primary hover:underline"
+          >
+            {r.employeeName}
+          </Link>
+          <div className="text-sm text-muted-foreground">{r.employeeId}</div>
+        </div>
+      ),
+    },
+    ...NON_HOUR_TYPES.map(
+      (t): ColumnDef<EmployeePivot> => ({
+        key: t,
+        label: variableTypeLabels[t],
+        sortable: true,
+        sortValue: (r) => r.amounts[t] ?? 0,
+        render: (r) => {
+          const val = r.amounts[t] ?? 0;
+          return (
+            <span className={val ? "" : "text-muted-foreground"}>
+              {t.startsWith("nbre_")
+                ? val.toLocaleString("fr-FR")
+                : `${val.toLocaleString("fr-FR")} €`}
+            </span>
+          );
+        },
+      }),
+    ),
+    {
+      key: "total",
+      label: "Total (€)",
+      sortable: true,
+      sortValue: (r) => r.total,
+      render: (r) => (
+        <span className="font-medium">
+          {r.total.toLocaleString("fr-FR")} €
+        </span>
+      ),
+    },
+  ];
+
   const individualColumns: ColumnDef<PayrollVariable>[] = [
     {
       key: "employee",
@@ -687,11 +780,38 @@ export default function PayrollVariablesPage() {
           color="green"
         />
       </InfoCardContainer>
-      {/* Variables DataTable */}
-      <DataTable
-        data={filteredVariables}
-        columns={individualColumns}
-        searchKeys={["employeeName"]}
+      {/* Bascule de vue */}
+      <div className="flex gap-2">
+        <Button
+          variant={viewMode === "consolidated" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setViewMode("consolidated")}
+        >
+          Par salarié
+        </Button>
+        <Button
+          variant={viewMode === "detailed" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setViewMode("detailed")}
+        >
+          Détaillé
+        </Button>
+      </div>
+
+      {viewMode === "consolidated" ? (
+        <DataTable
+          data={pivotRows}
+          columns={pivotColumns}
+          searchKeys={["employeeName"]}
+          getSearchValue={(r) => r.employeeName}
+          searchPlaceholder="Rechercher par employé..."
+          getRowId={(r) => r.employeeId}
+        />
+      ) : (
+        <DataTable
+          data={filteredVariables}
+          columns={individualColumns}
+          searchKeys={["employeeName"]}
         getSearchValue={(item) => item.employeeName}
         searchPlaceholder="Rechercher par employé..."
         getRowId={(item) => item.id}
@@ -760,7 +880,8 @@ export default function PayrollVariablesPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      />
+        />
+      )}
       {/* View Variable Modal */}
       <Modal
         open={isViewModalOpen}

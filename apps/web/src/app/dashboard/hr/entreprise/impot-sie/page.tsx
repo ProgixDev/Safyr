@@ -35,6 +35,23 @@ import {
   CreditCard,
 } from "lucide-react";
 
+// Téléchargement (mock) d'un document : génère un fichier placeholder.
+// À remplacer par le vrai fichier servi par le backend une fois branché.
+function downloadMock(filename: string) {
+  const blob = new Blob(
+    [
+      `Document : ${filename}\n(Placeholder — le vrai fichier sera servi par le backend une fois branché.)`,
+    ],
+    { type: "text/plain" },
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 interface TVADocument {
   id: string;
   mois: string;
@@ -355,7 +372,7 @@ export default function ImpotSIEPage() {
       render: (dossier) => (
         <div className="flex gap-2">
           {dossier.grandLivre ? (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
               <Download className="h-3 w-3 mr-1" />
               Télécharger
             </Button>
@@ -374,7 +391,7 @@ export default function ImpotSIEPage() {
       render: (dossier) => (
         <div className="flex gap-2">
           {dossier.declaration ? (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
               <Download className="h-3 w-3 mr-1" />
               Télécharger
             </Button>
@@ -393,7 +410,7 @@ export default function ImpotSIEPage() {
       render: (dossier) => (
         <div className="flex gap-2">
           {dossier.arDeclaration ? (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
               <Download className="h-3 w-3 mr-1" />
               Télécharger
             </Button>
@@ -412,7 +429,7 @@ export default function ImpotSIEPage() {
       render: (dossier) => (
         <div className="flex gap-2">
           {dossier.paiement ? (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
               <Download className="h-3 w-3 mr-1" />
               Télécharger
             </Button>
@@ -602,7 +619,7 @@ export default function ImpotSIEPage() {
                     render: (dossier) => (
                       <div className="flex gap-2">
                         {dossier.declaration ? (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
                           </Button>
@@ -621,7 +638,7 @@ export default function ImpotSIEPage() {
                     render: (dossier) => (
                       <div className="flex gap-2">
                         {dossier.avis ? (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
                           </Button>
@@ -640,7 +657,7 @@ export default function ImpotSIEPage() {
                     render: (dossier) => (
                       <div className="flex gap-2">
                         {dossier.paiement ? (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
                           </Button>
@@ -705,7 +722,7 @@ export default function ImpotSIEPage() {
                     render: (prelevement) => (
                       <div className="flex gap-2">
                         {prelevement.declaration ? (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
                           </Button>
@@ -724,7 +741,7 @@ export default function ImpotSIEPage() {
                     render: (prelevement) => (
                       <div className="flex gap-2">
                         {prelevement.bordereau ? (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
                           </Button>
@@ -825,7 +842,7 @@ export default function ImpotSIEPage() {
                     render: (courrier) => (
                       <div className="flex items-center gap-2">
                         {courrier.document && (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
                             <Download className="h-4 w-4" />
                           </Button>
                         )}

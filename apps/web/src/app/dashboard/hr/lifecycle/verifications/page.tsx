@@ -82,6 +82,22 @@ const statusColors = {
   rejected: "destructive",
 } as const;
 
+// Noms des candidats associés aux candidatures (mock — à brancher sur l'API).
+const applicantNames: Record<string, string> = {
+  "1": "Marie Dupont",
+  "2": "Jean Martin",
+  "3": "Pierre Bernard",
+};
+
+// Ouvre la vérification de la carte pro sur le portail DRACAR (CNAPS).
+function openDracar(cnapsNumber?: string) {
+  const base = "https://dracar.cnaps-securite.fr";
+  const url = cnapsNumber
+    ? `${base}/recherche?numero=${encodeURIComponent(cnapsNumber)}`
+    : base;
+  window.open(url, "_blank", "noopener");
+}
+
 export default function VerificationsPage() {
   const [verifications, setVerifications] =
     useState<RegulatoryVerification[]>(mockVerifications);
@@ -226,10 +242,12 @@ export default function VerificationsPage() {
       label: "Candidature",
       render: (verif: RegulatoryVerification) => (
         <div>
-          {/* TODO: If application has employeeId, link to employee profile instead */}
-          <div className="font-medium">Candidature #{verif.applicationId}</div>
+          <div className="font-medium">
+            {applicantNames[verif.applicationId] ?? "Candidat inconnu"}
+          </div>
           <div className="text-sm text-muted-foreground">
-            {verif.cnapsNumber || "Numéro CNAPS manquant"}
+            Candidature #{verif.applicationId}
+            {verif.cnapsNumber ? ` · ${verif.cnapsNumber}` : ""}
           </div>
         </div>
       ),
@@ -301,6 +319,13 @@ export default function VerificationsPage() {
             >
               <Pencil className="h-4 w-4" />
               Modifier
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => openDracar(verif.cnapsNumber)}
+              className="gap-2"
+            >
+              <Shield className="h-4 w-4 text-blue-600" />
+              Vérifier sur DRACAR
             </DropdownMenuItem>
             {verif.status === "pending" && (
               <>

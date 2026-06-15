@@ -12,6 +12,7 @@ interface IbanInputProps {
   onBicChange: (value: string) => void;
   onBankNameChange: (value: string) => void;
   required?: boolean;
+  disabled?: boolean;
 }
 
 // French bank codes mapping (first 5 digits after FR and check digits)
@@ -48,6 +49,7 @@ export const IbanInput = forwardRef<HTMLDivElement, IbanInputProps>(
       onBicChange,
       onBankNameChange,
       required = false,
+      disabled = false,
     },
     ref,
   ) => {
@@ -120,6 +122,7 @@ export const IbanInput = forwardRef<HTMLDivElement, IbanInputProps>(
             onChange={handleIbanChange}
             onBlur={handleBlur}
             maxLength={34}
+            disabled={disabled}
           />
         </div>
 
@@ -134,6 +137,7 @@ export const IbanInput = forwardRef<HTMLDivElement, IbanInputProps>(
               value={bicValue}
               onChange={(e) => onBicChange(e.target.value.toUpperCase())}
               maxLength={11}
+              disabled={disabled}
             />
           </div>
 
@@ -147,6 +151,7 @@ export const IbanInput = forwardRef<HTMLDivElement, IbanInputProps>(
               placeholder="BNP Paribas"
               value={bankNameValue}
               onChange={(e) => onBankNameChange(e.target.value)}
+              disabled={disabled}
             />
           </div>
         </div>

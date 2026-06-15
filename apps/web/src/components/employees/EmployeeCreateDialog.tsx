@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, Save, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { fakerFR } from "@faker-js/faker";
 import type { AnyFieldApi } from "@tanstack/react-form";
 
@@ -736,16 +737,24 @@ function EmploymentStep({ form }: { form: FormApi }) {
         <form.Field name="position">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor={field.name}>
+              <Label>
                 Poste <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id={field.name}
-                placeholder="Agent de sécurité"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
+              <Select
+                value={field.state.value || undefined}
+                onValueChange={(v) => field.handleChange(v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir un poste…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EMPLOYEE_POSTE_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FieldError field={field} />
             </div>
           )}
@@ -790,7 +799,6 @@ function EmploymentStep({ form }: { form: FormApi }) {
                 <SelectContent>
                   <SelectItem value="CDI">CDI</SelectItem>
                   <SelectItem value="CDD">CDD</SelectItem>
-                  <SelectItem value="INTERIM">Intérim</SelectItem>
                   <SelectItem value="APPRENTICESHIP">Apprentissage</SelectItem>
                   <SelectItem value="INTERNSHIP">Stage</SelectItem>
                 </SelectContent>

@@ -386,7 +386,7 @@ export default function PersonnelCostPage() {
                 <DropdownMenuContent>
                   <DropdownMenuItem onClick={() => handleViewDetails(cost)}>
                     <Eye className="h-4 w-4 mr-2" />
-                    Examiner
+                    Voir
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleEdit(cost)}>
                     <Edit className="h-4 w-4 mr-2" />
@@ -408,7 +408,7 @@ export default function PersonnelCostPage() {
         open={isDetailsModalOpen}
         onOpenChange={setIsDetailsModalOpen}
         type="details"
-        title="Examiner le coût salarial"
+        title="Voir le coût salarial"
         size="lg"
       >
         {selectedCost && (

@@ -35,7 +35,25 @@ import {
   HardHat,
   MoreHorizontal,
   MoreVertical,
+  Download,
 } from "lucide-react";
+
+// Téléchargement (mock) d'un document du dossier salarié.
+// À remplacer par le vrai fichier servi par le backend une fois branché.
+function downloadMock(filename: string) {
+  const blob = new Blob(
+    [
+      `Document : ${filename}\n(Placeholder — issu du dossier salarié, à brancher au backend.)`,
+    ],
+    { type: "text/plain" },
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 import { OnboardingPath, OnboardingTask } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
@@ -665,7 +683,21 @@ export default function OnboardingPage() {
             </div>
 
             <div>
-              <Label>Tâches ({viewingPath.tasks.length})</Label>
+              <div className="flex items-center justify-between">
+                <Label>Tâches ({viewingPath.tasks.length})</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    viewingPath.tasks
+                      .filter((t) => t.category === "documents")
+                      .forEach((t) => downloadMock(t.task))
+                  }
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Télécharger les documents
+                </Button>
+              </div>
               <div className="space-y-3 mt-2">
                 {viewingPath.tasks.map((task) => {
                   const Icon = categoryIcons[task.category];
@@ -714,6 +746,15 @@ export default function OnboardingPage() {
                           </div>
                         )}
                       </div>
+                      {task.category === "documents" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadMock(task.task)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   );
                 })}

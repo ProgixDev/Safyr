@@ -14,7 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {} from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Modal } from "@/components/ui/modal";
 import {
   Select,
@@ -41,7 +48,32 @@ import {
   Calculator,
   Phone,
   Landmark,
+  MoreVertical,
+  Eye,
 } from "lucide-react";
+
+// Téléchargement (mock) d'un document : génère un fichier placeholder.
+// À remplacer par le vrai fichier servi par le backend une fois branché.
+function downloadMock(filename: string) {
+  const blob = new Blob(
+    [
+      `Document : ${filename}\n(Placeholder — le vrai fichier sera servi par le backend une fois branché.)`,
+    ],
+    { type: "text/plain" },
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const DOC_STATUTS = [
+  { value: "en_attente", label: "En attente" },
+  { value: "en_cours", label: "En cours" },
+  { value: "traite", label: "Traité" },
+];
 
 interface Organisme {
   id: string;
@@ -145,7 +177,7 @@ export default function DiversDocumentsPage() {
     },
   ]);
 
-  const [documents] = useState<Document[]>([
+  const [documents, setDocuments] = useState<Document[]>([
     {
       id: "1",
       organismeId: "1",
@@ -227,6 +259,8 @@ export default function DiversDocumentsPage() {
   const [selectedType, setSelectedType] = useState("all");
   const [showUrgentOnly, setShowUrgentOnly] = useState(false);
   const [isAddingOrganisme, setIsAddingOrganisme] = useState(false);
+  const [docStatuts, setDocStatuts] = useState<Record<string, string>>({});
+  const [viewDoc, setViewDoc] = useState<Document | null>(null);
   const [newOrganisme, setNewOrganisme] = useState({
     nom: "",
     type: "",
@@ -302,6 +336,8 @@ export default function DiversDocumentsPage() {
         return "bg-orange-500";
       case "non_lu":
         return "bg-red-500";
+      case "en_attente":
+        return "bg-yellow-500";
       default:
         return "bg-gray-500";
     }
@@ -317,6 +353,8 @@ export default function DiversDocumentsPage() {
         return "Traité";
       case "en_cours":
         return "En cours";
+      case "en_attente":
+        return "En attente";
       default:
         return "Inconnu";
     }
@@ -595,10 +633,10 @@ export default function DiversDocumentsPage() {
 
           <Tabs defaultValue="documents" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="documents">
+              <TabsTrigger value="documents" className="text-base">
                 Documents ({getOrganismeDocuments(selectedOrganisme).length})
               </TabsTrigger>
-              <TabsTrigger value="courriers">
+              <TabsTrigger value="courriers" className="text-base">
                 Courriers ({getOrganismeCourriers(selectedOrganisme).length})
               </TabsTrigger>
             </TabsList>
@@ -606,7 +644,7 @@ export default function DiversDocumentsPage() {
             <TabsContent value="documents">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-lg">
                     <FileText className="h-5 w-5" />
                     Documents
                   </CardTitle>
@@ -624,9 +662,18 @@ export default function DiversDocumentsPage() {
                               <FileText className="h-5 w-5 text-muted-foreground" />
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                  <h3 className="font-medium">
+                                  <h3 className="text-lg font-semibold">
                                     {document.nom}
                                   </h3>
+                                  <Badge
+                                    className={getStatutColor(
+                                      docStatuts[document.id] ?? "en_attente",
+                                    )}
+                                  >
+                                    {getStatutText(
+                                      docStatuts[document.id] ?? "en_attente",
+                                    )}
+                                  </Badge>
                                   {document.urgent && (
                                     <Badge className="bg-red-500">
                                       <AlertTriangle className="h-3 w-3 mr-1" />
@@ -637,10 +684,10 @@ export default function DiversDocumentsPage() {
                                     {document.type}
                                   </Badge>
                                 </div>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-base text-muted-foreground mt-1">
                                   {document.description}
                                 </p>
-                                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
                                   <span>
                                     Ajouté le{" "}
                                     {new Date(
@@ -662,16 +709,62 @@ export default function DiversDocumentsPage() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm">
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button variant="outline" size="sm">
-                                <Edit3 className="h-4 w-4" />
-                              </Button>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={docStatuts[document.id] ?? "en_attente"}
+                                onValueChange={(v) =>
+                                  setDocStatuts((prev) => ({
+                                    ...prev,
+                                    [document.id]: v,
+                                  }))
+                                }
+                              >
+                                <SelectTrigger className="h-8 w-[150px] text-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {DOC_STATUTS.map((s) => (
+                                    <SelectItem key={s.value} value={s.value}>
+                                      {s.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setViewDoc(document)}
+                                  >
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    Voir
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => downloadMock(document.nom)}
+                                  >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Télécharger
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setDocuments((prev) =>
+                                        prev.filter((d) => d.id !== document.id),
+                                      )
+                                    }
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Supprimer
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                         </div>
@@ -690,7 +783,7 @@ export default function DiversDocumentsPage() {
             <TabsContent value="courriers">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-lg">
                     <Mail className="h-5 w-5" />
                     Courriers
                   </CardTitle>
@@ -722,7 +815,7 @@ export default function DiversDocumentsPage() {
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                  <h3 className="font-medium">
+                                  <h3 className="text-lg font-semibold">
                                     {courrier.objet}
                                   </h3>
                                   <Badge
@@ -738,7 +831,7 @@ export default function DiversDocumentsPage() {
                                       : "Envoyé"}
                                   </Badge>
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-1">
+                                <div className="text-base text-muted-foreground mt-1">
                                   <p>
                                     De: {courrier.expediteur} → À:{" "}
                                     {courrier.destinataire}
@@ -758,7 +851,11 @@ export default function DiversDocumentsPage() {
                                 {getStatutText(courrier.statut)}
                               </Badge>
                               {courrier.pieceJointe && (
-                                <Button variant="outline" size="sm">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => downloadMock(courrier.objet)}
+                                >
                                   <Download className="h-4 w-4" />
                                 </Button>
                               )}
@@ -853,6 +950,71 @@ export default function DiversDocumentsPage() {
             />
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={!!viewDoc}
+        onOpenChange={(o) => !o && setViewDoc(null)}
+        type="form"
+        title="Détail du document"
+        actions={{
+          primary: {
+            label: "Fermer",
+            onClick: () => setViewDoc(null),
+            variant: "outline" as const,
+          },
+        }}
+      >
+        {viewDoc && (
+          <div className="space-y-3 text-base">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="text-lg font-semibold">{viewDoc.nom}</h3>
+              <Badge
+                className={getStatutColor(
+                  docStatuts[viewDoc.id] ?? "en_attente",
+                )}
+              >
+                {getStatutText(docStatuts[viewDoc.id] ?? "en_attente")}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground">{viewDoc.description}</p>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Type : </span>
+                {viewDoc.type}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Taille : </span>
+                {viewDoc.taille}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Ajouté le : </span>
+                {new Date(viewDoc.dateAjout).toLocaleDateString("fr-FR")}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Modifié le : </span>
+                {new Date(viewDoc.dateModification).toLocaleDateString("fr-FR")}
+              </div>
+            </div>
+            {viewDoc.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {viewDoc.tags.map((t) => (
+                  <Badge key={t} variant="outline" className="text-xs">
+                    #{t}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadMock(viewDoc.nom)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Télécharger
+            </Button>
+          </div>
+        )}
       </Modal>
     </div>
   );

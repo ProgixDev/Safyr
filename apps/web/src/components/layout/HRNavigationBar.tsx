@@ -32,6 +32,7 @@ const navItems: NavItem[] = [
         label: "Divers documents",
         href: "/dashboard/hr/entreprise/divers-documents",
       },
+      { label: "Alertes", href: "/dashboard/hr/entreprise/alertes" },
     ],
   },
   {
@@ -43,12 +44,8 @@ const navItems: NavItem[] = [
         href: "/dashboard/hr/collaborators/personnel-register",
       },
       {
-        label: "Annuaire & Dossiers salariés",
+        label: "Dossiers salariés",
         href: "/dashboard/hr/collaborators",
-      },
-      {
-        label: "Gestion des Contrats",
-        href: "/dashboard/hr/collaborators/contracts",
       },
       {
         label: "Entretiens & Évaluations",
@@ -65,7 +62,7 @@ const navItems: NavItem[] = [
     icon: UserCog,
     children: [
       {
-        label: "Candidatures (ATS)",
+        label: "Candidatures",
         href: "/dashboard/hr/lifecycle/applications",
       },
       {
@@ -86,6 +83,10 @@ const navItems: NavItem[] = [
       {
         label: "Relevé des Heures & Sup.",
         href: "/dashboard/hr/time-activity/worked-hours",
+      },
+      {
+        label: "Compteur Heures Sup.",
+        href: "/dashboard/hr/time-activity/overtime-counter",
       },
       {
         label: "Gestion des Absences & Congés",
@@ -115,20 +116,20 @@ const navItems: NavItem[] = [
       },
       {
         label: "Analyse des coûts",
-        href: "/dashboard/hr/payroll-remuneration/cost-analysis",
+        href: "/dashboard/hr/payroll-remuneration/cost-per-hour",
       },
       {
         label: "Archives des Bulletins (BS)",
         href: "/dashboard/hr/payroll-remuneration/archives",
       },
       {
-        label: "Exports Comptables (Silae/Sage)",
-        href: "/dashboard/hr/payroll-remuneration/exports",
+        label: "Export logiciel Paie",
+        href: "/dashboard/hr/payroll-remuneration/export-config",
       },
     ],
   },
   {
-    label: "Sécurité & Formation",
+    label: "Santé & Formation",
     icon: ShieldCheck,
     children: [
       {
@@ -144,7 +145,7 @@ const navItems: NavItem[] = [
         href: "/dashboard/hr/safety-health-training/training-register",
       },
       {
-        label: "Santé au travail (Médecine)",
+        label: "Médecine de travail",
         href: "/dashboard/hr/safety-health-training/occupational-medicine",
       },
       {

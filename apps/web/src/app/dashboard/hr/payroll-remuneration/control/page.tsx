@@ -433,7 +433,7 @@ export default function PayrollControlPage() {
                 <DropdownMenuContent>
                   <DropdownMenuItem onClick={() => handleViewDetails(anomaly)}>
                     <Eye className="h-4 w-4 mr-2" />
-                    Examiner
+                    Voir
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleEdit(anomaly)}>
                     <Edit className="h-4 w-4 mr-2" />
@@ -455,7 +455,7 @@ export default function PayrollControlPage() {
         open={isDetailsModalOpen}
         onOpenChange={setIsDetailsModalOpen}
         type="form"
-        title="Examiner l'anomalie"
+        title="Voir l'anomalie"
         size="lg"
         actions={
           selectedAnomaly?.status === "open"
