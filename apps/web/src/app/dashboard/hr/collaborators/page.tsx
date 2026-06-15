@@ -245,10 +245,10 @@ export default function EmployeesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-serif text-3xl font-light tracking-tight">
-            Personnel
+            Annuaire &amp; Dossiers salariés
           </h1>
           <p className="mt-2 text-sm font-light text-muted-foreground">
-            Gestion administrative du personnel
+            Annuaire des collaborateurs et accès aux dossiers individuels
           </p>
         </div>
         <Button

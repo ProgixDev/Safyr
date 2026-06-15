@@ -633,10 +633,10 @@ export default function DiversDocumentsPage() {
 
           <Tabs defaultValue="documents" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="documents" className="text-base">
+              <TabsTrigger value="documents" className="text-lg font-semibold">
                 Documents ({getOrganismeDocuments(selectedOrganisme).length})
               </TabsTrigger>
-              <TabsTrigger value="courriers" className="text-base">
+              <TabsTrigger value="courriers" className="text-lg font-semibold">
                 Courriers ({getOrganismeCourriers(selectedOrganisme).length})
               </TabsTrigger>
             </TabsList>

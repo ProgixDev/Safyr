@@ -475,6 +475,8 @@ export default function TrainingRegisterPage() {
                   <SelectItem value="SSIAP">SSIAP</SelectItem>
                   <SelectItem value="SST">SST</SelectItem>
                   <SelectItem value="CQP">CQP</SelectItem>
+                  <SelectItem value="MAC/CQP">MAC / CQP</SelectItem>
+                  <SelectItem value="MAC/SST">MAC / SST</SelectItem>
                   <SelectItem value="H0B0">H0B0</SelectItem>
                   <SelectItem value="fire">Incendie</SelectItem>
                   <SelectItem value="professional">Professionnelle</SelectItem>
@@ -564,6 +566,8 @@ export default function TrainingRegisterPage() {
                   <SelectItem value="SSIAP">SSIAP</SelectItem>
                   <SelectItem value="SST">SST</SelectItem>
                   <SelectItem value="CQP">CQP</SelectItem>
+                  <SelectItem value="MAC/CQP">MAC / CQP</SelectItem>
+                  <SelectItem value="MAC/SST">MAC / SST</SelectItem>
                   <SelectItem value="H0B0">H0B0</SelectItem>
                   <SelectItem value="fire">Incendie</SelectItem>
                   <SelectItem value="professional">Professionnelle</SelectItem>

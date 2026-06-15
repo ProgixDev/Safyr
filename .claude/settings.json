@@ -11,7 +11,8 @@
       "Bash(curl -s -o /dev/null -w \"home: %{http_code}\\\\n\" http://localhost:3000/)",
       "Bash(curl -s -o /dev/null -w \"entreprise: %{http_code}\\\\n\" http://localhost:3000/dashboard/hr/entreprise)",
       "Bash(curl -s -o /dev/null -w \"dashboard hr: %{http_code}\\\\n\" http://localhost:3000/dashboard/hr)",
-      "Bash(curl -s -o /dev/null -w \"login: %{http_code}\\\\n\" http://localhost:3000/login)"
+      "Bash(curl -s -o /dev/null -w \"login: %{http_code}\\\\n\" http://localhost:3000/login)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 8 \"http://localhost:3000/dashboard/hr/lifecycle/offboarding\")"
     ]
   }
 }

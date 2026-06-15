@@ -72,8 +72,8 @@ const mockVerifications: RegulatoryVerification[] = [
 
 const statusLabels = {
   pending: "En attente",
-  verified: "Vérifiée",
-  rejected: "Rejetée",
+  verified: "Conforme",
+  rejected: "Non conforme",
 };
 
 const statusColors = {
@@ -334,14 +334,14 @@ export default function VerificationsPage() {
                   className="gap-2"
                 >
                   <CheckCircle className="h-4 w-4 text-green-600" />
-                  Valider
+                  Marquer conforme
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleReject(verif.id)}
                   className="gap-2 text-destructive"
                 >
                   <XCircle className="h-4 w-4" />
-                  Rejeter
+                  Marquer non conforme
                 </DropdownMenuItem>
               </>
             )}

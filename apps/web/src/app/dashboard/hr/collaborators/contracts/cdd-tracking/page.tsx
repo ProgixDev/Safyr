@@ -450,7 +450,6 @@ export default function CDDRegisterPage() {
                   <SelectItem value="all">Tous</SelectItem>
                   <SelectItem value="CDD">CDD</SelectItem>
                   <SelectItem value="apprentice">Apprenti</SelectItem>
-                  <SelectItem value="interim">Intérim</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -534,7 +533,6 @@ export default function CDDRegisterPage() {
                 <SelectContent>
                   <SelectItem value="CDD">CDD</SelectItem>
                   <SelectItem value="apprentice">Apprenti</SelectItem>
-                  <SelectItem value="interim">Intérim</SelectItem>
                 </SelectContent>
               </Select>
             </div>

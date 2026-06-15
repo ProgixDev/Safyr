@@ -21,9 +21,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Save, Sparkles } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Save,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
+import { EMPLOYEE_POSTE_OPTIONS, QUALIFICATION_OPTIONS } from "@/lib/hr-options";
 import { fakerFR } from "@faker-js/faker";
 import type { AnyFieldApi } from "@tanstack/react-form";
 
@@ -91,6 +104,7 @@ const emptyDefaults: CreateEmployeeDto = {
   workSchedule: "full-time",
   status: "active",
   role: "agent",
+  qualifications: [],
   address: {
     street: "",
     city: "",
@@ -688,7 +702,12 @@ function EmploymentStep({ form }: { form: FormApi }) {
     );
     form.setFieldValue(
       "contractType" as never,
-      fakerFR.helpers.arrayElement(["CDI", "CDD", "INTERIM"]) as never,
+      fakerFR.helpers.arrayElement([
+        "CDI",
+        "CDD",
+        "APPRENTICESHIP",
+        "INTERNSHIP",
+      ]) as never,
     );
     form.setFieldValue(
       "workSchedule" as never,
@@ -696,6 +715,13 @@ function EmploymentStep({ form }: { form: FormApi }) {
     );
     form.setFieldValue("status" as never, "active" as never);
     form.setFieldValue("role" as never, "agent" as never);
+    form.setFieldValue(
+      "qualifications" as never,
+      fakerFR.helpers.arrayElements(QUALIFICATION_OPTIONS, {
+        min: 1,
+        max: 3,
+      }) as never,
+    );
   };
   return (
     <div className="space-y-4">
@@ -758,6 +784,64 @@ function EmploymentStep({ form }: { form: FormApi }) {
               <FieldError field={field} />
             </div>
           )}
+        </form.Field>
+        <form.Field name="qualifications">
+          {(field) => {
+            const selected: string[] = field.state.value ?? [];
+            const toggle = (q: string) =>
+              field.handleChange(
+                selected.includes(q)
+                  ? selected.filter((x) => x !== q)
+                  : [...selected, q],
+              );
+            return (
+              <div className="space-y-2">
+                <Label>Qualifications</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-auto min-h-10 w-full justify-between font-normal"
+                    >
+                      <span className="flex flex-wrap gap-1">
+                        {selected.length === 0 ? (
+                          <span className="text-muted-foreground">
+                            Choisir une ou plusieurs…
+                          </span>
+                        ) : (
+                          selected.map((q) => (
+                            <Badge key={q} variant="secondary">
+                              {q}
+                            </Badge>
+                          ))
+                        )}
+                      </span>
+                      <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-[var(--radix-popover-trigger-width)] p-1"
+                  >
+                    {QUALIFICATION_OPTIONS.map((q) => (
+                      <label
+                        key={q}
+                        className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-accent"
+                      >
+                        <Checkbox
+                          checked={selected.includes(q)}
+                          onCheckedChange={() => toggle(q)}
+                        />
+                        <span className="text-sm">{q}</span>
+                      </label>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+                <FieldError field={field} />
+              </div>
+            );
+          }}
         </form.Field>
         <form.Field name="role">
           {(field) => (

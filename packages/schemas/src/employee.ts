@@ -190,6 +190,19 @@ export const BankDetailsPartialSchema = z.object({
   bankName: optionalText(120),
 });
 
+// Qualifications cumulables d'un agent de sécurité (cases à cocher multiples).
+export const QualificationSchema = z.enum([
+  "SSIAP1",
+  "SSIAP2",
+  "SSIAP3",
+  "SST",
+  "H0B0",
+  "CARTE PRO",
+  "CQP/APS",
+  "AUTRES",
+]);
+export type Qualification = z.infer<typeof QualificationSchema>;
+
 export const CreateEmployeeSchema = z.object({
   firstName: NameSchema,
   lastName: NameSchema,
@@ -209,6 +222,7 @@ export const CreateEmployeeSchema = z.object({
   workSchedule: WorkScheduleSchema.optional(),
   status: MemberStatusSchema.optional(),
   role: MemberRoleSchema.optional(),
+  qualifications: z.array(QualificationSchema).optional(),
   address: AddressSchema,
   bankDetails: BankDetailsSchema,
 });
@@ -233,6 +247,7 @@ export const UpdateEmployeeSchema = z.object({
   workSchedule: WorkScheduleSchema.optional(),
   status: MemberStatusSchema.optional(),
   role: MemberRoleSchema.optional(),
+  qualifications: z.array(QualificationSchema).optional(),
   address: AddressPartialSchema.optional(),
   bankDetails: BankDetailsPartialSchema.optional(),
 });

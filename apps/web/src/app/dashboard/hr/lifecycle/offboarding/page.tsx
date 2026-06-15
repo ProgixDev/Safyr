@@ -186,7 +186,7 @@ export default function OffboardingPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Fin de Contrat / Offboarding</h1>
+          <h1 className="text-3xl font-bold">Parcours de départ</h1>
           <p className="text-muted-foreground">
             Gestion des fins de contrat, préavis, retour d&apos;équipement et
             documents obligatoires

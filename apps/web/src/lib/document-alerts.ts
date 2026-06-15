@@ -48,7 +48,7 @@ export function computeDocumentAlerts(items: ComplianceItem[]): DocAlert[] {
         alerts.push({
           id,
           label: name,
-          message: `À télécharger (${freq})`,
+          message: `À téléverser (${freq})`,
           level: "danger",
         });
       } else {
@@ -75,15 +75,24 @@ export function computeDocumentAlerts(items: ComplianceItem[]): DocAlert[] {
     }
 
     if (EXPIRY_TYPES.has(type)) {
-      if (!doc || !doc.expiryDate) {
+      if (!doc) {
         if (isRequired) {
           alerts.push({
             id,
             label: name,
-            message: "À télécharger",
+            message: "À téléverser",
             level: "danger",
           });
         }
+      } else if (!doc.expiryDate) {
+        // Document bien reçu, mais sans date d'expiration : on le signale en
+        // « à surveiller » (et non plus comme manquant) pour refléter l'upload.
+        alerts.push({
+          id,
+          label: name,
+          message: "Document reçu — date d'expiration à renseigner",
+          level: "warning",
+        });
       } else {
         const exp = new Date(doc.expiryDate);
         if (exp < now) {

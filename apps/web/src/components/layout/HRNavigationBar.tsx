@@ -44,7 +44,7 @@ const navItems: NavItem[] = [
         href: "/dashboard/hr/collaborators/personnel-register",
       },
       {
-        label: "Dossiers salariés",
+        label: "Annuaire & Dossiers salariés",
         href: "/dashboard/hr/collaborators",
       },
       {
@@ -73,7 +73,7 @@ const navItems: NavItem[] = [
         label: "Parcours d'intégration",
         href: "/dashboard/hr/lifecycle/onboarding",
       },
-      { label: "Offboarding", href: "/dashboard/hr/lifecycle/offboarding" },
+      { label: "Parcours de départ", href: "/dashboard/hr/lifecycle/offboarding" },
     ],
   },
   {

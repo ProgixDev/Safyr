@@ -475,7 +475,6 @@ export default function ContractsPage() {
                 <SelectContent>
                   <SelectItem value="CDI">CDI</SelectItem>
                   <SelectItem value="CDD">CDD</SelectItem>
-                  <SelectItem value="INTERIM">Intérim</SelectItem>
                   <SelectItem value="APPRENTICESHIP">Apprentissage</SelectItem>
                   <SelectItem value="INTERNSHIP">Stage</SelectItem>
                 </SelectContent>

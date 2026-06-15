@@ -298,7 +298,7 @@ function Field({
         className={cn(
           "text-base",
           !isEditing &&
-            "bg-muted/30 border-transparent shadow-none cursor-default focus-visible:ring-0",
+            "bg-muted/30 shadow-none cursor-default focus-visible:ring-0",
         )}
       />
     </div>

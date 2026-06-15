@@ -357,6 +357,8 @@ export default function AKTOOPCOPage() {
                 <SelectItem value="SSIAP 2">SSIAP 2</SelectItem>
                 <SelectItem value="SSIAP 3">SSIAP 3</SelectItem>
                 <SelectItem value="SST">SST</SelectItem>
+                <SelectItem value="MAC/CQP">MAC / CQP</SelectItem>
+                <SelectItem value="MAC/SST">MAC / SST</SelectItem>
                 <SelectItem value="H0B0">H0B0</SelectItem>
                 <SelectItem value="Autre">Autre</SelectItem>
               </SelectContent>
