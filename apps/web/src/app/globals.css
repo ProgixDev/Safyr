@@ -328,10 +328,15 @@ body {
   scrollbar-color: oklch(0.3 0.04 220) transparent;
 }
 
-/* Glass card effect for dashboard widgets */
+/* Glass card effect for dashboard widgets.
+   Clair par défaut, sombre quand la classe .dark est active. */
 .glass-card {
-  background: oklch(0.22 0.04 245 / 0.8);
+  background: oklch(0.985 0.003 240 / 0.9);
   backdrop-filter: blur(12px);
+  border: 1px solid oklch(0.9 0.008 220 / 0.8);
+}
+.dark .glass-card {
+  background: oklch(0.22 0.04 245 / 0.8);
   border: 1px solid oklch(0.35 0.05 210 / 0.5);
 }
 
