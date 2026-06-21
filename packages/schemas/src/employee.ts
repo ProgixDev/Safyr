@@ -222,7 +222,7 @@ export const CreateEmployeeSchema = z.object({
   workSchedule: WorkScheduleSchema.optional(),
   status: MemberStatusSchema.optional(),
   role: MemberRoleSchema.optional(),
-  qualifications: z.array(QualificationSchema).optional(),
+  qualifications: z.array(z.string().trim().min(1).max(60)).optional(),
   address: AddressSchema,
   bankDetails: BankDetailsSchema,
 });
@@ -247,7 +247,7 @@ export const UpdateEmployeeSchema = z.object({
   workSchedule: WorkScheduleSchema.optional(),
   status: MemberStatusSchema.optional(),
   role: MemberRoleSchema.optional(),
-  qualifications: z.array(QualificationSchema).optional(),
+  qualifications: z.array(z.string().trim().min(1).max(60)).optional(),
   address: AddressPartialSchema.optional(),
   bankDetails: BankDetailsPartialSchema.optional(),
 });

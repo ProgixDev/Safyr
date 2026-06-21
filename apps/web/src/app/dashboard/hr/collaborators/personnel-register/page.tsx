@@ -287,10 +287,69 @@ export default function PersonnelRegisterPage() {
     setIsCreateModalOpen(false);
   };
 
-  const handleExportPDF = () => {
-    alert(
-      "Export PDF du registre du personnel (conforme inspection du travail/CNAPS)...",
+  const buildExportRows = () => {
+    const headers = [
+      "N° enreg.",
+      "Employé",
+      "Type contrat",
+      "Poste",
+      "Qualification",
+      "Date d'entrée",
+      "Date de sortie",
+      "Carte pro CNAPS",
+    ];
+    const rows = filteredEntries.map((e) => [
+      e.registrationNumber,
+      getEmployeeName(e.employeeId),
+      contractTypeLabels[e.contractType] ?? e.contractType,
+      e.position ?? "",
+      e.qualification ?? "",
+      e.entryDate ? new Date(e.entryDate).toLocaleDateString("fr-FR") : "",
+      e.exitDate ? new Date(e.exitDate).toLocaleDateString("fr-FR") : "En poste",
+      e.cnapsProfessionalCardNumber ?? "",
+    ]);
+    return { headers, rows };
+  };
+
+  const handleExportPDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    const autoTable = (await import("jspdf-autotable")).default;
+    const { headers, rows } = buildExportRows();
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text("Registre unique du personnel", 14, 16);
+    doc.setFontSize(9);
+    doc.text(
+      `Édité le ${new Date().toLocaleDateString("fr-FR")} — ${rows.length} entrée(s)`,
+      14,
+      22,
     );
+    autoTable(doc, {
+      startY: 28,
+      head: [headers],
+      body: rows,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [34, 211, 238] },
+    });
+    doc.save(`registre-personnel-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const handleExportExcel = () => {
+    const { headers, rows } = buildExportRows();
+    const csv = [headers, ...rows]
+      .map((r) =>
+        r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";"),
+      )
+      .join("\r\n");
+    const blob = new Blob(["﻿" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `registre-personnel-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Apply filters
@@ -415,6 +474,10 @@ export default function PersonnelRegisterPage() {
           <Button onClick={handleExportPDF} variant="outline">
             <Download className="mr-2 h-4 w-4" />
             Exporter PDF
+          </Button>
+          <Button onClick={handleExportExcel} variant="outline">
+            <Download className="mr-2 h-4 w-4" />
+            Exporter Excel
           </Button>
           <Button onClick={handleCreate}>
             <Plus className="mr-2 h-4 w-4" />

@@ -346,6 +346,94 @@ type FormApi = {
   setFieldValue: (name: never, value: never) => void;
 };
 
+// Multi-sélection des qualifications avec ajout manuel (si absente de la liste).
+function QualificationsPicker({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [custom, setCustom] = useState("");
+  const toggle = (q: string) =>
+    onChange(
+      selected.includes(q)
+        ? selected.filter((x) => x !== q)
+        : [...selected, q],
+    );
+  const addCustom = () => {
+    const v = custom.trim();
+    if (v && !selected.includes(v)) onChange([...selected, v]);
+    setCustom("");
+  };
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-auto min-h-10 w-full justify-between font-normal"
+        >
+          <span className="flex flex-wrap gap-1">
+            {selected.length === 0 ? (
+              <span className="text-muted-foreground">
+                Choisir une ou plusieurs…
+              </span>
+            ) : (
+              selected.map((q) => (
+                <Badge key={q} variant="secondary">
+                  {q}
+                </Badge>
+              ))
+            )}
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] p-1"
+      >
+        {QUALIFICATION_OPTIONS.map((q) => (
+          <label
+            key={q}
+            className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-accent"
+          >
+            <Checkbox
+              checked={selected.includes(q)}
+              onCheckedChange={() => toggle(q)}
+            />
+            <span className="text-sm">{q}</span>
+          </label>
+        ))}
+        <div className="my-1 h-px bg-border" />
+        <div className="flex items-center gap-1 p-1">
+          <Input
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addCustom();
+              }
+            }}
+            placeholder="Autre qualification…"
+            className="h-8 text-sm"
+          />
+          <Button
+            type="button"
+            size="sm"
+            onClick={addCustom}
+            disabled={!custom.trim()}
+          >
+            Ajouter
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function FillFakeButton({ onFill }: { onFill: () => void }) {
   return (
     <div className="flex justify-end">
@@ -786,62 +874,16 @@ function EmploymentStep({ form }: { form: FormApi }) {
           )}
         </form.Field>
         <form.Field name="qualifications">
-          {(field) => {
-            const selected: string[] = field.state.value ?? [];
-            const toggle = (q: string) =>
-              field.handleChange(
-                selected.includes(q)
-                  ? selected.filter((x) => x !== q)
-                  : [...selected, q],
-              );
-            return (
-              <div className="space-y-2">
-                <Label>Qualifications</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-auto min-h-10 w-full justify-between font-normal"
-                    >
-                      <span className="flex flex-wrap gap-1">
-                        {selected.length === 0 ? (
-                          <span className="text-muted-foreground">
-                            Choisir une ou plusieurs…
-                          </span>
-                        ) : (
-                          selected.map((q) => (
-                            <Badge key={q} variant="secondary">
-                              {q}
-                            </Badge>
-                          ))
-                        )}
-                      </span>
-                      <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="start"
-                    className="w-[var(--radix-popover-trigger-width)] p-1"
-                  >
-                    {QUALIFICATION_OPTIONS.map((q) => (
-                      <label
-                        key={q}
-                        className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-accent"
-                      >
-                        <Checkbox
-                          checked={selected.includes(q)}
-                          onCheckedChange={() => toggle(q)}
-                        />
-                        <span className="text-sm">{q}</span>
-                      </label>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-                <FieldError field={field} />
-              </div>
-            );
-          }}
+          {(field) => (
+            <div className="space-y-2">
+              <Label>Qualifications</Label>
+              <QualificationsPicker
+                selected={field.state.value ?? []}
+                onChange={(next) => field.handleChange(next as never)}
+              />
+              <FieldError field={field} />
+            </div>
+          )}
         </form.Field>
         <form.Field name="role">
           {(field) => (
