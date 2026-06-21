@@ -16,7 +16,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, ExternalLink, FileText, Clock, CheckCircle } from "lucide-react";
+import {
+  Plus,
+  ExternalLink,
+  FileText,
+  Clock,
+  CheckCircle,
+  Eye,
+  Pencil,
+  Trash2,
+  MoreVertical,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AKTOOPCODossier {
   id: string;
@@ -88,6 +106,7 @@ export default function AKTOOPCOPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedDossier, setSelectedDossier] =
     useState<AKTOOPCODossier | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     type: "AKTO" as "AKTO" | "OPCO",
     title: "",
@@ -164,6 +183,7 @@ export default function AKTOOPCOPage() {
   ];
 
   const handleCreate = () => {
+    setEditingId(null);
     setFormData({
       type: "AKTO",
       title: "",
@@ -175,7 +195,46 @@ export default function AKTOOPCOPage() {
     setIsCreateModalOpen(true);
   };
 
+  const handleEdit = (dossier: AKTOOPCODossier) => {
+    setEditingId(dossier.id);
+    setFormData({
+      type: dossier.type,
+      title: dossier.title,
+      employeeName: dossier.employeeName ?? "",
+      trainingType: dossier.trainingType,
+      amount: String(dossier.amount),
+      accountUrl: dossier.accountUrl ?? "",
+    });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleDelete = (dossierId: string) => {
+    if (confirm("Êtes-vous sûr de vouloir supprimer ce dossier ?")) {
+      setDossiers(dossiers.filter((d) => d.id !== dossierId));
+    }
+  };
+
   const handleSave = () => {
+    if (editingId) {
+      setDossiers(
+        dossiers.map((d) =>
+          d.id === editingId
+            ? {
+                ...d,
+                type: formData.type,
+                title: formData.title,
+                employeeName: formData.employeeName || undefined,
+                trainingType: formData.trainingType,
+                amount: parseFloat(formData.amount) || 0,
+                accountUrl: formData.accountUrl || undefined,
+              }
+            : d,
+        ),
+      );
+      setEditingId(null);
+      setIsCreateModalOpen(false);
+      return;
+    }
     const typeCount = dossiers.filter((d) => d.type === formData.type).length;
     const newDossier: AKTOOPCODossier = {
       id: (dossiers.length + 1).toString(),
@@ -275,6 +334,35 @@ export default function AKTOOPCOPage() {
         searchKey="title"
         searchPlaceholder="Rechercher un dossier..."
         onRowClick={handleRowClick}
+        actions={(dossier) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleRowClick(dossier)}>
+                <Eye className="mr-2 h-4 w-4 text-orange-500" />
+                Voir
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleEdit(dossier)}>
+                <Pencil className="mr-2 h-4 w-4 text-green-600" />
+                Modifier
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleDelete(dossier.id)}
+                className="text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       />
 
       {/* Create Modal */}
@@ -282,11 +370,15 @@ export default function AKTOOPCOPage() {
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         type="form"
-        title="Nouveau dossier AKTO/OPCO"
+        title={
+          editingId
+            ? "Modifier le dossier AKTO/OPCO"
+            : "Nouveau dossier AKTO/OPCO"
+        }
         size="lg"
         actions={{
           primary: {
-            label: "Créer",
+            label: editingId ? "Enregistrer" : "Créer",
             onClick: handleSave,
           },
           secondary: {

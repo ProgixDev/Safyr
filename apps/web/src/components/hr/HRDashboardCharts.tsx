@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -204,6 +204,8 @@ export function MiniDonut({
 }
 
 function DonutChart({ data }: { data: PieDatum[] }) {
+  // Animation dynamique : la tranche cliquée s'agrandit (et se réduit au re-clic).
+  const [activeIndex, setActiveIndex] = useState(-1);
   return (
     <>
       <ResponsiveContainer width="100%" height={200}>
@@ -216,6 +218,14 @@ function DonutChart({ data }: { data: PieDatum[] }) {
             outerRadius={80}
             paddingAngle={3}
             dataKey="value"
+            activeIndex={activeIndex}
+            activeShape={{ outerRadius: 92 }}
+            onClick={(_, index) =>
+              setActiveIndex((cur) => (cur === index ? -1 : index))
+            }
+            isAnimationActive
+            animationDuration={700}
+            className="cursor-pointer"
           >
             {data.map((entry, i) => (
               <Cell key={`cell-${i}`} fill={entry.color} stroke="transparent" />

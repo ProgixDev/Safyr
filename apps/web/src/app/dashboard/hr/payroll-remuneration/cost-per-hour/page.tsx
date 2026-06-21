@@ -199,6 +199,14 @@ export default function PersonnelCostPage() {
       render: (cost) => <span>{cost.netSalary.toLocaleString("fr-FR")} €</span>,
     },
     {
+      key: "employeeContributions",
+      label: "Charges salariales",
+      sortable: true,
+      render: (cost) => (
+        <span>{cost.employeeContributions.toLocaleString("fr-FR")} €</span>
+      ),
+    },
+    {
       key: "employerContributions",
       label: "Charges patronales",
       sortable: true,

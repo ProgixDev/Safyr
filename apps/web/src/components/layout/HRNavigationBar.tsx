@@ -141,6 +141,10 @@ const navItems: NavItem[] = [
         href: "/dashboard/hr/safety-health-training/training-plan",
       },
       {
+        label: "AKTO et OPCO",
+        href: "/dashboard/hr/safety-health-training/training-plan/akto",
+      },
+      {
         label: "Registre de formation & Alertes",
         href: "/dashboard/hr/safety-health-training/training-register",
       },
