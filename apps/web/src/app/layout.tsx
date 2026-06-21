@@ -30,7 +30,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark overflow-x-hidden">
+    <html
+      lang="en"
+      className="dark overflow-x-hidden"
+      suppressHydrationWarning
+    >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(localStorage.getItem('theme')==='light'){document.documentElement.classList.remove('dark');}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className={`${aldrich.variable} ${spaceGrotesk.variable} antialiased overflow-x-hidden font-sans`}
       >

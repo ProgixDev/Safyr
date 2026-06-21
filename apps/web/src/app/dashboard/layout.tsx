@@ -26,6 +26,7 @@ import { AgendaModal } from "@/components/modals/AgendaModal";
 import { LiensUtilesModal } from "@/components/modals/LiensUtilesModal";
 import { SessionGuard } from "@/components/session-guard";
 import Image from "next/image";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface Module {
   name: string;
@@ -249,7 +250,8 @@ function DashboardLayoutContent({ children }: { children: ReactNode }) {
           </nav>
 
           {/* Footer */}
-          <div className="border-t p-2">
+          <div className="border-t p-2 space-y-2">
+            <ThemeToggle expanded={isExpandedDisplay} />
             <button
               onClick={() => setIsHidden(true)}
               className="flex h-6 w-6 mx-auto mt-2 items-center justify-center rounded-full border bg-card shadow-md hover:bg-accent transition-colors"

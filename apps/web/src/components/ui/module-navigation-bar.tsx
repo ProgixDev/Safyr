@@ -69,7 +69,7 @@ export function ModuleNavigationBar({
   return (
     <div className="border-t bg-muted/30">
       {showNav && (
-        <nav className="flex items-center gap-3 px-6 py-2 overflow-x-auto">
+        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2">
           {!shouldExpand ? (
             <>
               {/* Active Menu Item Name */}
