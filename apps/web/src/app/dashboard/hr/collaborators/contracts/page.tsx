@@ -28,11 +28,30 @@ import {
   FileSignature,
   FileText,
   MoreVertical,
+  Download,
+  Receipt,
 } from "lucide-react";
 import { Contract } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
+
+// Téléchargement (mock) d'un document : génère un fichier placeholder.
+// À remplacer par le vrai fichier servi par le backend une fois branché.
+function downloadMock(filename: string) {
+  const blob = new Blob(
+    [
+      `Document : ${filename}\n(Placeholder — le vrai fichier sera servi par le backend.)`,
+    ],
+    { type: "text/plain" },
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 // Mock data - replace with API call
 const mockContracts: Contract[] = [
@@ -374,15 +393,29 @@ export default function ContractsPage() {
               onClick={() => handleView(contract)}
               className="gap-2"
             >
-              <Eye className="h-4 w-4" />
+              <Eye className="h-4 w-4 text-orange-500" />
               Voir
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handleEdit(contract)}
               className="gap-2"
             >
-              <Pencil className="h-4 w-4" />
+              <Pencil className="h-4 w-4 text-green-600" />
               Modifier
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => downloadMock(`Recu_contrat_${contract.id}`)}
+              className="gap-2"
+            >
+              <Receipt className="h-4 w-4 text-blue-600" />
+              Télécharger le reçu
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => downloadMock(`Facture_contrat_${contract.id}`)}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4 text-blue-600" />
+              Télécharger la facture
             </DropdownMenuItem>
             {contract.status === "draft" && (
               <DropdownMenuItem

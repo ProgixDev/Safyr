@@ -343,11 +343,11 @@ export default function CDDRegisterPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleView(entry)}>
-              <Eye className="mr-2 h-4 w-4" />
+              <Eye className="mr-2 h-4 w-4 text-orange-500" />
               Voir
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEdit(entry)}>
-              <Pencil className="mr-2 h-4 w-4" />
+              <Pencil className="mr-2 h-4 w-4 text-green-600" />
               Modifier
             </DropdownMenuItem>
             <DropdownMenuItem

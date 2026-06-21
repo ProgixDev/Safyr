@@ -222,7 +222,7 @@ export function EmployeeContractsTab({}: EmployeeContractsTabProps) {
                     Modifier
                   </Button>
                   <Button variant="outline" size="sm">
-                    <Eye className="mr-2 h-4 w-4" />
+                    <Eye className="mr-2 h-4 w-4 text-orange-500" />
                     Voir
                   </Button>
                   <Button variant="outline" size="sm">

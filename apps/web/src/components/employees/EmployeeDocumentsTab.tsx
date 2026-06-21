@@ -460,7 +460,7 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm">
-                        <Eye className="mr-2 h-4 w-4" />
+                        <Eye className="mr-2 h-4 w-4 text-orange-500" />
                         Voir
                       </Button>
                       <Button variant="outline" size="sm">
@@ -646,7 +646,7 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
                 Télécharger attestation
               </Button>
               <Button variant="outline">
-                <Eye className="mr-2 h-4 w-4" />
+                <Eye className="mr-2 h-4 w-4 text-orange-500" />
                 Voir carte numérique
               </Button>
             </div>

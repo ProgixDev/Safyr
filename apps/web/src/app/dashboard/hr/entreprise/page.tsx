@@ -292,7 +292,7 @@ function EntrepriseContent({
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-4">
-        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border bg-muted/30 flex items-center justify-center">
+        <div className="h-28 w-28 shrink-0 overflow-hidden rounded-xl border-2 border-border bg-muted/30 flex items-center justify-center">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -301,7 +301,7 @@ function EntrepriseContent({
               className="h-full w-full object-contain"
             />
           ) : (
-            <Building2 className="h-8 w-8 text-muted-foreground" />
+            <Building2 className="h-12 w-12 text-muted-foreground" />
           )}
         </div>
         <div>
@@ -313,7 +313,6 @@ function EntrepriseContent({
           <Button
             type="button"
             variant="outline"
-            size="sm"
             className="mt-2"
             onClick={handleLogoUpload}
             disabled={logoUploading}
@@ -388,7 +387,7 @@ function EntrepriseContent({
                     size="sm"
                     onClick={() => setIsEditing(true)}
                   >
-                    <Pencil className="mr-2 h-4 w-4" />
+                    <Pencil className="mr-2 h-4 w-4 text-green-600" />
                     Modifier
                   </Button>
                 ) : (

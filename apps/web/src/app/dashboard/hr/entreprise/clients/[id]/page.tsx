@@ -826,11 +826,11 @@ export default function ClientDetailPage({
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setViewContract(c)}>
-                        <Eye className="mr-2 h-4 w-4" />
+                        <Eye className="mr-2 h-4 w-4 text-orange-500" />
                         Voir
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setViewContract(c)}>
-                        <Edit3 className="mr-2 h-4 w-4" />
+                        <Edit3 className="mr-2 h-4 w-4 text-green-600" />
                         Modifier
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -884,11 +884,11 @@ export default function ClientDetailPage({
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setViewGift(g)}>
-                        <Eye className="mr-2 h-4 w-4" />
+                        <Eye className="mr-2 h-4 w-4 text-orange-500" />
                         Voir
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setViewGift(g)}>
-                        <Edit3 className="mr-2 h-4 w-4" />
+                        <Edit3 className="mr-2 h-4 w-4 text-green-600" />
                         Modifier
                       </DropdownMenuItem>
                       <DropdownMenuItem

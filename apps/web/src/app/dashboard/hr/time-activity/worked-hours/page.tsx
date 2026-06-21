@@ -305,11 +305,11 @@ function WorkedHoursContent() {
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => handleViewDetails(hours)}>
-              <Eye className="mr-2 h-4 w-4" />
+              <Eye className="mr-2 h-4 w-4 text-orange-500" />
               Voir
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEdit(hours)}>
-              <Edit3 className="mr-2 h-4 w-4" />
+              <Edit3 className="mr-2 h-4 w-4 text-green-600" />
               Modifier
             </DropdownMenuItem>
             <DropdownMenuSeparator />

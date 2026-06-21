@@ -252,7 +252,7 @@ export default function CSEHoursPage() {
           className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm"
           onClick={() => handleViewDetails(session)}
         >
-          <Eye className="mr-2 h-4 w-4" />
+          <Eye className="mr-2 h-4 w-4 text-orange-500" />
           Voir
         </button>
         {session.validated === false && (

@@ -299,7 +299,17 @@ export default function VerificationsPage() {
       key: "actions",
       label: "Actions",
       render: (verif: RegulatoryVerification) => (
-        <DropdownMenu>
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openDracar(verif.cnapsNumber)}
+            className="gap-1 border-blue-300 text-blue-700 hover:bg-blue-50"
+          >
+            <Shield className="h-4 w-4" />
+            DRACAR
+          </Button>
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreVertical className="h-4 w-4" />
@@ -353,7 +363,8 @@ export default function VerificationsPage() {
               Supprimer
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
+        </div>
       ),
     },
   ];

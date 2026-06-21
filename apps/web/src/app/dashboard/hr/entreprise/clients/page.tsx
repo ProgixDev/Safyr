@@ -288,11 +288,11 @@ export default function ClientsPage() {
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleView(client)}>
-          <Eye className="mr-2 h-4 w-4" />
+          <Eye className="mr-2 h-4 w-4 text-orange-500" />
           Voir
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleEdit(client)}>
-          <Edit3 className="mr-2 h-4 w-4" />
+          <Edit3 className="mr-2 h-4 w-4 text-green-600" />
           Modifier
         </DropdownMenuItem>
         <DropdownMenuSeparator />

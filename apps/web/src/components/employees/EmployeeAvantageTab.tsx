@@ -711,7 +711,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                       setShowDetailsModal(true);
                     }}
                   >
-                    <Eye className="mr-2 h-4 w-4" />
+                    <Eye className="mr-2 h-4 w-4 text-orange-500" />
                     Détails
                   </Button>
                   {item.consumable ? (
