@@ -38,6 +38,13 @@ import {
   Receipt,
 } from "lucide-react";
 import { ExpenseReport, ExpenseItem } from "@/lib/types";
+import {
+  useExpenseReports,
+  useCreateExpenseReport,
+  useUpdateAnyExpenseReport,
+  useDeleteExpenseReport,
+} from "@/hooks/payroll";
+import type { ExpenseItem as ApiExpenseItem } from "@safyr/api-client";
 
 // Mock data - replace with API call
 const mockExpenseReports: ExpenseReport[] = [
@@ -185,7 +192,43 @@ type TableItem = ExpenseItem & {
 };
 
 export default function ExpenseReportsPage() {
-  const [expenses, setExpenses] = useState<ExpenseReport[]>(mockExpenseReports);
+  const { data: rawExpenses = [] } = useExpenseReports();
+  const createExpenseMutation = useCreateExpenseReport();
+  const updateExpenseMutation = useUpdateAnyExpenseReport();
+  const deleteExpenseMutation = useDeleteExpenseReport();
+
+  const reviveDate = (value: unknown): Date | undefined =>
+    value ? new Date(value as string) : undefined;
+
+  const expenses: ExpenseReport[] = rawExpenses.map((r) => ({
+    ...r,
+    items: (r.items ?? []).map((item) => ({
+      ...item,
+      date: new Date(item.date),
+    })) as unknown as ExpenseItem[],
+    submittedAt: reviveDate(r.submittedAt),
+    reviewedAt: reviveDate(r.reviewedAt),
+    approvedAt: reviveDate(r.approvedAt),
+    paymentDate: reviveDate(r.paymentDate),
+    notes: r.notes ?? undefined,
+    createdAt: new Date(r.createdAt),
+    updatedAt: new Date(r.updatedAt),
+  })) as unknown as ExpenseReport[];
+
+  // Persiste les items modifiés d'un rapport (opérations au niveau ligne).
+  const persistReportItems = (
+    reportId: string,
+    items: ExpenseItem[],
+  ) => {
+    const totalAmount = items.reduce((sum, it) => sum + Number(it.amount), 0);
+    updateExpenseMutation.mutate({
+      id: reportId,
+      data: {
+        items: items as unknown as ApiExpenseItem[],
+        totalAmount,
+      },
+    });
+  };
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseReport | null>(
@@ -263,45 +306,34 @@ export default function ExpenseReportsPage() {
   };
 
   const handleDeleteItem = (itemId: string, reportId: string) => {
-    setExpenses(
-      expenses.map((report) =>
-        report.id === reportId
-          ? {
-              ...report,
-              items: report.items.filter((item) => item.id !== itemId),
-              totalAmount: report.items
-                .filter((item) => item.id !== itemId)
-                .reduce((sum, item) => sum + item.amount, 0),
-              updatedAt: new Date(),
-            }
-          : report,
-      ),
-    );
+    const report = expenses.find((r) => r.id === reportId);
+    if (!report) return;
+    const remaining = report.items.filter((item) => item.id !== itemId);
+    if (remaining.length === 0) {
+      // Plus aucune ligne → supprimer la note de frais entière.
+      deleteExpenseMutation.mutate(reportId);
+      return;
+    }
+    persistReportItems(reportId, remaining);
   };
 
   const handleAccept = (itemId: string, reportId: string, notes?: string) => {
     const notesToUse = notes !== undefined ? notes : approvalNotes;
-    setExpenses(
-      expenses.map((report) =>
-        report.id === reportId
+    const report = expenses.find((r) => r.id === reportId);
+    if (report) {
+      const items = report.items.map((item) =>
+        item.id === itemId
           ? {
-              ...report,
-              items: report.items.map((item) =>
-                item.id === itemId
-                  ? {
-                      ...item,
-                      status: "approved" as const,
-                      approvalNotes: notesToUse || undefined,
-                      approvedAt: new Date(),
-                      approvedBy: "Alice Dubois", // Mock current user
-                    }
-                  : item,
-              ),
-              updatedAt: new Date(),
+              ...item,
+              status: "approved" as const,
+              approvalNotes: notesToUse || undefined,
+              approvedAt: new Date(),
+              approvedBy: "Alice Dubois",
             }
-          : report,
-      ),
-    );
+          : item,
+      );
+      persistReportItems(reportId, items as unknown as ExpenseItem[]);
+    }
     if (notes === undefined) {
       setIsViewModalOpen(false);
       setApprovalNotes("");
@@ -310,77 +342,70 @@ export default function ExpenseReportsPage() {
 
   const handleRefuse = (itemId: string, reportId: string, notes?: string) => {
     const notesToUse = notes !== undefined ? notes : approvalNotes;
-    setExpenses(
-      expenses.map((report) =>
-        report.id === reportId
+    const report = expenses.find((r) => r.id === reportId);
+    if (report) {
+      const items = report.items.map((item) =>
+        item.id === itemId
           ? {
-              ...report,
-              items: report.items.map((item) =>
-                item.id === itemId
-                  ? {
-                      ...item,
-                      status: "rejected" as const,
-                      rejectionNotes: notesToUse || undefined,
-                      rejectedAt: new Date(),
-                      rejectedBy: "Alice Dubois", // Mock current user
-                    }
-                  : item,
-              ),
-              updatedAt: new Date(),
+              ...item,
+              status: "rejected" as const,
+              rejectionNotes: notesToUse || undefined,
+              rejectedAt: new Date(),
+              rejectedBy: "Alice Dubois",
             }
-          : report,
-      ),
-    );
+          : item,
+      );
+      persistReportItems(reportId, items as unknown as ExpenseItem[]);
+    }
     if (notes === undefined) {
       setIsViewModalOpen(false);
       setApprovalNotes("");
     }
   };
 
-  const handleSave = (asDraft = false) => {
+  const handleSave = async (asDraft = false) => {
     const totalAmount = formData.items.reduce(
       (sum, item) => sum + Number(item.amount),
       0,
     );
 
+    const toIso = (d: unknown): string =>
+      d instanceof Date ? d.toISOString() : String(d ?? "");
+
+    const items: ApiExpenseItem[] = formData.items.map((item, index) => ({
+      id: (index + 1).toString(),
+      category: item.category,
+      description: item.description ?? "",
+      amount: Number(item.amount),
+      date: toIso(item.date),
+      notes: item.notes,
+      status: asDraft ? ("draft" as const) : ("submitted" as const),
+    }));
+
     const expenseData = {
       employeeId: formData.employeeId,
       title: `Note de frais du ${new Date().toLocaleDateString("fr-FR")}`,
-      items: formData.items.map((item, index) => ({
-        id: (index + 1).toString(),
-        ...item,
-        amount: Number(item.amount),
-        status: asDraft ? ("draft" as const) : ("submitted" as const),
-      })),
+      items,
       totalAmount,
       status: asDraft ? ("draft" as const) : ("submitted" as const),
-      submittedAt: asDraft ? undefined : new Date(),
       exportedToPayroll: false,
     };
 
-    if (editingExpense) {
-      setExpenses(
-        expenses.map((expense) =>
-          expense.id === editingExpense.id
-            ? {
-                ...expense,
-                ...expenseData,
-                updatedAt: new Date(),
-              }
-            : expense,
-        ),
-      );
-    } else {
-      const newExpense: ExpenseReport = {
-        id: Date.now().toString(),
-        ...expenseData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setExpenses([...expenses, newExpense]);
+    try {
+      if (editingExpense) {
+        await updateExpenseMutation.mutateAsync({
+          id: editingExpense.id,
+          data: expenseData,
+        });
+      } else {
+        await createExpenseMutation.mutateAsync(expenseData);
+      }
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de l'enregistrement de la note de frais : ${message}`);
     }
-
-    setIsCreateModalOpen(false);
   };
 
   const addItem = () => {
@@ -489,11 +514,11 @@ export default function ExpenseReportsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleViewItem(item)}>
-              <Eye className="mr-2 h-4 w-4 text-orange-500" />
+              <Eye className="mr-2 h-4 w-4 text-green-600" />
               Voir
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEditReport(item.reportId)}>
-              <Pencil className="mr-2 h-4 w-4 text-green-600" />
+              <Pencil className="mr-2 h-4 w-4 text-orange-500" />
               Modifier la note
             </DropdownMenuItem>
             <DropdownMenuItem

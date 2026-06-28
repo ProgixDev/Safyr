@@ -221,7 +221,7 @@ export function EmployeeDisciplineTab({
       render: () => (
         <Button variant="outline" size="sm" asChild>
           <Link href="/dashboard/hr/collaborators/discipline?tab=warnings">
-            <Eye className="mr-2 h-4 w-4 text-orange-500" />
+            <Eye className="mr-2 h-4 w-4 text-green-600" />
             Voir
           </Link>
         </Button>
@@ -255,7 +255,7 @@ export function EmployeeDisciplineTab({
       render: () => (
         <Button variant="outline" size="sm" asChild>
           <Link href="/dashboard/hr/collaborators/discipline?tab=procedures">
-            <Eye className="mr-2 h-4 w-4 text-orange-500" />
+            <Eye className="mr-2 h-4 w-4 text-green-600" />
             Voir
           </Link>
         </Button>
@@ -293,7 +293,7 @@ export function EmployeeDisciplineTab({
       render: () => (
         <Button variant="outline" size="sm" asChild>
           <Link href="/dashboard/hr/collaborators/discipline?tab=sanctions">
-            <Eye className="mr-2 h-4 w-4 text-orange-500" />
+            <Eye className="mr-2 h-4 w-4 text-green-600" />
             Voir
           </Link>
         </Button>

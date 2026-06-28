@@ -883,7 +883,7 @@ function QuickActionsWidget({ isLoading }: { isLoading: boolean }) {
     },
     {
       label: "Communication",
-      href: "/dashboard/hr/hr-services/communication/send-email",
+      href: "/dashboard/hr/hr-services/communication",
       icon: Mail,
     },
   ];

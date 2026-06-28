@@ -44,6 +44,12 @@ import type {
   Employee,
 } from "@/lib/types";
 import { mockEmployees } from "@/data/employees";
+import {
+  usePayrollVariables,
+  useCreatePayrollVariable,
+  useDeletePayrollVariable,
+  useUpdateAnyPayrollVariable,
+} from "@/hooks/payroll";
 
 // Mock data
 const mockVariables: PayrollVariable[] = [
@@ -315,7 +321,19 @@ export default function PayrollVariablesPage() {
     [], // Only compute once on mount
   );
 
-  const [variables, setVariables] = useState<PayrollVariable[]>(mockVariables);
+  const { data: rawVariables = [] } = usePayrollVariables();
+  const createVariableMutation = useCreatePayrollVariable();
+  const deleteVariableMutation = useDeletePayrollVariable();
+  const updateVariableMutation = useUpdateAnyPayrollVariable();
+
+  const variables: PayrollVariable[] = rawVariables.map((v) => ({
+    ...v,
+    type: v.type as PayrollVariableType,
+    description: v.description ?? undefined,
+    notes: v.notes ?? undefined,
+    createdAt: new Date(v.createdAt),
+    updatedAt: new Date(v.updatedAt),
+  }));
   const [isVariableModalOpen, setIsVariableModalOpen] = useState(
     initialState.isVariableModalOpen,
   );
@@ -355,35 +373,17 @@ export default function PayrollVariablesPage() {
   }, [employeeSearchOpen]);
 
   const handleValidate = (variable: PayrollVariable, notes: string) => {
-    setVariables(
-      variables.map((v) =>
-        v.id === variable.id
-          ? {
-              ...v,
-              status: "validated",
-              processedBy: "Admin",
-              processedAt: new Date(),
-              notes,
-            }
-          : v,
-      ),
-    );
+    updateVariableMutation.mutate({
+      id: variable.id,
+      data: { status: "validated", notes },
+    });
   };
 
   const handleRefuse = (variable: PayrollVariable, notes: string) => {
-    setVariables(
-      variables.map((v) =>
-        v.id === variable.id
-          ? {
-              ...v,
-              status: "refused",
-              processedBy: "Admin",
-              processedAt: new Date(),
-              notes,
-            }
-          : v,
-      ),
-    );
+    updateVariableMutation.mutate({
+      id: variable.id,
+      data: { status: "refused", notes },
+    });
   };
 
   const handleSelectEmployee = (employee: Employee) => {
@@ -428,67 +428,69 @@ export default function PayrollVariablesPage() {
     setIsVariableModalOpen(true);
   };
 
-  const handleCreateOrUpdateVariable = () => {
+  const handleCreateOrUpdateVariable = async () => {
     const period = `${variableForm.year}-${variableForm.month.padStart(2, "0")}-01`;
-    if (isEditMode && selectedVariable) {
-      // Update existing variable
-      setVariables(
-        variables.map((v) =>
-          v.id === selectedVariable.id
-            ? {
-                ...v,
-                employeeId: variableForm.employeeId,
-                employeeName: variableForm.employeeName,
-                period,
-                type: variableForm.type,
-                amount: parseFloat(variableForm.amount),
-                description: variableForm.description,
-                updatedAt: new Date(),
-              }
-            : v,
-        ),
-      );
-    } else {
-      // Create new variables for each non-empty type
-      const newVariables: PayrollVariable[] = [];
-      const types = [
-        "h_jour",
-        "h_dimanche",
-        "h_ferie",
-        "h_nuit",
-        "h_dimanche_nuit",
-        "h_ferie_nuit",
-        "h_supp_25",
-        "h_supp_50",
-        "h_compl_10",
-        "nbre_paniers",
-        "frais_restauration",
-        "prime",
-        "indemnite_habillage",
-        "tenue",
-        "nbre_deplacement",
-        "autres_indemnites",
-      ].filter((t) => !t.startsWith("h_"));
-      types.forEach((type) => {
-        const amountStr = (variableForm as Record<string, string>)[type];
-        if (amountStr && parseFloat(amountStr) > 0) {
-          const variable: PayrollVariable = {
-            id: `VAR${Date.now()}-${type}`,
+    try {
+      if (isEditMode && selectedVariable) {
+        await updateVariableMutation.mutateAsync({
+          id: selectedVariable.id,
+          data: {
             employeeId: variableForm.employeeId,
             employeeName: variableForm.employeeName,
             period,
-            type: type as PayrollVariableType,
-            amount: parseFloat(amountStr),
-            currency: "EUR",
+            type: variableForm.type,
+            amount: parseFloat(variableForm.amount),
             description: variableForm.description,
-            status: "pending",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          newVariables.push(variable);
-        }
-      });
-      setVariables([...variables, ...newVariables]);
+          },
+        });
+      } else {
+        const types = [
+          "h_jour",
+          "h_dimanche",
+          "h_ferie",
+          "h_nuit",
+          "h_dimanche_nuit",
+          "h_ferie_nuit",
+          "h_supp_25",
+          "h_supp_50",
+          "h_compl_10",
+          "nbre_paniers",
+          "frais_restauration",
+          "prime",
+          "indemnite_habillage",
+          "tenue",
+          "nbre_deplacement",
+          "autres_indemnites",
+        ];
+        const toCreate = types
+          .map((type) => ({
+            type,
+            amountStr: (variableForm as Record<string, string>)[type],
+          }))
+          .filter(
+            ({ amountStr }) => amountStr && parseFloat(amountStr) > 0,
+          );
+
+        await Promise.all(
+          toCreate.map(({ type, amountStr }) =>
+            createVariableMutation.mutateAsync({
+              employeeId: variableForm.employeeId,
+              employeeName: variableForm.employeeName,
+              period,
+              type,
+              amount: parseFloat(amountStr),
+              currency: "EUR",
+              description: variableForm.description,
+              status: "pending",
+            }),
+          ),
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de l'enregistrement : ${message}`);
+      return;
     }
 
     setIsVariableModalOpen(false);
@@ -869,7 +871,7 @@ export default function PayrollVariablesPage() {
               <DropdownMenuItem
                 onClick={() => {
                   if (confirm("Supprimer cette variable ?")) {
-                    setVariables(variables.filter((v) => v.id !== item.id));
+                    deleteVariableMutation.mutate(item.id);
                   }
                 }}
                 className="flex items-center gap-2 text-destructive"

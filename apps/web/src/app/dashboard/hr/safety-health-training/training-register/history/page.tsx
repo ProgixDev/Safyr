@@ -378,11 +378,11 @@ export default function TrainingRegisterPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleView(training)}>
-              <Eye className="mr-2 h-4 w-4 text-orange-500" />
+              <Eye className="mr-2 h-4 w-4 text-green-600" />
               Voir
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEdit(training)}>
-              <Pencil className="mr-2 h-4 w-4 text-green-600" />
+              <Pencil className="mr-2 h-4 w-4 text-orange-500" />
               Modifier
             </DropdownMenuItem>
             <DropdownMenuItem

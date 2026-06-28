@@ -297,7 +297,7 @@ export default function PaidLeaveTrackingPage() {
           className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm"
           onClick={() => handleViewDetails(employee)}
         >
-          <Eye className="mr-2 h-4 w-4 text-orange-500" />
+          <Eye className="mr-2 h-4 w-4 text-green-600" />
           Voir détails
         </button>
         <button

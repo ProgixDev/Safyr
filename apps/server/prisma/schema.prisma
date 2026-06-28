@@ -459,3 +459,98 @@ model LogbookEvent {
   @@map("logbook_event")
 }
 
+model Client {
+  id             String @id @default(cuid())
+  organizationId String
+
+  name          String
+  address       String?
+  city          String?
+  postalCode    String?
+  country       String?
+  contactPerson String?
+  phone         String?
+  email         String?
+  siret         String?
+  numTVA        String?
+  sector        String?
+  dirigeant     Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("client")
+}
+
+model Subcontractor {
+  id             String @id @default(cuid())
+  organizationId String
+
+  name                String
+  siret               String?
+  address             String?
+  email               String?
+  telephone           String?
+  capitalSocial       String?
+  numeroAutorisation  String?
+  dateDebut           String?
+  statut              String  @default("actif") // "actif" | "inactif" | "suspendu"
+  prochainRenouvellement String?
+  dirigeant           Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("subcontractor")
+}
+
+model ExpenseReport {
+  id             String @id @default(cuid())
+  organizationId String
+
+  employeeId        String
+  title             String
+  items             Json    // ExpenseItem[]
+  totalAmount       Float   @default(0)
+  status            String  @default("draft") // draft|submitted|approved|rejected|paid
+  submittedAt       DateTime?
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  approvedBy        String?
+  approvedAt        DateTime?
+  rejectionReason   String?
+  paymentDate       DateTime?
+  exportedToPayroll Boolean @default(false)
+  exportedAt        DateTime?
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("expense_report")
+}
+
+model PayrollVariable {
+  id             String @id @default(cuid())
+  organizationId String
+
+  employeeId   String
+  employeeName String
+  period       String
+  type         String
+  amount       Float
+  currency     String  @default("EUR")
+  description  String?
+  status       String  @default("pending") // pending|validated|refused
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("payroll_variable")
+}
+

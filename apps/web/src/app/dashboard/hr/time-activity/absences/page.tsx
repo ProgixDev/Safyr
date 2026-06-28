@@ -144,21 +144,27 @@ export default function TimeManagementPage() {
         variant: "secondary" as const,
         label: "En attente",
         icon: Clock,
+        className:
+          "border-transparent bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-500/20 dark:text-orange-300",
       },
       approved: {
         variant: "default" as const,
         label: "Approuvé",
         icon: CheckCircle,
+        className:
+          "border-transparent bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-500/20 dark:text-green-300",
       },
       rejected: {
         variant: "destructive" as const,
         label: "Refusé",
         icon: XCircle,
+        className: "",
       },
       cancelled: {
         variant: "outline" as const,
         label: "Annulé",
         icon: XCircle,
+        className: "",
       },
     };
     return variants[status];
@@ -409,7 +415,7 @@ export default function TimeManagementPage() {
         return (
           <Badge
             variant={statusConfig.variant}
-            className="flex items-center gap-1 w-fit"
+            className={`flex items-center gap-1 w-fit ${statusConfig.className}`}
           >
             <StatusIcon className="h-3 w-3" />
             {statusConfig.label}
@@ -430,11 +436,11 @@ export default function TimeManagementPage() {
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleViewDetails(request)}>
-          <Eye className="mr-2 h-4 w-4 text-orange-500" />
+          <Eye className="mr-2 h-4 w-4 text-green-600" />
           Voir
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleEdit(request)}>
-          <Pencil className="mr-2 h-4 w-4 text-green-600" />
+          <Pencil className="mr-2 h-4 w-4 text-orange-500" />
           Modifier
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleHistory(request)}>

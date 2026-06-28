@@ -387,7 +387,7 @@ function EntrepriseContent({
                     size="sm"
                     onClick={() => setIsEditing(true)}
                   >
-                    <Pencil className="mr-2 h-4 w-4 text-green-600" />
+                    <Pencil className="mr-2 h-4 w-4 text-orange-500" />
                     Modifier
                   </Button>
                 ) : (

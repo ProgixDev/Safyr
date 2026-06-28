@@ -212,7 +212,7 @@ export default function SiteDetailPage({
                           setPostDialogOpen(true);
                         }}
                       >
-                        <Eye className="mr-2 h-4 w-4 text-orange-500" />
+                        <Eye className="mr-2 h-4 w-4 text-green-600" />
                         Voir
                       </DropdownMenuItem>
                       <DropdownMenuItem
@@ -221,7 +221,7 @@ export default function SiteDetailPage({
                           setPostDialogOpen(true);
                         }}
                       >
-                        <Pencil className="mr-2 h-4 w-4 text-green-600" />
+                        <Pencil className="mr-2 h-4 w-4 text-orange-500" />
                         Modifier
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />

@@ -83,6 +83,31 @@ export class EmailService {
     }
   }
 
+  /**
+   * Envoi d'un email libre (centre de communication RH).
+   * En développement, l'email est routé vers la boîte dev (non envoyé).
+   */
+  async sendCustom(params: {
+    to: string;
+    subject: string;
+    html: string;
+    meta?: Record<string, unknown>;
+  }): Promise<void> {
+    const { to, subject, html, meta } = params;
+
+    if (this.isDev || !this.transport) {
+      this.logDevEmail({ to, subject, html, meta });
+      return;
+    }
+
+    await this.transport.sendMail({
+      from: this.env.SMTP_FROM,
+      to,
+      subject,
+      html,
+    });
+  }
+
   async sendMagicLink(
     to: string,
     params: { url: string; expiresInMinutes?: number },

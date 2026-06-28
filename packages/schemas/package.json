@@ -32,6 +32,14 @@
     "./logbook": {
       "types": "./dist/logbook.d.ts",
       "default": "./dist/logbook.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./payroll": {
+      "types": "./dist/payroll.d.ts",
+      "default": "./dist/payroll.js"
     }
   },
   "scripts": {

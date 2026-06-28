@@ -16,7 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, FileDown, FileSpreadsheet } from "lucide-react";
+import { exportDuerpToPdf, exportDuerpToExcel } from "@/lib/duerp-export";
 
 interface Risk {
   risque: string;
@@ -516,10 +517,28 @@ export default function DUERPPage() {
             Document Unique d&apos;Évaluation des Risques Professionnels
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Ajouter un poste
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => exportDuerpToPdf(postes)}
+            className="gap-2"
+          >
+            <FileDown className="h-4 w-4 text-red-600" />
+            Exporter PDF
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => exportDuerpToExcel(postes)}
+            className="gap-2"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-green-600" />
+            Exporter Excel
+          </Button>
+          <Button onClick={() => setIsModalOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Ajouter un poste
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-6">

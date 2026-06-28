@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Send, Paperclip, X, Users, Building, UserCog } from "lucide-react";
 import { mockEmployees } from "@/data/employees";
 import { mockEmailTemplates } from "@/data/email-templates";
+import { sendCommunicationEmail } from "@safyr/api-client";
 
 interface EmailRecipient {
   id: string;
@@ -78,6 +79,7 @@ export default function SendEmailPage() {
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
   const [saveInArchive, setSaveInArchive] = useState(true);
+  const [isSending, setIsSending] = useState(false);
 
   const getRecipientsList = (): EmailRecipient[] => {
     switch (recipientType) {
@@ -132,7 +134,7 @@ export default function SendEmailPage() {
     setAttachments(attachments.filter((_, i) => i !== index));
   };
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     if (selectedRecipients.length === 0) {
       alert("Veuillez sélectionner au moins un destinataire");
       return;
@@ -142,17 +144,53 @@ export default function SendEmailPage() {
       return;
     }
 
-    // Simulate sending
-    alert(
-      `Email envoyé à ${selectedRecipients.length} destinataire(s)${saveInArchive ? " et archivé dans les dossiers" : ""}`,
-    );
+    // Résout les emails à partir de tous les destinataires possibles.
+    const allRecipients: EmailRecipient[] = [
+      ...mockEmployees.map((emp) => ({
+        id: emp.id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        email: emp.email,
+        type: "employee" as const,
+      })),
+      ...mockClients,
+      ...mockPartners,
+    ];
+    const emails = allRecipients
+      .filter((r) => selectedRecipients.includes(r.id))
+      .map((r) => r.email)
+      .filter(Boolean);
 
-    // Reset form
-    setSelectedRecipients([]);
-    setSubject("");
-    setBody("");
-    setSelectedTemplate("");
-    setAttachments([]);
+    if (emails.length === 0) {
+      alert("Aucune adresse email valide pour les destinataires sélectionnés");
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const result = await sendCommunicationEmail({
+        recipients: emails,
+        subject,
+        body,
+        saveInArchive,
+      });
+
+      alert(
+        `Email envoyé à ${result.sent} destinataire(s)${saveInArchive ? " et archivé dans les dossiers" : ""}`,
+      );
+
+      // Reset form
+      setSelectedRecipients([]);
+      setSubject("");
+      setBody("");
+      setSelectedTemplate("");
+      setAttachments([]);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de l'envoi de l'email : ${message}`);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const recipients = getRecipientsList();
@@ -384,9 +422,9 @@ export default function SendEmailPage() {
               >
                 Annuler
               </Button>
-              <Button onClick={handleSendEmail}>
+              <Button onClick={handleSendEmail} disabled={isSending}>
                 <Send className="h-4 w-4 mr-2" />
-                Envoyer l&apos;email
+                {isSending ? "Envoi en cours..." : "Envoyer l'email"}
               </Button>
             </div>
           </CardContent>

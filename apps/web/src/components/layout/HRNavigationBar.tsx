@@ -44,7 +44,7 @@ const navItems: NavItem[] = [
         href: "/dashboard/hr/collaborators/personnel-register",
       },
       {
-        label: "Annuaire & Dossiers salariés",
+        label: "Dossiers salariés",
         href: "/dashboard/hr/collaborators",
       },
       {

@@ -182,7 +182,9 @@ export function ModuleNavigationBar({
                                   pathname === child.href && "bg-accent",
                                 )}
                               >
-                                <span>{child.label}</span>
+                                <span className="text-[15px]">
+                                  {child.label}
+                                </span>
                                 {child.isNew && (
                                   <span className="ml-auto px-1.5 py-0.5 text-xs font-semibold rounded-full bg-green-500 text-white">
                                     Nouveau
@@ -198,7 +200,7 @@ export function ModuleNavigationBar({
                                 {index > 0 && (
                                   <div className="my-1 h-px bg-border" />
                                 )}
-                                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                   {child.section}
                                 </div>
                                 {node}

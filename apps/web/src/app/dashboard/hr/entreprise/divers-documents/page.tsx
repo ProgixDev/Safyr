@@ -742,7 +742,7 @@ export default function DiversDocumentsPage() {
                                   <DropdownMenuItem
                                     onClick={() => setViewDoc(document)}
                                   >
-                                    <Eye className="mr-2 h-4 w-4 text-orange-500" />
+                                    <Eye className="mr-2 h-4 w-4 text-green-600" />
                                     Voir
                                   </DropdownMenuItem>
                                   <DropdownMenuItem

@@ -9,6 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -552,17 +559,35 @@ export default function TrainingPlanPage() {
             <Label htmlFor="title">
               Titre de la formation <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="title"
+            <Select
               value={planForm.title}
-              onChange={(e) =>
+              onValueChange={(value) =>
                 setPlanForm((prev) => ({
                   ...prev,
-                  title: e.target.value,
+                  title: value,
                 }))
               }
-              placeholder="Titre de la formation"
-            />
+            >
+              <SelectTrigger id="title">
+                <SelectValue placeholder="Choisir une formation..." />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  "SSIAP1",
+                  "SSIAP2",
+                  "SSIAP3",
+                  "SST",
+                  "H0B0",
+                  "MAC/APS",
+                  "MAC/SST",
+                  "Divers",
+                ].map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

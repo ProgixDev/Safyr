@@ -30,99 +30,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Client, ClientContract, ClientGift } from "@/lib/types";
+import { ClientContract, ClientGift } from "@/lib/types";
+import type { Client } from "@safyr/api-client";
+import {
+  useClients,
+  useCreateClient,
+  useDeleteClient,
+} from "@/hooks/clients";
 
 export default function ClientsPage() {
   const router = useRouter();
-  const [clients, setClients] = useState<Client[]>([
-    {
-      id: "1",
-      name: "Société ABC Industries",
-      address: "123 Rue de l'Industrie",
-      city: "Paris",
-      postalCode: "75001",
-      country: "France",
-      contactPerson: "Jean Dupont",
-      phone: "01 23 45 67 89",
-      email: "contact@abcindustries.fr",
-      siret: "12345678901234",
-      numTVA: "FR12345678901",
-      sector: "Industrie",
-      dirigeant: {
-        nom: "Dupont",
-        prenom: "Jean",
-        dateNaissance: "1975-05-15",
-        lieuNaissance: "Paris, France",
-        nationalite: "Française",
-        adresse: "15 Avenue Victor Hugo, 75016 Paris",
-        email: "jean.dupont@abcindustries.fr",
-        telephone: "06 12 34 56 78",
-        fonction: "PDG",
-        dateNomination: "2010-03-01",
-        numeroSecuriteSociale: "1 75 05 75 123 456 78",
-      },
-      contracts: [],
-      gifts: [],
-    },
-    {
-      id: "2",
-      name: "Entreprise XYZ Services",
-      address: "456 Avenue des Services",
-      city: "Lyon",
-      postalCode: "69000",
-      country: "France",
-      contactPerson: "Marie Martin",
-      phone: "04 56 78 90 12",
-      email: "contact@xyzservices.fr",
-      siret: "56789012345678",
-      numTVA: "FR98765432109",
-      sector: "Services",
-      dirigeant: {
-        nom: "Martin",
-        prenom: "Marie",
-        dateNaissance: "1980-08-22",
-        lieuNaissance: "Lyon, France",
-        nationalite: "Française",
-        adresse: "78 Cours Gambetta, 69003 Lyon",
-        email: "marie.martin@xyzservices.fr",
-        telephone: "06 98 76 54 32",
-        fonction: "Directrice Générale",
-        dateNomination: "2015-06-15",
-        numeroSecuriteSociale: "2 80 08 69 234 567 89",
-      },
-      contracts: [],
-      gifts: [],
-    },
-    {
-      id: "3",
-      name: "Groupe DEF Solutions",
-      address: "789 Boulevard des Solutions",
-      city: "Marseille",
-      postalCode: "13000",
-      country: "France",
-      contactPerson: "Pierre Durand",
-      phone: "04 91 23 45 67",
-      email: "contact@defsolutions.fr",
-      siret: "90123456789012",
-      numTVA: "FR11223344556",
-      sector: "Technologie",
-      dirigeant: {
-        nom: "Durand",
-        prenom: "Pierre",
-        dateNaissance: "1972-11-30",
-        lieuNaissance: "Marseille, France",
-        nationalite: "Française",
-        adresse: "23 Rue Paradis, 13001 Marseille",
-        email: "pierre.durand@defsolutions.fr",
-        telephone: "06 45 67 89 01",
-        fonction: "Président",
-        dateNomination: "2012-09-01",
-        numeroSecuriteSociale: "1 72 11 13 345 678 90",
-      },
-      contracts: [],
-      gifts: [],
-    },
-  ]);
+  const { data: clients = [] } = useClients();
 
   const [contracts] = useState<ClientContract[]>([
     {
@@ -177,6 +95,9 @@ export default function ClientsPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
 
+  const createClientMutation = useCreateClient();
+  const deleteClientMutation = useDeleteClient();
+
   const [newClient, setNewClient] = useState({
     name: "",
     address: "",
@@ -204,16 +125,31 @@ export default function ClientsPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (clientToDelete) {
-      setClients(clients.filter((c) => c.id !== clientToDelete.id));
+  const handleDeleteConfirm = async () => {
+    if (!clientToDelete) return;
+    try {
+      await deleteClientMutation.mutateAsync(clientToDelete.id);
       setIsDeleteModalOpen(false);
       setClientToDelete(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de la suppression : ${message}`);
     }
   };
 
-  const handleNewClient = () => {
-    console.log("Nouveau client:", newClient);
+  const handleNewClient = async () => {
+    if (!newClient.name.trim()) {
+      return;
+    }
+    try {
+      await createClientMutation.mutateAsync(newClient);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de l'enregistrement du client : ${message}`);
+      return;
+    }
     setIsNewClientModalOpen(false);
     setNewClient({
       name: "",
@@ -288,11 +224,11 @@ export default function ClientsPage() {
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleView(client)}>
-          <Eye className="mr-2 h-4 w-4 text-orange-500" />
+          <Eye className="mr-2 h-4 w-4 text-green-600" />
           Voir
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleEdit(client)}>
-          <Edit3 className="mr-2 h-4 w-4 text-green-600" />
+          <Edit3 className="mr-2 h-4 w-4 text-orange-500" />
           Modifier
         </DropdownMenuItem>
         <DropdownMenuSeparator />

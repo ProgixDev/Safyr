@@ -32,6 +32,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  useSubcontractors,
+  useCreateSubcontractor,
+  useDeleteSubcontractor,
+} from "@/hooks/clients";
 
 interface DirigeantInfo {
   nom: string;
@@ -64,86 +69,38 @@ interface SousTraitant {
 
 export default function SousTraitantsPage() {
   const router = useRouter();
-  const [sousTraitants, setSousTraitants] = useState<SousTraitant[]>([
-    {
-      id: "1",
-      name: "Gardiennage Plus",
-      siret: "12345678901234",
-      address: "456 Avenue de la Garde, 69001 Lyon",
-      dirigeant: {
-        nom: "Martin",
-        prenom: "Marie",
-        dateNaissance: "1985-03-20",
-        lieuNaissance: "Lyon, France",
-        nationalite: "Française",
-        adresse: "12 Rue de la Paix, 69002 Lyon",
-        email: "marie.martin@gardiennage-plus.fr",
-        telephone: "06 11 22 33 44",
-        fonction: "Gérante",
-        dateNomination: "2020-06-01",
-        numeroSecuriteSociale: "2 85 03 69 123 456 78",
-      },
-      email: "contact@gardiennage-plus.fr",
-      telephone: "04 78 12 34 56",
-      capitalSocial: "25000",
-      numeroAutorisation: "AUT-654321-CNAPS",
-      dateDebut: "2023-01-15",
-      statut: "actif",
-      prochainRenouvellement: "2025-06-15",
-    },
-    {
-      id: "2",
-      name: "SecuriTech Solutions",
-      siret: "98765432109876",
-      address: "789 Rue de la Sécurité, 13001 Marseille",
-      dirigeant: {
-        nom: "Dubois",
-        prenom: "Pierre",
-        dateNaissance: "1978-11-15",
-        lieuNaissance: "Marseille, France",
-        nationalite: "Française",
-        adresse: "98 Avenue du Prado, 13008 Marseille",
-        email: "pierre.dubois@securitech.fr",
-        telephone: "06 55 66 77 88",
-        fonction: "Président",
-        dateNomination: "2019-03-15",
-        numeroSecuriteSociale: "1 78 11 13 234 567 89",
-      },
-      email: "info@securitech.fr",
-      telephone: "04 91 23 45 67",
-      capitalSocial: "75000",
-      numeroAutorisation: "AUT-987654-CNAPS",
-      dateDebut: "2022-08-20",
-      statut: "actif",
-      prochainRenouvellement: "2025-03-20",
-    },
-    {
-      id: "3",
-      name: "Protection Services",
-      siret: "11223344556677",
-      address: "321 Boulevard Sécurité, 33000 Bordeaux",
-      dirigeant: {
-        nom: "Bernard",
-        prenom: "Sophie",
-        dateNaissance: "1982-07-10",
-        lieuNaissance: "Bordeaux, France",
-        nationalite: "Française",
-        adresse: "45 Cours de l'Intendance, 33000 Bordeaux",
-        email: "sophie.bernard@protection-services.fr",
-        telephone: "06 99 88 77 66",
-        fonction: "Directrice Générale",
-        dateNomination: "2021-01-10",
-        numeroSecuriteSociale: "2 82 07 33 345 678 90",
-      },
-      email: "contact@protection-services.fr",
-      telephone: "05 56 78 90 12",
-      capitalSocial: "50000",
-      numeroAutorisation: "AUT-112233-CNAPS",
-      dateDebut: "2023-03-10",
-      statut: "suspendu",
-      prochainRenouvellement: "2025-01-10",
-    },
-  ]);
+  const { data: rawSubcontractors = [] } = useSubcontractors();
+  const createSubcontractorMutation = useCreateSubcontractor();
+  const deleteSubcontractorMutation = useDeleteSubcontractor();
+
+  const emptyDirigeant: DirigeantInfo = {
+    nom: "",
+    prenom: "",
+    dateNaissance: "",
+    lieuNaissance: "",
+    nationalite: "Française",
+    adresse: "",
+    email: "",
+    telephone: "",
+    fonction: "",
+    dateNomination: "",
+    numeroSecuriteSociale: "",
+  };
+
+  const sousTraitants: SousTraitant[] = rawSubcontractors.map((s) => ({
+    id: s.id,
+    name: s.name,
+    siret: s.siret ?? "",
+    address: s.address ?? "",
+    dirigeant: { ...emptyDirigeant, ...(s.dirigeant ?? {}) },
+    email: s.email ?? "",
+    telephone: s.telephone ?? "",
+    capitalSocial: s.capitalSocial ?? "",
+    numeroAutorisation: s.numeroAutorisation ?? "",
+    dateDebut: s.dateDebut ?? "",
+    statut: s.statut,
+    prochainRenouvellement: s.prochainRenouvellement ?? "",
+  }));
 
   const [isNewSousTraitantModalOpen, setIsNewSousTraitantModalOpen] =
     useState(false);
@@ -215,12 +172,16 @@ export default function SousTraitantsPage() {
     );
   };
 
-  const handleDelete = (sousTraitant: SousTraitant) => {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer ${sousTraitant.name} ?`)) {
-      setSousTraitants((prev) =>
-        prev.filter((st) => st.id !== sousTraitant.id),
-      );
-      console.log("Deleted:", sousTraitant.id);
+  const handleDelete = async (sousTraitant: SousTraitant) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer ${sousTraitant.name} ?`)) {
+      return;
+    }
+    try {
+      await deleteSubcontractorMutation.mutateAsync(sousTraitant.id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de la suppression : ${message}`);
     }
   };
 
@@ -255,11 +216,15 @@ export default function SousTraitantsPage() {
     setIsNewSousTraitantModalOpen(true);
   };
 
-  const handleSaveNewSousTraitant = () => {
-    // Here you would typically save to a database
-    console.log("Saving new sous-traitant:", newSousTraitant);
-    alert("Sous-traitant créé avec succès!");
-    setIsNewSousTraitantModalOpen(false);
+  const handleSaveNewSousTraitant = async () => {
+    try {
+      await createSubcontractorMutation.mutateAsync(newSousTraitant);
+      setIsNewSousTraitantModalOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de l'enregistrement du sous-traitant : ${message}`);
+    }
   };
 
   const sousTraitantColumns: ColumnDef<SousTraitant>[] = [

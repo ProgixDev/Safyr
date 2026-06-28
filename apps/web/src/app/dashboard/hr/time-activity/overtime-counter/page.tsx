@@ -1,12 +1,28 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 
-import { Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import {
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  MoreVertical,
+  Eye,
+  BadgeEuro,
+} from "lucide-react";
 
 // Mock data for overtime counter
 const mockOvertimeCounters = [
@@ -167,6 +183,23 @@ const mockOvertimeCounters = [
 ];
 
 export default function OvertimeCounterPage() {
+  const [counters, setCounters] = useState(mockOvertimeCounters);
+
+  const handleValiderPaiement = (id: string) => {
+    setCounters((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              paidHours: c.accumulatedHours,
+              remainingHours: 0,
+              lastPaymentDate: new Date(),
+            }
+          : c,
+      ),
+    );
+  };
+
   const renderMonthlyBreakdown = (
     counter: (typeof mockOvertimeCounters)[0],
   ) => {
@@ -285,15 +318,12 @@ export default function OvertimeCounterPage() {
       },
     ];
 
-  const totalAccumulated = mockOvertimeCounters.reduce(
+  const totalAccumulated = counters.reduce(
     (sum, c) => sum + c.accumulatedHours,
     0,
   );
-  const totalPaid = mockOvertimeCounters.reduce(
-    (sum, c) => sum + c.paidHours,
-    0,
-  );
-  const totalRemaining = mockOvertimeCounters.reduce(
+  const totalPaid = counters.reduce((sum, c) => sum + c.paidHours, 0);
+  const totalRemaining = counters.reduce(
     (sum, c) => sum + c.remainingHours,
     0,
   );
@@ -344,11 +374,41 @@ export default function OvertimeCounterPage() {
         </CardHeader>
         <CardContent>
           <DataTable
-            data={mockOvertimeCounters}
+            data={counters}
             columns={overtimeCounterColumns}
             searchKeys={["employeeName", "employeeNumber", "department"]}
             searchPlaceholder="Rechercher par nom, numéro ou département..."
             itemsPerPage={10}
+            actions={(counter) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() =>
+                      alert(
+                        `${counter.employeeName}\nCumul: ${counter.accumulatedHours}h\nPayé: ${counter.paidHours}h\nRestant: ${counter.remainingHours}h`,
+                      )
+                    }
+                  >
+                    <Eye className="mr-2 h-4 w-4 text-green-600" />
+                    Voir détails
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={counter.remainingHours <= 0}
+                    onClick={() => handleValiderPaiement(counter.id)}
+                  >
+                    <BadgeEuro className="mr-2 h-4 w-4 text-orange-500" />
+                    Valider le paiement
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             filters={[
               {
                 key: "department",

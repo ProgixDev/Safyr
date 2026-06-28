@@ -11,6 +11,9 @@ import { TimeEntriesModule } from "./time-entries/time-entries.module";
 import { SitesModule } from "./sites/sites.module";
 import { ShiftsModule } from "./shifts/shifts.module";
 import { LogbookModule } from "./logbook/logbook.module";
+import { CommunicationModule } from "./communication/communication.module";
+import { EntrepriseModule } from "./entreprise/entreprise.module";
+import { PayrollModule } from "./payroll/payroll.module";
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { LogbookModule } from "./logbook/logbook.module";
     SitesModule,
     ShiftsModule,
     LogbookModule,
+    CommunicationModule,
+    EntrepriseModule,
+    PayrollModule,
   ],
   controllers: [HealthController],
 })

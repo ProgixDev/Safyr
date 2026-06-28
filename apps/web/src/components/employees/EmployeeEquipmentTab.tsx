@@ -684,7 +684,7 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
                       setShowDetailsModal(true);
                     }}
                   >
-                    <Eye className="mr-2 h-4 w-4 text-orange-500" />
+                    <Eye className="mr-2 h-4 w-4 text-green-600" />
                     Détails
                   </Button>
                   {item.consumable ? (

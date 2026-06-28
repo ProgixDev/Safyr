@@ -354,11 +354,11 @@ export default function DocumentRequestsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleView(request)}>
-              <Eye className="mr-2 h-4 w-4 text-orange-500" />
+              <Eye className="mr-2 h-4 w-4 text-green-600" />
               Voir
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEdit(request)}>
-              <Pencil className="mr-2 h-4 w-4 text-green-600" />
+              <Pencil className="mr-2 h-4 w-4 text-orange-500" />
               Modifier
             </DropdownMenuItem>
             {request.status === "pending" && (

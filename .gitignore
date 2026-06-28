@@ -110,3 +110,6 @@ docs/.obsidian
 assets
 tsconfig.tsbuildinfo
 .vercel
+
+# Stray/edge env files (e.g. ".env serveur.env")
+*.env

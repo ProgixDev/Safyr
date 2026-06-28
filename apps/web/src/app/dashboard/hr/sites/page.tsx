@@ -179,11 +179,11 @@ export default function SitesPage() {
                   <DropdownMenuItem
                     onClick={() => router.push(`/dashboard/hr/sites/${s.id}`)}
                   >
-                    <Eye className="mr-2 h-4 w-4 text-orange-500" />
+                    <Eye className="mr-2 h-4 w-4 text-green-600" />
                     Voir
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setToEdit(s)}>
-                    <Edit3 className="mr-2 h-4 w-4 text-green-600" />
+                    <Edit3 className="mr-2 h-4 w-4 text-orange-500" />
                     Modifier
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

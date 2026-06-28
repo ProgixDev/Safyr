@@ -9,6 +9,7 @@ import { mockEmailTemplates } from "@/data/email-templates";
 import { HRNavigationBar } from "@/components/layout/HRNavigationBar";
 import { ModuleTopBar } from "@/components/ui/module-top-bar";
 import { Users } from "lucide-react";
+import { sendCommunicationEmail } from "@safyr/api-client";
 
 export default function HRLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -23,10 +24,34 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
       (path) => pathname.includes(path),
     );
 
-  const handleSendEmail = (emailData: { subject: string; body: string }) => {
-    console.log("Sending email to:", selectedEmployees);
-    console.log("Email data:", emailData);
+  const handleSendEmail = async (emailData: {
+    subject: string;
+    body: string;
+  }) => {
+    const emails = selectedEmployees
+      .map((e) => e.email)
+      .filter((email): email is string => Boolean(email));
+
     handleSendSuccess();
+
+    if (emails.length === 0) {
+      alert("Aucun destinataire avec une adresse email valide");
+      return;
+    }
+
+    try {
+      const result = await sendCommunicationEmail({
+        recipients: emails,
+        subject: emailData.subject,
+        body: emailData.body,
+        saveInArchive: true,
+      });
+      alert(`Email envoyé à ${result.sent} destinataire(s)`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de l'envoi de l'email : ${message}`);
+    }
   };
 
   return (
