@@ -83,6 +83,7 @@ export interface Employee {
   workSchedule: string | null;
   status: "active" | "inactive" | "suspended" | "terminated";
   terminatedAt: string | null;
+  dressingAllowance: boolean;
 
   addressRecord: MemberAddress | null;
   bankDetails: MemberBankDetails | null;
@@ -115,6 +116,7 @@ export interface CreateEmployeePayload {
   workSchedule?: "full-time" | "part-time";
   status?: "active" | "inactive" | "suspended" | "terminated";
   role?: "owner" | "agent";
+  dressingAllowance?: boolean;
   address: {
     street: string;
     city: string;

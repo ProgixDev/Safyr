@@ -580,6 +580,7 @@ function pendingToEmployee(p: CreateEmployeePayload, idx: number): Employee {
     workSchedule: p.workSchedule ?? null,
     status: p.status ?? "active",
     terminatedAt: null,
+    dressingAllowance: p.dressingAllowance ?? false,
     addressRecord: {
       id: "",
       memberId: "",

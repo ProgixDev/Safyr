@@ -104,6 +104,7 @@ const emptyDefaults: CreateEmployeeDto = {
   workSchedule: "full-time",
   status: "active",
   role: "agent",
+  dressingAllowance: false,
   qualifications: [],
   address: {
     street: "",
@@ -976,6 +977,26 @@ function EmploymentStep({ form }: { form: FormApi }) {
                 </SelectContent>
               </Select>
               <FieldError field={field} />
+            </div>
+          )}
+        </form.Field>
+        <form.Field name="dressingAllowance">
+          {(field) => (
+            <div className="flex items-start gap-2 pt-2 sm:col-span-2">
+              <Checkbox
+                id="dressingAllowance"
+                checked={!!field.state.value}
+                onCheckedChange={(v) => field.handleChange(v === true)}
+              />
+              <Label
+                htmlFor="dressingAllowance"
+                className="cursor-pointer text-sm font-normal leading-snug"
+              >
+                Soumis à l&apos;indemnité d&apos;habillage
+                <span className="block text-xs text-muted-foreground">
+                  Calculée automatiquement en paie selon le nombre d&apos;heures.
+                </span>
+              </Label>
             </div>
           )}
         </form.Field>

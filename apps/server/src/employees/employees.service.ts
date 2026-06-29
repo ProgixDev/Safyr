@@ -154,6 +154,7 @@ export class EmployeesService {
           contractType: dto.contractType ?? null,
           workSchedule: dto.workSchedule ?? null,
           status: dto.status ?? "active",
+          dressingAllowance: dto.dressingAllowance ?? false,
           addressRecord: {
             create: {
               street: dto.address.street,

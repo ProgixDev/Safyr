@@ -43,6 +43,7 @@ export function toUiEmployee(e: ApiEmployee): UiEmployee {
     workSchedule: (e.workSchedule as UiEmployee["workSchedule"]) ?? "full-time",
     status: e.status,
     role: (e.role as UiEmployee["role"]) ?? undefined,
+    dressingAllowance: e.dressingAllowance ?? false,
     documents: {},
     contracts: [],
     assignedEquipment: [],

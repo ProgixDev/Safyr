@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
+import { useUpdateEmployee } from "@/hooks/employees";
 import {
   Select,
   SelectContent,
@@ -43,6 +45,23 @@ interface EmployeeAvantageTabProps {
 }
 
 export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
+  const updateEmployee = useUpdateEmployee(employee.id);
+  const [dressingAllowance, setDressingAllowance] = useState(
+    employee.dressingAllowance ?? false,
+  );
+
+  const handleToggleDressingAllowance = async (checked: boolean) => {
+    setDressingAllowance(checked);
+    try {
+      await updateEmployee.mutateAsync({ dressingAllowance: checked });
+    } catch (error) {
+      setDressingAllowance(!checked); // rollback en cas d'échec
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de la mise à jour : ${message}`);
+    }
+  };
+
   const [equipment, setEquipment] = useState<Equipment[]>([
     {
       id: "6",
@@ -612,6 +631,34 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Primes / indemnités paramétrables */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">
+            Primes &amp; indemnités
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <Checkbox
+              id="dressingAllowance"
+              checked={dressingAllowance}
+              onCheckedChange={(v) => handleToggleDressingAllowance(v === true)}
+              disabled={updateEmployee.isPending}
+            />
+            <span className="leading-snug">
+              <span className="text-sm font-medium">
+                Soumis à l&apos;indemnité d&apos;habillage
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                Calculée automatiquement en paie en fonction du nombre
+                d&apos;heures effectuées.
+              </span>
+            </span>
+          </label>
+        </CardContent>
+      </Card>
+
       {/* Avantage Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

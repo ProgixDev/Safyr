@@ -395,6 +395,9 @@ export interface Employee {
   status: "active" | "inactive" | "suspended" | "terminated";
   role?: "owner" | "agent";
 
+  // Soumis à l'indemnité d'habillage (calculée auto en paie selon les heures)
+  dressingAllowance?: boolean;
+
   // Documents
   documents: EmployeeDocuments;
 

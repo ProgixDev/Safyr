@@ -171,6 +171,9 @@ model Member {
   children       Int?
   terminatedAt   DateTime?
 
+  // Soumis à l'indemnité d'habillage (calculée automatiquement en paie selon les heures)
+  dressingAllowance Boolean @default(false)
+
   documents      Document[]
   addressRecord  MemberAddress?
   bankDetails    MemberBankDetails?
