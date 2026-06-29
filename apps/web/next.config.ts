@@ -1,7 +1,6 @@
-import type { NextConfig } from "next";
 import path from "node:path";
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   // React Compiler ajoute de l'overhead de compilation par fichier : on l'active
   // uniquement pour les builds de production afin de garder le dev fluide.
   reactCompiler: process.env.NODE_ENV === "production",

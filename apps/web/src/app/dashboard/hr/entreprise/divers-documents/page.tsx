@@ -40,7 +40,6 @@ import {
   Mail,
   Plus,
   Trash2,
-  Edit3,
   Search,
   Users,
   Shield,
@@ -50,6 +49,8 @@ import {
   Landmark,
   MoreVertical,
   Eye,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 
 // Téléchargement (mock) d'un document : génère un fichier placeholder.
@@ -229,7 +230,7 @@ export default function DiversDocumentsPage() {
     },
   ]);
 
-  const [courriers] = useState<Courrier[]>([
+  const [courriers, setCourriers] = useState<Courrier[]>([
     {
       id: "1",
       organismeId: "1",
@@ -859,9 +860,57 @@ export default function DiversDocumentsPage() {
                                   <Download className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button variant="outline" size="sm">
-                                <Edit3 className="h-4 w-4" />
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setCourriers((prev) =>
+                                        prev.map((c) =>
+                                          c.id === courrier.id
+                                            ? { ...c, statut: "en_cours" }
+                                            : c,
+                                        ),
+                                      )
+                                    }
+                                  >
+                                    <Clock className="mr-2 h-4 w-4 text-orange-500" />
+                                    Marquer en cours
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setCourriers((prev) =>
+                                        prev.map((c) =>
+                                          c.id === courrier.id
+                                            ? { ...c, statut: "traite" }
+                                            : c,
+                                        ),
+                                      )
+                                    }
+                                  >
+                                    <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                                    Marquer comme traité
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setCourriers((prev) =>
+                                        prev.filter((c) => c.id !== courrier.id),
+                                      )
+                                    }
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Supprimer
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                         </div>

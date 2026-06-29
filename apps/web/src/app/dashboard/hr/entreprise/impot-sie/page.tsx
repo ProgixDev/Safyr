@@ -52,6 +52,24 @@ function downloadMock(filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// Upload (mock) : ouvre un sélecteur de fichier et confirme la sélection.
+// Le stockage réel sera branché côté backend (module storage déjà en place).
+function uploadMock(label = "Document fiscal") {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx";
+  input.onchange = () => {
+    const file = input.files?.[0];
+    if (file) {
+      alert(
+        `Fichier « ${file.name} » sélectionné pour « ${label} ».\n` +
+          "Il sera envoyé vers Safyr une fois le stockage branché.",
+      );
+    }
+  };
+  input.click();
+}
+
 interface TVADocument {
   id: string;
   mois: string;
@@ -377,7 +395,7 @@ export default function ImpotSIEPage() {
               Télécharger
             </Button>
           ) : (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => uploadMock()}>
               <Upload className="h-3 w-3 mr-1" />
               Uploader
             </Button>
@@ -396,7 +414,7 @@ export default function ImpotSIEPage() {
               Télécharger
             </Button>
           ) : (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => uploadMock()}>
               <Upload className="h-3 w-3 mr-1" />
               Uploader
             </Button>
@@ -415,7 +433,7 @@ export default function ImpotSIEPage() {
               Télécharger
             </Button>
           ) : (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => uploadMock()}>
               <Upload className="h-3 w-3 mr-1" />
               Uploader
             </Button>
@@ -434,7 +452,7 @@ export default function ImpotSIEPage() {
               Télécharger
             </Button>
           ) : (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => uploadMock()}>
               <Upload className="h-3 w-3 mr-1" />
               Uploader
             </Button>
@@ -624,7 +642,7 @@ export default function ImpotSIEPage() {
                             Télécharger
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
                             <Upload className="h-3 w-3 mr-1" />
                             Uploader
                           </Button>
@@ -643,7 +661,7 @@ export default function ImpotSIEPage() {
                             Télécharger
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
                             <Upload className="h-3 w-3 mr-1" />
                             Uploader
                           </Button>
@@ -662,7 +680,7 @@ export default function ImpotSIEPage() {
                             Télécharger
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
                             <Upload className="h-3 w-3 mr-1" />
                             Uploader
                           </Button>
@@ -727,7 +745,7 @@ export default function ImpotSIEPage() {
                             Télécharger
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
                             <Upload className="h-3 w-3 mr-1" />
                             Uploader
                           </Button>
@@ -746,7 +764,7 @@ export default function ImpotSIEPage() {
                             Télécharger
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
                             <Upload className="h-3 w-3 mr-1" />
                             Uploader
                           </Button>
