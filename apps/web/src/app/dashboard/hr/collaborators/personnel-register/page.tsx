@@ -553,7 +553,9 @@ export default function PersonnelRegisterPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredEntries} />
+          <DataTable columns={columns} data={filteredEntries}
+            rowClassName={() => "hover:bg-gray-100 dark:hover:bg-gray-800"}
+          />
         </CardContent>
       </Card>
 

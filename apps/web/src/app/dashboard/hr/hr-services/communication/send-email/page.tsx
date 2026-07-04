@@ -76,7 +76,7 @@ export default function SendEmailPage() {
   const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [saveInArchive, setSaveInArchive] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -100,6 +100,14 @@ export default function SendEmailPage() {
   };
 
   const handleTemplateSelect = (templateId: string) => {
+    // Si "none" est sélectionné, on réinitialise
+    if (templateId === "none") {
+      setSelectedTemplate(null);
+      setSubject("");
+      setBody("");
+      return;
+    }
+    
     setSelectedTemplate(templateId);
     const template = mockEmailTemplates.find((t) => t.id === templateId);
     if (template) {
@@ -182,7 +190,7 @@ export default function SendEmailPage() {
       setSelectedRecipients([]);
       setSubject("");
       setBody("");
-      setSelectedTemplate("");
+      setSelectedTemplate(null);
       setAttachments([]);
     } catch (error) {
       const message =
@@ -318,14 +326,14 @@ export default function SendEmailPage() {
             <div>
               <Label htmlFor="template">Utiliser un modèle (optionnel)</Label>
               <Select
-                value={selectedTemplate}
+                value={selectedTemplate || "none"}
                 onValueChange={handleTemplateSelect}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Choisir un modèle..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Aucun modèle</SelectItem>
+                  <SelectItem value="none">Aucun modèle</SelectItem>
                   {mockEmailTemplates.map((template) => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.name}
@@ -415,7 +423,7 @@ export default function SendEmailPage() {
                 onClick={() => {
                   setSubject("");
                   setBody("");
-                  setSelectedTemplate("");
+                  setSelectedTemplate(null);
                   setAttachments([]);
                   setSelectedRecipients([]);
                 }}

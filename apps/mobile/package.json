@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --cache -w .",
     "format:check": "prettier -c .",
-    "build:apk": "bash scripts/build-release-apk.sh"
+    "build:apk": "bash scripts/build-release-apk.sh",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@babel/plugin-transform-react-jsx": "^7.28.6",

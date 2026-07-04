@@ -15,6 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Euro,
@@ -25,6 +26,12 @@ import {
   Eye,
   Edit,
   Trash2,
+  Building2,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  Award,
+  BarChart3,
 } from "lucide-react";
 import type { PersonnelCost } from "@/lib/types";
 
@@ -91,6 +98,34 @@ const departmentBreakdown = {
   Direction: { count: 5, totalCost: 35000, avgCostPerHour: 35.2 },
   RH: { count: 3, totalCost: 18000, avgCostPerHour: 28.75 },
   Commercial: { count: 8, totalCost: 42000, avgCostPerHour: 22.3 },
+};
+
+// Couleurs par département
+const departmentColors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
+  Sécurité: {
+    bg: "bg-blue-50 dark:bg-blue-950/30",
+    border: "border-blue-200 dark:border-blue-800",
+    text: "text-blue-700 dark:text-blue-300",
+    icon: "text-blue-500",
+  },
+  Direction: {
+    bg: "bg-purple-50 dark:bg-purple-950/30",
+    border: "border-purple-200 dark:border-purple-800",
+    text: "text-purple-700 dark:text-purple-300",
+    icon: "text-purple-500",
+  },
+  RH: {
+    bg: "bg-green-50 dark:bg-green-950/30",
+    border: "border-green-200 dark:border-green-800",
+    text: "text-green-700 dark:text-green-300",
+    icon: "text-green-500",
+  },
+  Commercial: {
+    bg: "bg-orange-50 dark:bg-orange-950/30",
+    border: "border-orange-200 dark:border-orange-800",
+    text: "text-orange-700 dark:text-orange-300",
+    icon: "text-orange-500",
+  },
 };
 
 export default function PersonnelCostPage() {
@@ -242,6 +277,43 @@ export default function PersonnelCostPage() {
         </Badge>
       ),
     },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (cost) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => handleViewDetails(cost)}
+              className="text-green-600 focus:text-green-700 focus:bg-green-50"
+            >
+              <Eye className="h-4 w-4 mr-2 text-green-600" />
+              Voir
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleEdit(cost)}
+              className="text-orange-600 focus:text-orange-700 focus:bg-orange-50"
+            >
+              <Edit className="h-4 w-4 mr-2 text-orange-600" />
+              Modifier
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => handleDelete(cost)}
+              className="text-red-600 focus:text-red-700 focus:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+              Supprimer
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   ];
 
   return (
@@ -307,69 +379,131 @@ export default function PersonnelCostPage() {
         />
       </InfoCardContainer>
 
-      {/* Department Breakdown */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Répartition par département
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Object.entries(departmentBreakdown).map(([dept, data]) => (
-                <div key={dept} className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{dept}</div>
-                    <div className="text-sm text-muted-foreground">
+      {/* Department Breakdown - Version améliorée avec petits cadres */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Building2 className="h-5 w-5" />
+            Répartition par département
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Object.entries(departmentBreakdown).map(([dept, data]) => {
+              const colors = departmentColors[dept] || departmentColors.Sécurité;
+              return (
+                <div
+                  key={dept}
+                  className={`rounded-lg border p-4 ${colors.bg} ${colors.border}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Building2 className={`h-4 w-4 ${colors.icon}`} />
+                      <h4 className={`font-semibold ${colors.text}`}>{dept}</h4>
+                    </div>
+                    <Badge variant="outline" className="font-mono">
                       {data.count} employé{data.count !== 1 ? "s" : ""}
-                    </div>
+                    </Badge>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold">
-                      {data.totalCost.toLocaleString("fr-FR")} €
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Coût total</span>
+                      <span className="font-semibold">
+                        {data.totalCost.toLocaleString("fr-FR")} €
+                      </span>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {data.avgCostPerHour.toFixed(2)} €/h
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Coût moyen / h</span>
+                      <Badge variant="secondary" className="font-mono">
+                        {data.avgCostPerHour.toFixed(2)} €/h
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <span className="text-sm text-muted-foreground">Coût / employé</span>
+                      <span className="text-sm font-medium">
+                        {(data.totalCost / data.count).toLocaleString("fr-FR")} €
+                      </span>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Top 5 coûts les plus élevés
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {personnelCosts
-                .sort((a, b) => b.totalEmployerCost - a.totalEmployerCost)
-                .slice(0, 5)
-                .map((cost) => (
+      {/* Top 5 costs - Version améliorée avec petits cadres */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Award className="h-5 w-5" />
+            Top 5 coûts les plus élevés
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {personnelCosts
+              .sort((a, b) => b.totalEmployerCost - a.totalEmployerCost)
+              .slice(0, 5)
+              .map((cost, index) => {
+                const colors = [
+                  "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/30",
+                  "border-gray-300 bg-gray-50 dark:bg-gray-950/30",
+                  "border-orange-300 bg-orange-50 dark:bg-orange-950/30",
+                  "border-blue-200 bg-blue-50 dark:bg-blue-950/30",
+                  "border-green-200 bg-green-50 dark:bg-green-950/30",
+                ];
+                const rankColors = [
+                  "text-yellow-600 dark:text-yellow-400",
+                  "text-gray-500 dark:text-gray-400",
+                  "text-orange-600 dark:text-orange-400",
+                  "text-blue-600 dark:text-blue-400",
+                  "text-green-600 dark:text-green-400",
+                ];
+                return (
                   <div
                     key={cost.employeeId}
-                    className="flex items-center justify-between"
+                    className={`flex items-center justify-between rounded-lg border-2 p-4 ${colors[index]}`}
                   >
-                    <div>
-                      <div className="font-medium">{cost.employeeName}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {cost.employeeId}
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
+                        <span className={`text-lg font-bold ${rankColors[index]}`}>
+                          #{index + 1}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="font-medium">{cost.employeeName}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {cost.employeeId}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {cost.costPerHour.toFixed(2)} €/h
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {cost.workedHours}h
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <Badge variant="outline" className="font-mono">
-                      {cost.costPerHour.toFixed(2)} €/h
-                    </Badge>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-primary">
+                        {cost.totalEmployerCost.toLocaleString("fr-FR")} €
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Brut: {cost.grossSalary.toLocaleString("fr-FR")} €
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Charges: {cost.employerContributions.toLocaleString("fr-FR")} €
+                      </div>
+                    </div>
                   </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                );
+              })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Detailed Table */}
       <Card>
@@ -384,29 +518,6 @@ export default function PersonnelCostPage() {
             getSearchValue={(cost) => `${cost.employeeName} ${cost.employeeId}`}
             searchPlaceholder="Rechercher par nom ou numéro d'employé..."
             getRowId={(cost) => cost.employeeId}
-            actions={(cost) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handleViewDetails(cost)}>
-                    <Eye className="h-4 w-4 mr-2" />
-                    Voir
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleEdit(cost)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Modifier
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleDelete(cost)}>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Supprimer
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           />
         </CardContent>
       </Card>

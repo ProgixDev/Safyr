@@ -89,6 +89,10 @@ const navItems: NavItem[] = [
         href: "/dashboard/hr/time-activity/overtime-counter",
       },
       {
+        label: "Suivi Compteur Heures Sup.",
+        href: "/dashboard/hr/time-activity/track-overtime-counter",
+      },
+      {
         label: "Gestion des Absences & Congés",
         href: "/dashboard/hr/time-activity/absences",
       },

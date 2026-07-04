@@ -359,6 +359,7 @@ export default function SousTraitantsPage() {
             itemsPerPage={10}
             onRowClick={handleRowClick}
             getRowId={(st) => st.id}
+            rowClassName={() => "hover:bg-gray-100 dark:hover:bg-gray-800"}
             actions={(st) => (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -369,20 +370,27 @@ export default function SousTraitantsPage() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleView(st)}>
-                    <Eye className="h-4 w-4 mr-2" />
+                  
+                  {/* Voir - Vert */}
+                  <DropdownMenuItem onClick={() => handleView(st)} className="text-green-600 focus:text-green-700 focus:bg-green-50">
+                    <Eye className="h-4 w-4 mr-2 text-green-600" />
                     Voir les détails
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleEdit(st)}>
-                    <Edit3 className="h-4 w-4 mr-2" />
+                  
+                  {/* Modifier - Orange */}
+                  <DropdownMenuItem onClick={() => handleEdit(st)} className="text-orange-600 focus:text-orange-700 focus:bg-orange-50">
+                    <Edit3 className="h-4 w-4 mr-2 text-orange-600" />
                     Modifier
                   </DropdownMenuItem>
+                  
                   <DropdownMenuSeparator />
+                  
+                  {/* Supprimer - Rouge */}
                   <DropdownMenuItem
                     onClick={() => handleDelete(st)}
-                    className="text-destructive focus:text-destructive"
+                    className="text-red-600 focus:text-red-700 focus:bg-red-50"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="h-4 w-4 mr-2 text-red-600" />
                     Supprimer
                   </DropdownMenuItem>
                 </DropdownMenuContent>

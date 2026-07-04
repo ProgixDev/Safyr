@@ -188,7 +188,9 @@ function WorkedHoursContent() {
       label: "Employé",
       sortable: true,
       render: (hours) => (
-        <span className="font-semibold truncate">{hours.employeeName}</span>
+        <span className="font-semibold text-blue-600 dark:text-blue-400 truncate">
+          {hours.employeeName}
+        </span>
       ),
     },
     {
@@ -197,8 +199,8 @@ function WorkedHoursContent() {
       sortable: true,
       render: (hours) => (
         <div className="flex items-center gap-2 min-w-0">
-          <Calendar className="h-4 w-4 shrink-0" />
-          <span className="text-sm truncate">
+          <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="text-sm truncate text-muted-foreground">
             {new Date(hours.date).toLocaleDateString("fr-FR", {
               month: "long",
               year: "numeric",
@@ -212,7 +214,9 @@ function WorkedHoursContent() {
       label: "H jour",
       sortable: true,
       render: (hours) => (
-        <span className="text-sm font-semibold">{hours.regularHours}h</span>
+        <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+          {hours.regularHours}h
+        </span>
       ),
     },
     {
@@ -220,7 +224,9 @@ function WorkedHoursContent() {
       label: "H Dimanche",
       sortable: true,
       render: (hours) => (
-        <span className="text-sm font-semibold">{hours.sundayHours}h</span>
+        <span className="text-sm font-semibold text-orange-500">
+          {hours.sundayHours}h
+        </span>
       ),
     },
     {
@@ -228,7 +234,9 @@ function WorkedHoursContent() {
       label: "H Férié",
       sortable: true,
       render: (hours) => (
-        <span className="text-sm font-semibold">{hours.holidayHours}h</span>
+        <span className="text-sm font-semibold text-red-500">
+          {hours.holidayHours}h
+        </span>
       ),
     },
     {
@@ -236,7 +244,9 @@ function WorkedHoursContent() {
       label: "H Nuit",
       sortable: true,
       render: (hours) => (
-        <span className="text-sm font-semibold">{hours.nightHours}h</span>
+        <span className="text-sm font-semibold text-purple-500">
+          {hours.nightHours}h
+        </span>
       ),
     },
     {
@@ -244,7 +254,9 @@ function WorkedHoursContent() {
       label: "H Dimanche Nuit",
       sortable: true,
       render: (hours) => (
-        <span className="text-sm font-semibold">{hours.sundayNightHours}h</span>
+        <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+          {hours.sundayNightHours}h
+        </span>
       ),
     },
     {
@@ -252,7 +264,7 @@ function WorkedHoursContent() {
       label: "H Férié Nuit",
       sortable: true,
       render: (hours) => (
-        <span className="text-sm font-semibold">
+        <span className="text-sm font-semibold text-red-600 dark:text-red-400">
           {hours.holidayNightHours}h
         </span>
       ),
@@ -262,7 +274,7 @@ function WorkedHoursContent() {
       label: "H Supp 25%",
       sortable: true,
       render: (hours) => (
-        <span className="text-sm font-semibold">
+        <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
           {hours.supplementaryHours25}h
         </span>
       ),
@@ -272,7 +284,7 @@ function WorkedHoursContent() {
       label: "H Supp 50%",
       sortable: true,
       render: (hours) => (
-        <span className="text-sm font-semibold">
+        <span className="text-sm font-semibold text-teal-600 dark:text-teal-400">
           {hours.supplementaryHours50}h
         </span>
       ),
@@ -282,7 +294,7 @@ function WorkedHoursContent() {
       label: "H Compl 10%",
       sortable: true,
       render: (hours) => (
-        <span className="text-sm font-semibold">
+        <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
           {hours.complementaryHours10}h
         </span>
       ),
@@ -418,6 +430,7 @@ function WorkedHoursContent() {
                   })
                 : (value as string)
             }
+            rowClassName={() => "hover:bg-muted/50 transition-colors"}
           />
         </CardContent>
       </Card>
@@ -693,7 +706,7 @@ function WorkedHoursContent() {
                   <p className="text-sm text-muted-foreground">
                     <Link
                       href={`/dashboard/hr/collaborators/${selectedHours.employeeId}`}
-                      className="text-primary hover:underline"
+                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
                     >
                       {selectedHours.employeeName}
                     </Link>
@@ -726,7 +739,7 @@ function WorkedHoursContent() {
                     <Label className="text-sm font-medium">
                       Heures normales
                     </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mt-1">
                       {selectedHours.regularHours}h
                     </p>
                   </div>
@@ -734,7 +747,7 @@ function WorkedHoursContent() {
                     <Label className="text-sm font-medium">
                       Heures supp. 25%
                     </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
                       {selectedHours.supplementaryHours25}h
                     </p>
                   </div>
@@ -742,7 +755,7 @@ function WorkedHoursContent() {
                     <Label className="text-sm font-medium">
                       Heures supp. 50%
                     </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-semibold text-teal-600 dark:text-teal-400 mt-1">
                       {selectedHours.supplementaryHours50}h
                     </p>
                   </div>
@@ -750,7 +763,7 @@ function WorkedHoursContent() {
                     <Label className="text-sm font-medium">
                       Heures comp. 10%
                     </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 mt-1">
                       {selectedHours.complementaryHours10}h
                     </p>
                   </div>
@@ -758,7 +771,7 @@ function WorkedHoursContent() {
                     <Label className="text-sm font-medium">
                       Heures de nuit
                     </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-semibold text-purple-500 mt-1">
                       {selectedHours.nightHours}h
                     </p>
                   </div>
@@ -766,7 +779,7 @@ function WorkedHoursContent() {
                     <Label className="text-sm font-medium">
                       Heures dimanche
                     </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-semibold text-orange-500 mt-1">
                       {selectedHours.sundayHours}h
                     </p>
                   </div>
@@ -774,7 +787,7 @@ function WorkedHoursContent() {
                     <Label className="text-sm font-medium">
                       Heures dimanche nuit
                     </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-semibold text-orange-600 dark:text-orange-400 mt-1">
                       {selectedHours.sundayNightHours}h
                     </p>
                   </div>
@@ -782,7 +795,7 @@ function WorkedHoursContent() {
                     <Label className="text-sm font-medium">
                       Heures jours fériés
                     </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-semibold text-red-500 mt-1">
                       {selectedHours.holidayHours}h
                     </p>
                   </div>
@@ -790,7 +803,7 @@ function WorkedHoursContent() {
                     <Label className="text-sm font-medium">
                       Heures jours fériés nuit
                     </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-semibold text-red-600 dark:text-red-400 mt-1">
                       {selectedHours.holidayNightHours}h
                     </p>
                   </div>
@@ -802,7 +815,7 @@ function WorkedHoursContent() {
                       <Label className="text-sm font-medium">
                         Total heures
                       </Label>
-                      <p className="text-sm font-medium">
+                      <p className="text-sm font-semibold text-primary">
                         {selectedHours.regularHours +
                           selectedHours.supplementaryHours25 +
                           selectedHours.supplementaryHours50 +
@@ -819,7 +832,7 @@ function WorkedHoursContent() {
                       <Label className="text-sm font-medium">
                         Heures majorées
                       </Label>
-                      <p className="text-sm font-medium">
+                      <p className="text-sm font-semibold text-orange-500">
                         {selectedHours.supplementaryHours25 +
                           selectedHours.supplementaryHours50 +
                           selectedHours.complementaryHours10 +

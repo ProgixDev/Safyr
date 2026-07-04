@@ -33,6 +33,8 @@ import {
   Edit3,
   Receipt,
   CreditCard,
+  Eye,
+  FileText,
 } from "lucide-react";
 
 // Téléchargement (mock) d'un document : génère un fichier placeholder.
@@ -390,10 +392,12 @@ export default function ImpotSIEPage() {
       render: (dossier) => (
         <div className="flex gap-2">
           {dossier.grandLivre ? (
-            <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
-              <Download className="h-3 w-3 mr-1" />
-              Télécharger
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
+                <Download className="h-3 w-3 mr-1" />
+                Télécharger
+              </Button>
+            </>
           ) : (
             <Button variant="outline" size="sm" onClick={() => uploadMock()}>
               <Upload className="h-3 w-3 mr-1" />
@@ -464,12 +468,137 @@ export default function ImpotSIEPage() {
       key: "statut",
       label: "Statut",
       render: (dossier) => (
-        <Badge className={getStatutColor(dossier.statut)}>
-          {getStatutText(dossier.statut)}
-        </Badge>
+        <Select
+          value={dossier.statut}
+          onValueChange={(value: "complet" | "partiel" | "manquant") => {
+            // Mettre à jour le statut directement
+            setTvaDossiers((prev) =>
+              prev.map((d) =>
+                d.id === dossier.id ? { ...d, statut: value } : d
+              )
+            );
+          }}
+        >
+          <SelectTrigger className="w-32 h-8">
+            <SelectValue>
+              <Badge className={getStatutColor(dossier.statut)}>
+                {getStatutText(dossier.statut)}
+              </Badge>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="complet">
+              <Badge className="bg-green-500">Complet</Badge>
+            </SelectItem>
+            <SelectItem value="partiel">
+              <Badge className="bg-orange-500">Partiel</Badge>
+            </SelectItem>
+            <SelectItem value="manquant">
+              <Badge className="bg-red-500">Manquant</Badge>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: "documents",
+      label: "Documents",
+      render: (dossier) => (
+        <div className="flex gap-1">
+          {dossier.grandLivre && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 w-7 p-0"
+              onClick={() => handleViewDocument(dossier, "grandLivre")}
+              title="Voir Grand Livre"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {dossier.declaration && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 w-7 p-0"
+              onClick={() => handleViewDocument(dossier, "declaration")}
+              title="Voir Déclaration"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {dossier.arDeclaration && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 w-7 p-0"
+              onClick={() => handleViewDocument(dossier, "arDeclaration")}
+              title="Voir AR"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {dossier.paiement && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 w-7 p-0"
+              onClick={() => handleViewDocument(dossier, "paiement")}
+              title="Voir Paiement"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {!dossier.grandLivre && !dossier.declaration && !dossier.arDeclaration && !dossier.paiement && (
+            <span className="text-xs text-muted-foreground">Aucun document</span>
+          )}
+        </div>
       ),
     },
   ];
+
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+const [selectedDocument, setSelectedDocument] = useState<TVADocument | null>(null);
+const [editingStatut, setEditingStatut] = useState<string>("");
+const [selectedDocumentType, setSelectedDocumentType] = useState<string | null>(null);
+const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+const [previewDocument, setPreviewDocument] = useState<{name: string, content: string, type: string} | null>(null);
+// Fonction pour ouvrir le modal de visualisation
+
+const handleViewDocument = (dossier: TVADocument, type?: string) => {
+  let filename = "";
+  let label = "";
+  
+  switch(type) {
+    case "grandLivre":
+      filename = dossier.grandLivre || "";
+      label = "Grand Livre TVA";
+      break;
+    case "declaration":
+      filename = dossier.declaration || "";
+      label = "Déclaration TVA";
+      break;
+    case "arDeclaration":
+      filename = dossier.arDeclaration || "";
+      label = "AR Déclaration";
+      break;
+    case "paiement":
+      filename = dossier.paiement || "";
+      label = "Paiement TVA";
+      break;
+    default:
+      return;
+  }
+  
+  if (!filename) return;
+  
+  setPreviewDocument({
+    name: filename,
+    content: `Document : ${filename}\n\nMois : ${dossier.mois}\nAnnée : ${dossier.annee}\nStatut : ${getStatutText(dossier.statut)}\n\n--- Contenu du document ---\n\n${label}\n${"-".repeat(label.length)}\n\nCeci est un aperçu du document.\nLe contenu réel sera affiché une fois le backend connecté.\n\nFichier : ${filename}\nTaille : 2.4 MB\nType : PDF`,
+    type: label
+  });
+};
+
 
   return (
     <div className="space-y-6">
@@ -557,13 +686,20 @@ export default function ImpotSIEPage() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="tva">Dossiers TVA</TabsTrigger>
-          <TabsTrigger value="cfe">CFE</TabsTrigger>
-          <TabsTrigger value="prelevement">Prélèvement Source</TabsTrigger>
-          <TabsTrigger value="courriers">Courriers</TabsTrigger>
-        </TabsList>
-
+       <TabsList className="grid w-full grid-cols-4 text-base h-auto p-1">
+  <TabsTrigger value="tva" className="text-base py-3 px-4">
+    Dossiers TVA
+  </TabsTrigger>
+  <TabsTrigger value="cfe" className="text-base py-3 px-4">
+    CFE
+  </TabsTrigger>
+  <TabsTrigger value="prelevement" className="text-base py-3 px-4">
+    Prélèvement Source
+  </TabsTrigger>
+  <TabsTrigger value="courriers" className="text-base py-3 px-4">
+    Courriers
+  </TabsTrigger>
+</TabsList>
         <TabsContent value="tva">
           <Card>
             <CardHeader>
@@ -1153,6 +1289,61 @@ export default function ImpotSIEPage() {
           )}
         </div>
       </Modal>
+
+     {/* Modal d'aperçu du document */}
+{previewDocument && (
+  <Modal
+    open={!!previewDocument}
+    onOpenChange={() => setPreviewDocument(null)}
+    type="form"
+    size="xl"
+    title={`Aperçu : ${previewDocument.type}`}
+    icon={<FileText className="h-5 w-5" />}
+    actions={{
+      primary: {
+        label: "Télécharger",
+        onClick: () => {
+          downloadMock(previewDocument.name);
+        },
+      },
+      secondary: {
+        label: "Fermer",
+        onClick: () => setPreviewDocument(null),
+        variant: "outline" as const,
+      },
+    }}
+  >
+    <div className="space-y-4">
+      {/* En-tête du document */}
+      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="font-medium">{previewDocument.name}</p>
+            <p className="text-xs text-muted-foreground">PDF • 2.4 MB</p>
+          </div>
+        </div>
+        <Badge variant="outline">Aperçu</Badge>
+      </div>
+
+      {/* Contenu du document */}
+      <div className="border rounded-lg p-6 bg-white dark:bg-gray-900 min-h-[300px]">
+        <div className="prose prose-sm max-w-none dark:prose-invert">
+          <pre className="whitespace-pre-wrap font-mono text-sm bg-muted/50 p-4 rounded-lg">
+            {previewDocument.content}
+          </pre>
+        </div>
+      </div>
+
+      <div className="text-xs text-muted-foreground text-center">
+        Aperçu généré à titre indicatif. Téléchargez le document pour la version complète.
+      </div>
+    </div>
+  </Modal>
+)}
+
     </div>
   );
 }

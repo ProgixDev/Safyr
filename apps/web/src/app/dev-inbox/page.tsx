@@ -35,6 +35,7 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
   "http://localhost:4000";
 
+
 const SEEDED_ACCOUNTS: {
   email: string;
   name: string;

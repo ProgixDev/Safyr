@@ -34,14 +34,75 @@ import {
   Pencil,
   TrendingUp,
   Trash2,
+  GraduationCap,
+  Shield,
+  Award,
+  FileText,
+  Briefcase,
+  BookOpen,
+  Building2,
 } from "lucide-react";
 import type { TrainingPlan, TrainingBudget } from "@/lib/types";
+
+// Types de formation avec descriptions
+const TRAINING_TYPES = {
+  SSIAP1: {
+    label: "SSIAP 1",
+    description: "Formation initiale d'agent de sécurité incendie",
+    duration: 70,
+    icon: Shield,
+  },
+  SSIAP2: {
+    label: "SSIAP 2",
+    description: "Formation de chef d'équipe sécurité incendie",
+    duration: 60,
+    icon: Shield,
+  },
+  SSIAP3: {
+    label: "SSIAP 3",
+    description: "Formation de chef de service sécurité incendie",
+    duration: 80,
+    icon: Shield,
+  },
+  SST: {
+    label: "SST",
+    description: "Sauveteur Secouriste du Travail",
+    duration: 14,
+    icon: Award,
+  },
+  H0B0: {
+    label: "H0B0",
+    description: "Habilitation électrique H0B0",
+    duration: 24,
+    icon: Briefcase,
+  },
+  MAC_APS: {
+    label: "MAC/APS",
+    description: "Maintien et Actualisation des Compétences - APS",
+    duration: 28,
+    icon: BookOpen,
+  },
+  MAC_SST: {
+    label: "MAC/SST",
+    description: "Maintien et Actualisation des Compétences - SST",
+    duration: 7,
+    icon: BookOpen,
+  },
+  DIVERS: {
+    label: "Divers",
+    description: "Autres formations",
+    duration: 0,
+    icon: FileText,
+  },
+} as const;
+
+type TrainingType = keyof typeof TRAINING_TYPES;
 
 // Mock data for training plans
 const mockTrainingPlans: TrainingPlan[] = [
   {
     id: "1",
-    title: "Formation SSIAP 2 - recyclage",
+    title: "SSIAP 2",
     description: "Recyclage annuel SSIAP niveau 2 pour les agents de sécurité",
     plannedDate: new Date("2024-06-15"),
     duration: 16,
@@ -56,7 +117,7 @@ const mockTrainingPlans: TrainingPlan[] = [
   },
   {
     id: "2",
-    title: "SST - recyclage collectif",
+    title: "SST",
     description: "Session de recyclage SST pour tout le personnel",
     plannedDate: new Date("2024-09-20"),
     duration: 8,
@@ -71,7 +132,7 @@ const mockTrainingPlans: TrainingPlan[] = [
   },
   {
     id: "3",
-    title: "Habilitation électrique H0B0",
+    title: "H0B0",
     description: "Formation initiale H0B0 pour nouveaux agents",
     plannedDate: new Date("2024-04-10"),
     duration: 24,
@@ -86,6 +147,21 @@ const mockTrainingPlans: TrainingPlan[] = [
     actualCost: 3400,
     createdAt: new Date("2024-01-20"),
     updatedAt: new Date("2024-04-10"),
+  },
+  {
+    id: "4",
+    title: "MAC/APS",
+    description: "MAC/APS pour agents de sécurité",
+    plannedDate: new Date("2024-11-05"),
+    duration: 28,
+    participants: ["EMP001", "EMP002", "EMP003", "EMP004", "EMP005"],
+    trainer: "Organisme agréé",
+    location: "Centre de formation Marseille",
+    budget: 4200,
+    currency: "EUR",
+    status: "planned",
+    createdAt: new Date("2024-03-01"),
+    updatedAt: new Date("2024-03-01"),
   },
 ];
 
@@ -137,6 +213,19 @@ export default function TrainingPlanPage() {
     budget: "",
   });
 
+  // Gestionnaire pour le changement de type de formation
+  const handleTrainingTypeChange = (value: string) => {
+    const trainingType = value as TrainingType;
+    const trainingInfo = TRAINING_TYPES[trainingType];
+    
+    setPlanForm((prev) => ({
+      ...prev,
+      title: value,
+      description: trainingInfo?.description || "",
+      duration: trainingInfo?.duration?.toString() || "",
+    }));
+  };
+
   const handleViewPlan = (plan: TrainingPlan) => {
     setSelectedPlan(plan);
     setIsViewModalOpen(true);
@@ -179,13 +268,14 @@ export default function TrainingPlanPage() {
                 title: planForm.title,
                 description: planForm.description,
                 plannedDate: new Date(planForm.plannedDate),
-                duration: parseInt(planForm.duration),
+                duration: parseInt(planForm.duration) || 0,
                 participants: planForm.participants
                   .split(",")
-                  .map((p) => p.trim()),
+                  .map((p) => p.trim())
+                  .filter((p) => p),
                 trainer: planForm.trainer,
                 location: planForm.location,
-                budget: parseFloat(planForm.budget),
+                budget: parseFloat(planForm.budget) || 0,
                 updatedAt: new Date(),
               }
             : p,
@@ -198,11 +288,11 @@ export default function TrainingPlanPage() {
         title: planForm.title,
         description: planForm.description,
         plannedDate: new Date(planForm.plannedDate),
-        duration: parseInt(planForm.duration),
-        participants: planForm.participants.split(",").map((p) => p.trim()),
+        duration: parseInt(planForm.duration) || 0,
+        participants: planForm.participants.split(",").map((p) => p.trim()).filter((p) => p),
         trainer: planForm.trainer,
         location: planForm.location,
-        budget: parseFloat(planForm.budget),
+        budget: parseFloat(planForm.budget) || 0,
         currency: "EUR",
         status: "planned",
         createdAt: new Date(),
@@ -240,6 +330,39 @@ export default function TrainingPlanPage() {
     setIsPlanModalOpen(true);
   };
 
+  // Fonction pour obtenir l'icône du type de formation
+  const getTrainingIcon = (title: string) => {
+    const type = Object.keys(TRAINING_TYPES).find(
+      (key) => TRAINING_TYPES[key as TrainingType].label === title
+    ) as TrainingType | undefined;
+    if (type && TRAINING_TYPES[type]) {
+      const Icon = TRAINING_TYPES[type].icon;
+      return <Icon className="h-4 w-4" />;
+    }
+    return <GraduationCap className="h-4 w-4" />;
+  };
+
+  // Fonction pour obtenir le badge de type de formation
+  const getTrainingBadge = (title: string) => {
+    const type = Object.keys(TRAINING_TYPES).find(
+      (key) => TRAINING_TYPES[key as TrainingType].label === title
+    ) as TrainingType | undefined;
+    if (type) {
+      const colors: Record<TrainingType, string> = {
+        SSIAP1: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+        SSIAP2: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+        SSIAP3: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+        SST: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+        H0B0: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+        MAC_APS: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+        MAC_SST: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+        DIVERS: "bg-gray-100 text-gray-700 dark:bg-gray-800/30 dark:text-gray-300",
+      };
+      return colors[type] || "";
+    }
+    return "";
+  };
+
   const columns: ColumnDef<TrainingPlan>[] = [
     {
       key: "title",
@@ -247,7 +370,10 @@ export default function TrainingPlanPage() {
       sortable: true,
       render: (plan) => (
         <div>
-          <div className="font-medium">{plan.title}</div>
+          <div className="flex items-center gap-2">
+            {getTrainingIcon(plan.title)}
+            <span className="font-medium">{plan.title}</span>
+          </div>
           <div className="text-sm text-muted-foreground">
             {plan.description}
           </div>
@@ -323,6 +449,21 @@ export default function TrainingPlanPage() {
   ).length;
   const totalBudgetUsed = trainingPlans.reduce((sum, p) => sum + p.budget, 0);
 
+  // Statistiques par type de formation
+  const trainingStats = Object.entries(TRAINING_TYPES).map(([key, value]) => {
+    const count = trainingPlans.filter(p => p.title === value.label).length;
+    const budget = trainingPlans
+      .filter(p => p.title === value.label)
+      .reduce((sum, p) => sum + p.budget, 0);
+    return {
+      type: key as TrainingType,
+      label: value.label,
+      count,
+      budget,
+      icon: value.icon,
+    };
+  });
+
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
@@ -372,6 +513,32 @@ export default function TrainingPlanPage() {
           color="purple"
         />
       </InfoCardContainer>
+
+      {/* Statistiques par type de formation */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {trainingStats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={stat.type}
+              className="p-4 border rounded-lg bg-background hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-sm">{stat.label}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {stat.count} formation{stat.count > 1 ? "s" : ""}
+                </span>
+                <span className="font-medium">
+                  {stat.budget.toLocaleString("fr-FR")} €
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Training Plans DataTable */}
       <DataTable
@@ -432,7 +599,13 @@ export default function TrainingPlanPage() {
           <div className="space-y-6">
             <div>
               <Label className="text-sm font-medium">Titre</Label>
-              <p className="text-lg font-medium mt-1">{selectedPlan.title}</p>
+              <div className="flex items-center gap-2 mt-1">
+                {getTrainingIcon(selectedPlan.title)}
+                <p className="text-lg font-medium">{selectedPlan.title}</p>
+                <Badge className={getTrainingBadge(selectedPlan.title)}>
+                  {selectedPlan.title}
+                </Badge>
+              </div>
             </div>
 
             {selectedPlan.description && (
@@ -557,37 +730,45 @@ export default function TrainingPlanPage() {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">
-              Titre de la formation <span className="text-destructive">*</span>
+              Type de formation <span className="text-destructive">*</span>
             </Label>
             <Select
               value={planForm.title}
-              onValueChange={(value) =>
-                setPlanForm((prev) => ({
-                  ...prev,
-                  title: value,
-                }))
-              }
+              onValueChange={handleTrainingTypeChange}
             >
-              <SelectTrigger id="title">
-                <SelectValue placeholder="Choisir une formation..." />
+              <SelectTrigger id="title" className="w-full">
+                <SelectValue placeholder="Sélectionner un type de formation..." />
               </SelectTrigger>
               <SelectContent>
-                {[
-                  "SSIAP1",
-                  "SSIAP2",
-                  "SSIAP3",
-                  "SST",
-                  "H0B0",
-                  "MAC/APS",
-                  "MAC/SST",
-                  "Divers",
-                ].map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
+                {Object.entries(TRAINING_TYPES).map(([key, value]) => {
+                  const Icon = value.icon;
+                  return (
+                    <SelectItem key={key} value={value.label} className="py-2">
+                      <div className="flex items-center gap-3">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex flex-col">
+                          <span className="font-medium">{value.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {value.description}
+                          </span>
+                        </div>
+                        {value.duration > 0 && (
+                          <Badge variant="outline" className="ml-auto text-xs">
+                            {value.duration}h
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
+            {planForm.title && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {TRAINING_TYPES[planForm.title as TrainingType]?.description || 
+                 "Formation personnalisée"}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -601,7 +782,7 @@ export default function TrainingPlanPage() {
                   description: e.target.value,
                 }))
               }
-              placeholder="Description de la formation"
+              placeholder="Description détaillée de la formation"
               rows={3}
             />
           </div>
@@ -642,7 +823,7 @@ export default function TrainingPlanPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="trainer">Formateur</Label>
+              <Label htmlFor="trainer">Formateur / Organisme</Label>
               <Input
                 id="trainer"
                 value={planForm.trainer}
@@ -686,6 +867,9 @@ export default function TrainingPlanPage() {
               }
               placeholder="EMP001, EMP002, EMP003"
             />
+            <p className="text-xs text-muted-foreground">
+              Entrez les identifiants des participants séparés par des virgules
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -730,9 +914,12 @@ export default function TrainingPlanPage() {
         <div>
           <p>Êtes-vous sûr de vouloir supprimer cette formation ?</p>
           {selectedPlanForDelete && (
-            <p className="text-sm text-muted-foreground mt-2">
-              {selectedPlanForDelete.title}
-            </p>
+            <div className="mt-2 p-3 bg-muted/30 rounded-lg">
+              <p className="font-medium">{selectedPlanForDelete.title}</p>
+              <p className="text-sm text-muted-foreground">
+                {selectedPlanForDelete.description}
+              </p>
+            </div>
           )}
         </div>
       </Modal>

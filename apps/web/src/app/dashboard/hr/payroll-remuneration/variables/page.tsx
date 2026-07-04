@@ -22,6 +22,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -36,6 +37,7 @@ import {
   Edit,
   Trash2,
   X,
+  Shirt,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type {
@@ -50,6 +52,9 @@ import {
   useDeletePayrollVariable,
   useUpdateAnyPayrollVariable,
 } from "@/hooks/payroll";
+
+// Constante pour le taux d'indemnité d'habillage (par heure)
+const CLOTHING_ALLOWANCE_RATE = 0.50; // 0.50€ par heure travaillée
 
 // Mock data
 const mockVariables: PayrollVariable[] = [
@@ -235,6 +240,26 @@ type EmployeePivot = {
   total: number;
 };
 
+// Ajouter un champ hasClothingAllowance aux employés mockés
+const employeesWithAllowance = mockEmployees.map(emp => ({
+  ...emp,
+  hasClothingAllowance: ["EMP001", "EMP002", "EMP005", "EMP004"].includes(emp.id),
+  clothingAllowanceRate: CLOTHING_ALLOWANCE_RATE,
+}));
+
+// Fonction pour calculer automatiquement l'indemnité d'habillage
+const calculateClothingAllowance = (
+  employeeId: string,
+  totalHours: number,
+  employees: Employee[]
+): number => {
+  const employee = employees.find(e => e.id === employeeId);
+  if (!employee?.hasClothingAllowance) return 0;
+  
+  const rate = (employee as any).clothingAllowanceRate || CLOTHING_ALLOWANCE_RATE;
+  return Math.round(totalHours * rate * 100) / 100;
+};
+
 // Helper to compute initial state from URL params
 function getInitialStateFromParams(searchParams: URLSearchParams) {
   const employeeId = searchParams.get("employeeId");
@@ -334,6 +359,7 @@ export default function PayrollVariablesPage() {
     createdAt: new Date(v.createdAt),
     updatedAt: new Date(v.updatedAt),
   }));
+  
   const [isVariableModalOpen, setIsVariableModalOpen] = useState(
     initialState.isVariableModalOpen,
   );
@@ -350,6 +376,12 @@ export default function PayrollVariablesPage() {
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
   const employeeSearchRef = useRef<HTMLDivElement>(null);
   const [variableForm, setVariableForm] = useState(initialState.variableForm);
+  const [showAutoAllowanceInfo, setShowAutoAllowanceInfo] = useState(false);
+  const [autoCalculatedAllowance, setAutoCalculatedAllowance] = useState<{
+    employeeId: string;
+    amount: number;
+    hours: number;
+  } | null>(null);
 
   // Handle click outside to close employee search
   useEffect(() => {
@@ -387,6 +419,7 @@ export default function PayrollVariablesPage() {
   };
 
   const handleSelectEmployee = (employee: Employee) => {
+    const empWithAllowance = employeesWithAllowance.find(e => e.id === employee.id);
     setVariableForm((prev) => ({
       ...prev,
       employeeId: employee.employeeNumber,
@@ -394,6 +427,13 @@ export default function PayrollVariablesPage() {
     }));
     setEmployeeSearchOpen(false);
     setEmployeeSearchQuery("");
+    
+    if (empWithAllowance?.hasClothingAllowance) {
+      setShowAutoAllowanceInfo(true);
+    } else {
+      setShowAutoAllowanceInfo(false);
+      setAutoCalculatedAllowance(null);
+    }
   };
 
   const handleEditVariable = (variable: PayrollVariable) => {
@@ -444,6 +484,33 @@ export default function PayrollVariablesPage() {
           },
         });
       } else {
+        const employee = employeesWithAllowance.find(
+          e => e.employeeNumber === variableForm.employeeId
+        );
+        
+        // Calculer le total des heures
+        const hourTypes = ["h_jour", "h_dimanche", "h_ferie", "h_nuit", "h_dimanche_nuit", "h_ferie_nuit", "h_supp_25", "h_supp_50", "h_compl_10"];
+        let totalHours = 0;
+        hourTypes.forEach(type => {
+          const value = parseFloat((variableForm as Record<string, string>)[type]) || 0;
+          totalHours += value;
+        });
+
+        // Calculer l'indemnité d'habillage
+        const clothingAllowance = calculateClothingAllowance(
+          variableForm.employeeId, 
+          totalHours, 
+          employeesWithAllowance
+        );
+
+        if (employee?.hasClothingAllowance && clothingAllowance > 0) {
+          setAutoCalculatedAllowance({
+            employeeId: variableForm.employeeId,
+            amount: clothingAllowance,
+            hours: totalHours,
+          });
+        }
+
         const types = [
           "h_jour",
           "h_dimanche",
@@ -462,33 +529,38 @@ export default function PayrollVariablesPage() {
           "nbre_deplacement",
           "autres_indemnites",
         ];
+        
         const toCreate = types
-          .map((type) => ({
-            type,
-            amountStr: (variableForm as Record<string, string>)[type],
-          }))
-          .filter(
-            ({ amountStr }) => amountStr && parseFloat(amountStr) > 0,
-          );
+          .map((type) => {
+            let amount = 0;
+            if (type === "indemnite_habillage" && employee?.hasClothingAllowance && clothingAllowance > 0) {
+              amount = clothingAllowance;
+            } else {
+              amount = parseFloat((variableForm as Record<string, string>)[type]) || 0;
+            }
+            return { type, amount };
+          })
+          .filter(({ amount }) => amount > 0);
 
         await Promise.all(
-          toCreate.map(({ type, amountStr }) =>
+          toCreate.map(({ type, amount }) =>
             createVariableMutation.mutateAsync({
               employeeId: variableForm.employeeId,
               employeeName: variableForm.employeeName,
               period,
               type,
-              amount: parseFloat(amountStr),
+              amount,
               currency: "EUR",
-              description: variableForm.description,
+              description: type === "indemnite_habillage" && employee?.hasClothingAllowance && clothingAllowance > 0
+                ? `Indemnité d'habillage - ${totalHours}h à ${CLOTHING_ALLOWANCE_RATE}€/h`
+                : variableForm.description || "",
               status: "pending",
-            }),
-          ),
+            })
+          )
         );
       }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Erreur inconnue";
+      const message = error instanceof Error ? error.message : "Erreur inconnue";
       alert(`Échec de l'enregistrement : ${message}`);
       return;
     }
@@ -497,6 +569,8 @@ export default function PayrollVariablesPage() {
     setIsEditMode(false);
     setEmployeeSearchOpen(false);
     setEmployeeSearchQuery("");
+    setShowAutoAllowanceInfo(false);
+    setAutoCalculatedAllowance(null);
     const now = new Date();
     setVariableForm({
       employeeId: "",
@@ -525,8 +599,8 @@ export default function PayrollVariablesPage() {
     });
   };
 
-  const filteredEmployees = mockEmployees.filter((employee) =>
-    `${employee.firstName} ${employee.lastName} ${employee.employeeNumber}`
+  const filteredEmployees = employeesWithAllowance.filter((employee) =>
+    `${employee.firstName} ${employee.lastName} ${employee.employeeNumber} ${employee.position}`
       .toLowerCase()
       .includes(employeeSearchQuery.toLowerCase()),
   );
@@ -535,6 +609,8 @@ export default function PayrollVariablesPage() {
     const now = new Date();
     setIsEditMode(false);
     setSelectedVariable(null);
+    setShowAutoAllowanceInfo(false);
+    setAutoCalculatedAllowance(null);
     setVariableForm({
       employeeId: "",
       employeeName: "",
@@ -616,8 +692,12 @@ export default function PayrollVariablesPage() {
         sortValue: (r) => r.amounts[t] ?? 0,
         render: (r) => {
           const val = r.amounts[t] ?? 0;
+          const isClothingAllowance = t === "indemnite_habillage";
           return (
             <span className={val ? "" : "text-muted-foreground"}>
+              {isClothingAllowance && val > 0 && (
+                <Shirt className="inline h-3 w-3 mr-1 text-purple-500" />
+              )}
               {t.startsWith("nbre_")
                 ? val.toLocaleString("fr-FR")
                 : `${val.toLocaleString("fr-FR")} €`}
@@ -636,6 +716,62 @@ export default function PayrollVariablesPage() {
           {r.total.toLocaleString("fr-FR")} €
         </span>
       ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row: EmployeePivot) => {
+        const employeeVariables = filteredVariables.filter(
+          (v) => v.employeeId === row.employeeId
+        );
+        
+        if (employeeVariables.length === 0) return null;
+        
+        const firstVariable = employeeVariables[0];
+        
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setSelectedVariable(firstVariable);
+                  setIsViewModalOpen(true);
+                }}
+                className="text-green-600 focus:text-green-700 focus:bg-green-50"
+              >
+                <Eye className="h-4 w-4 mr-2 text-green-600" />
+                Voir
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleEditVariable(firstVariable)}
+                className="text-orange-600 focus:text-orange-700 focus:bg-orange-50"
+              >
+                <Edit className="h-4 w-4 mr-2 text-orange-600" />
+                Modifier
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  if (confirm(`Supprimer toutes les variables de ${row.employeeName} ?`)) {
+                    employeeVariables.forEach(v => {
+                      deleteVariableMutation.mutate(v.id);
+                    });
+                  }
+                }}
+                className="text-red-600 focus:text-red-700 focus:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -681,7 +817,14 @@ export default function PayrollVariablesPage() {
       key: "type",
       label: "Type",
       sortable: true,
-      render: (item) => <span>{variableTypeLabels[item.type]}</span>,
+      render: (item) => (
+        <span className="flex items-center gap-1">
+          {item.type === "indemnite_habillage" && (
+            <Shirt className="h-3 w-3 text-purple-500" />
+          )}
+          {variableTypeLabels[item.type]}
+        </span>
+      ),
     },
     {
       key: "amount",
@@ -718,7 +861,55 @@ export default function PayrollVariablesPage() {
         </Badge>
       ),
     },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (item: PayrollVariable) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => {
+                setSelectedVariable(item);
+                setIsViewModalOpen(true);
+              }}
+              className="text-green-600 focus:text-green-700 focus:bg-green-50"
+            >
+              <Eye className="h-4 w-4 mr-2 text-green-600" />
+              Voir
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleEditVariable(item)}
+              className="text-orange-600 focus:text-orange-700 focus:bg-orange-50"
+            >
+              <Edit className="h-4 w-4 mr-2 text-orange-600" />
+              Modifier
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                if (confirm(`Supprimer cette variable ?`)) {
+                  deleteVariableMutation.mutate(item.id);
+                }
+              }}
+              className="text-red-600 focus:text-red-700 focus:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+              Supprimer
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   ];
+
+  const totalClothingAllowance = variables
+    .filter(v => v.type === "indemnite_habillage")
+    .reduce((sum, v) => sum + v.amount, 0);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -737,6 +928,7 @@ export default function PayrollVariablesPage() {
           Nouvelle variable
         </Button>
       </div>
+
       {/* Stats Cards */}
       <InfoCardContainer>
         <InfoCard
@@ -766,6 +958,14 @@ export default function PayrollVariablesPage() {
         />
 
         <InfoCard
+          icon={Shirt}
+          title="Indemnités habillage"
+          value={`${totalClothingAllowance.toLocaleString("fr-FR")} €`}
+          subtext="Calculées automatiquement"
+          color="purple"
+        />
+
+        <InfoCard
           icon={CheckCircle}
           title="Taux de validation"
           value={`${
@@ -782,6 +982,25 @@ export default function PayrollVariablesPage() {
           color="green"
         />
       </InfoCardContainer>
+
+      {/* Info sur l'indemnité d'habillage automatique */}
+      {autoCalculatedAllowance && (
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Shirt className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div>
+              <h4 className="font-medium text-blue-900 dark:text-blue-100">
+                Indemnité d'habillage calculée automatiquement
+              </h4>
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                {autoCalculatedAllowance.amount.toFixed(2)}€ pour {autoCalculatedAllowance.hours}h travaillées
+                (taux: {CLOTHING_ALLOWANCE_RATE}€/h)
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bascule de vue */}
       <div className="flex gap-2">
         <Button
@@ -814,76 +1033,56 @@ export default function PayrollVariablesPage() {
           data={filteredVariables}
           columns={individualColumns}
           searchKeys={["employeeName"]}
-        getSearchValue={(item) => item.employeeName}
-        searchPlaceholder="Rechercher par employé..."
-        getRowId={(item) => item.id}
-        filters={[
-          {
-            key: "status",
-            label: "Statut",
-            options: [
-              { value: "all", label: "Tous" },
-              { value: "validated", label: "Validé" },
-              { value: "pending", label: "En attente" },
-              { value: "refused", label: "Refusé" },
-            ],
-          },
-        ]}
-        groupBy={groupBy}
-        groupByOptions={[
-          { value: "employeeName", label: "Employé" },
-          { value: "period", label: "Période" },
-        ]}
-        groupByLabel={(value: unknown) =>
-          groupBy === "period"
-            ? new Date(value as string).toLocaleDateString("fr-FR", {
+          getSearchValue={(item) => item.employeeName}
+          searchPlaceholder="Rechercher par employé..."
+          getRowId={(item) => item.id}
+          filters={[
+            {
+              key: "status",
+              label: "Statut",
+              options: [
+                { value: "all", label: "Tous" },
+                { value: "validated", label: "Validé" },
+                { value: "pending", label: "En attente" },
+                { value: "refused", label: "Refusé" },
+              ],
+            },
+            {
+              key: "type",
+              label: "Type",
+              options: [
+                { value: "all", label: "Tous" },
+                ...Object.entries(variableTypeLabels)
+                  .filter(([type]) => !type.startsWith("h_"))
+                  .map(([value, label]) => ({
+                    value,
+                    label,
+                  })),
+              ],
+            },
+          ]}
+          groupBy={groupBy}
+          groupByOptions={[
+            { value: "employeeName", label: "Employé" },
+            { value: "period", label: "Période" },
+            { value: "type", label: "Type" },
+          ]}
+          groupByLabel={(value: unknown) => {
+            if (groupBy === "period") {
+              return new Date(value as string).toLocaleDateString("fr-FR", {
                 year: "numeric",
                 month: "long",
-              })
-            : (value as string)
-        }
-        onGroupByChange={setGroupBy}
-        actions={(item: PayrollVariable) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => {
-                  setSelectedVariable(item);
-                  setIsViewModalOpen(true);
-                }}
-                className="flex items-center gap-2"
-              >
-                <Eye className="h-4 w-4" />
-                Voir
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleEditVariable(item)}
-                className="flex items-center gap-2"
-              >
-                <Edit className="h-4 w-4" />
-                Modifier
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  if (confirm("Supprimer cette variable ?")) {
-                    deleteVariableMutation.mutate(item.id);
-                  }
-                }}
-                className="flex items-center gap-2 text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-                Supprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+              });
+            }
+            if (groupBy === "type") {
+              return variableTypeLabels[value as PayrollVariableType] || value as string;
+            }
+            return value as string;
+          }}
+          onGroupByChange={setGroupBy}
         />
       )}
+
       {/* View Variable Modal */}
       <Modal
         open={isViewModalOpen}
@@ -911,7 +1110,10 @@ export default function PayrollVariablesPage() {
               </div>
               <div>
                 <Label className="text-sm font-medium">Type</Label>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  {selectedVariable.type === "indemnite_habillage" && (
+                    <Shirt className="h-4 w-4 text-purple-500" />
+                  )}
                   {variableTypeLabels[selectedVariable.type]}
                 </p>
               </div>
@@ -947,6 +1149,22 @@ export default function PayrollVariablesPage() {
                 <p className="text-sm text-muted-foreground mt-1">
                   {selectedVariable.description}
                 </p>
+              </div>
+            )}
+
+            {selectedVariable.type === "indemnite_habillage" && (
+              <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <Shirt className="h-4 w-4 text-purple-600 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-purple-900 dark:text-purple-100">
+                      Indemnité d'habillage automatique
+                    </p>
+                    <p className="text-purple-700 dark:text-purple-300">
+                      Calculée automatiquement sur la base des heures travaillées
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1059,6 +1277,8 @@ export default function PayrollVariablesPage() {
           if (!open) {
             setEmployeeSearchOpen(false);
             setEmployeeSearchQuery("");
+            setShowAutoAllowanceInfo(false);
+            setAutoCalculatedAllowance(null);
           }
         }}
         type="form"
@@ -1071,7 +1291,11 @@ export default function PayrollVariablesPage() {
         actions={{
           secondary: {
             label: "Annuler",
-            onClick: () => setIsVariableModalOpen(false),
+            onClick: () => {
+              setIsVariableModalOpen(false);
+              setShowAutoAllowanceInfo(false);
+              setAutoCalculatedAllowance(null);
+            },
             variant: "outline",
           },
           primary: {
@@ -1111,27 +1335,38 @@ export default function PayrollVariablesPage() {
                   </div>
                   <div className="max-h-60 overflow-y-auto">
                     {filteredEmployees.length > 0 ? (
-                      filteredEmployees.map((employee) => (
-                        <button
-                          key={employee.id}
-                          type="button"
-                          className="w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-3"
-                          onClick={() => handleSelectEmployee(employee)}
-                        >
-                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium">
-                            {employee.firstName[0]}
-                            {employee.lastName[0]}
-                          </div>
-                          <div>
-                            <div className="font-medium">
-                              {employee.firstName} {employee.lastName}
+                      filteredEmployees.map((employee) => {
+                        const empWithAllowance = employeesWithAllowance.find(
+                          e => e.id === employee.id
+                        );
+                        return (
+                          <button
+                            key={employee.id}
+                            type="button"
+                            className="w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-3"
+                            onClick={() => handleSelectEmployee(employee)}
+                          >
+                            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium">
+                              {employee.firstName[0]}
+                              {employee.lastName[0]}
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              {employee.employeeNumber} • {employee.position}
+                            <div className="flex-1">
+                              <div className="font-medium">
+                                {employee.firstName} {employee.lastName}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {employee.employeeNumber} • {employee.position}
+                              </div>
                             </div>
-                          </div>
-                        </button>
-                      ))
+                            {empWithAllowance?.hasClothingAllowance && (
+                              <Badge variant="outline" className="text-xs">
+                                <Shirt className="h-3 w-3 mr-1" />
+                                Indemnité habillage
+                              </Badge>
+                            )}
+                          </button>
+                        );
+                      })
                     ) : (
                       <div className="px-3 py-2 text-sm text-muted-foreground">
                         Aucun employé trouvé
@@ -1142,6 +1377,24 @@ export default function PayrollVariablesPage() {
               )}
             </div>
           </div>
+
+          {/* Information sur l'indemnité d'habillage */}
+          {showAutoAllowanceInfo && variableForm.employeeId && (
+            <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Shirt className="h-4 w-4 text-purple-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-purple-900 dark:text-purple-100">
+                    Indemnité d'habillage automatique
+                  </p>
+                  <p className="text-purple-700 dark:text-purple-300">
+                    {`Cet employé bénéficie de l'indemnité d'habillage (${CLOTHING_ALLOWANCE_RATE}€/h). 
+                    Elle sera calculée automatiquement en fonction des heures saisies.`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -1248,35 +1501,107 @@ export default function PayrollVariablesPage() {
               </div>
             </>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
-              {Object.entries(variableTypeLabels)
-                .filter(([type]) => !type.startsWith("h_"))
-                .map(([type, label]) => {
-                  const isHours = type.startsWith("h_");
-                  const isCount = type.startsWith("nbre_");
-                  const unit = isHours ? " (heures)" : isCount ? "" : " (€)";
-                  return (
-                    <div key={type} className="space-y-2">
-                      <Label htmlFor={type}>
-                        {label}
-                        {unit}
-                      </Label>
-                      <Input
-                        id={type}
-                        type="number"
-                        step="0.01"
-                        value={(variableForm as Record<string, string>)[type]}
-                        onChange={(e) =>
-                          setVariableForm((prev) => ({
-                            ...prev,
-                            [type]: e.target.value,
-                          }))
-                        }
-                        placeholder="0.00"
-                      />
-                    </div>
-                  );
-                })}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {Object.entries(variableTypeLabels)
+                  .filter(([type]) => !type.startsWith("h_") && type !== "indemnite_habillage")
+                  .map(([type, label]) => {
+                    const isHours = type.startsWith("h_");
+                    const isCount = type.startsWith("nbre_");
+                    const unit = isHours ? " (heures)" : isCount ? "" : " (€)";
+                    return (
+                      <div key={type} className="space-y-2">
+                        <Label htmlFor={type}>
+                          {label}
+                          {unit}
+                        </Label>
+                        <Input
+                          id={type}
+                          type="number"
+                          step="0.01"
+                          value={(variableForm as Record<string, string>)[type]}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setVariableForm((prev) => ({
+                              ...prev,
+                              [type]: value,
+                            }));
+                            
+                            // Recalcul automatique de l'indemnité d'habillage
+                            const employee = employeesWithAllowance.find(
+                              e => e.employeeNumber === variableForm.employeeId
+                            );
+                            if (employee?.hasClothingAllowance) {
+                              const hourTypes = ["h_jour", "h_dimanche", "h_ferie", "h_nuit", "h_dimanche_nuit", "h_ferie_nuit", "h_supp_25", "h_supp_50", "h_compl_10"];
+                              let totalHours = 0;
+                              hourTypes.forEach(hType => {
+                                const val = parseFloat((variableForm as Record<string, string>)[hType]) || 0;
+                                totalHours += val;
+                              });
+                              // Mettre à jour totalHours avec la nouvelle valeur
+                              if (type.startsWith("h_")) {
+                                const newTotal = hourTypes.reduce((sum, hType) => {
+                                  const val = parseFloat((variableForm as Record<string, string>)[hType]) || 0;
+                                  return sum + val;
+                                }, 0);
+                                const allowance = calculateClothingAllowance(
+                                  variableForm.employeeId,
+                                  newTotal,
+                                  employeesWithAllowance
+                                );
+                                if (allowance > 0) {
+                                  setVariableForm((prev) => ({
+                                    ...prev,
+                                    indemnite_habillage: allowance.toString(),
+                                  }));
+                                  setAutoCalculatedAllowance({
+                                    employeeId: variableForm.employeeId,
+                                    amount: allowance,
+                                    hours: newTotal,
+                                  });
+                                }
+                              }
+                            }
+                          }}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Champ pour l'indemnité d'habillage (calculé automatiquement) */}
+              <div className="bg-muted/30 p-4 rounded-lg border border-dashed">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="indemnite_habillage" className="flex items-center gap-2">
+                      <Shirt className="h-4 w-4 text-purple-600" />
+                      Indemnité d'habillage
+                      <Badge variant="outline" className="text-xs">
+                        Auto-calculée
+                      </Badge>
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Calculée automatiquement en fonction des heures saisies
+                    </p>
+                  </div>
+                  <div className="w-48">
+                    <Input
+                      id="indemnite_habillage"
+                      type="number"
+                      step="0.01"
+                      value={(variableForm as Record<string, string>).indemnite_habillage || "0"}
+                      disabled
+                      className="bg-background"
+                    />
+                  </div>
+                </div>
+                {showAutoAllowanceInfo && (
+                  <p className="text-xs text-purple-600 mt-2">
+                    Taux appliqué: {CLOTHING_ALLOWANCE_RATE}€ par heure travaillée
+                  </p>
+                )}
+              </div>
             </div>
           )}
 

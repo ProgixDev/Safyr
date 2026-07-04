@@ -423,7 +423,8 @@ export interface Employee {
       lastContributionDate?: Date;
     };
   };
-
+  hasClothingAllowance?: boolean;
+  clothingAllowanceRate?: number;
   createdAt: Date;
   updatedAt: Date;
 }
