@@ -113,3 +113,6 @@ tsconfig.tsbuildinfo
 
 # Stray/edge env files (e.g. ".env serveur.env")
 *.env
+
+# TS incremental build cache (must not be committed — stale cache suppresses tsc emit on CI/Vercel)
+*.tsbuildinfo

@@ -392,10 +392,10 @@ export default function OnboardingPage() {
   };
 
   // Télécharger un document
-  const downloadDocument = (document: EmployeeDocument) => {
-    const fileName = document.fileName || `${document.name}.pdf`;
-    const content = `Document: ${document.name}\nType: ${documentTypeLabels[document.type]}\nStatut: ${document.status === 'validated' ? 'Validé' : 'En attente'}\nTaille: ${document.fileSize ? Math.round(document.fileSize / 1024) : '?'} KB\nDate: ${document.uploadedAt ? document.uploadedAt.toLocaleDateString('fr-FR') : 'Non téléchargé'}`;
-    
+  const downloadDocument = (doc: EmployeeDocument) => {
+    const fileName = doc.fileName || `${doc.name}.pdf`;
+    const content = `Document: ${doc.name}\nType: ${documentTypeLabels[doc.type]}\nStatut: ${doc.status === 'validated' ? 'Validé' : 'En attente'}\nTaille: ${doc.fileSize ? Math.round(doc.fileSize / 1024) : '?'} KB\nDate: ${doc.uploadedAt ? doc.uploadedAt.toLocaleDateString('fr-FR') : 'Non téléchargé'}`;
+
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
