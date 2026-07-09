@@ -100,6 +100,22 @@ const nextConfig = {
       },
     ];
   },
+  // Proxy same-origin vers l'API backend : indispensable pour que le cookie de
+  // session soit "first-party" (Safari/iOS bloque les cookies tiers cross-domaine).
+  // Les routes Next locales (ex. /api/company-search) sont préservées car les
+  // rewrites "afterFiles" ne s'appliquent qu'aux chemins sans route Next.
+  async rewrites() {
+    const apiOrigin =
+      process.env.BACKEND_API_ORIGIN ?? "https://safyr-api-three.vercel.app";
+    return {
+      afterFiles: [
+        {
+          source: "/api/:path*",
+          destination: `${apiOrigin}/api/:path*`,
+        },
+      ],
+    };
+  },
   // Optimisation des images
   images: {
     formats: ["image/avif", "image/webp"],
