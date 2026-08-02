@@ -28,6 +28,10 @@ export interface Organization {
   authorizationNumber?: string;
   email?: string;
   phone?: string;
+  /** Second numéro de téléphone de l'entreprise (facultatif). */
+  phone2?: string;
+  /** Numéro de TVA intracommunautaire (ex. FR40303265045). */
+  numTVA?: string;
   representativeId?: string;
   representative?: Representative;
 }

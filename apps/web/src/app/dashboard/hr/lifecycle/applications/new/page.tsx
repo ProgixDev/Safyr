@@ -15,9 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Wand2 } from "lucide-react";
 import { JobApplication } from "@/lib/types";
 import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
+import { candidateFromEmail } from "@/lib/candidate-from-email";
 
 const commonPositions = EMPLOYEE_POSTE_OPTIONS;
 
@@ -38,6 +39,23 @@ export default function NewApplicationPage() {
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  /**
+   * Récupération automatique des informations du candidat à partir de son
+   * adresse e-mail (ex. marie.dupont@societe.fr → « Marie Dupont »).
+   * N'écrase jamais un nom déjà saisi.
+   */
+  const handleEmailBlur = () => {
+    if (formData.applicantName.trim()) return;
+    const { fullName } = candidateFromEmail(formData.email);
+    if (fullName) {
+      setFormData((prev) => ({ ...prev, applicantName: fullName }));
+    }
+  };
+
+  const suggestedName = candidateFromEmail(formData.email).fullName;
+  const canAutofill =
+    Boolean(suggestedName) && suggestedName !== formData.applicantName;
 
   const handleFileChange = (field: "cv" | "coverLetter", file: File | null) => {
     if (field === "cv") {
@@ -140,9 +158,25 @@ export default function NewApplicationPage() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
+                  onBlur={handleEmailBlur}
                   placeholder="marie.dupont@email.com"
                   required
                 />
+                {canAutofill && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        applicantName: suggestedName,
+                      }))
+                    }
+                    className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                  >
+                    <Wand2 className="h-3 w-3" />
+                    Remplir le nom avec « {suggestedName} »
+                  </button>
+                )}
               </div>
 
               <div className="space-y-2">

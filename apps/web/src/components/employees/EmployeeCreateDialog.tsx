@@ -36,7 +36,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EMPLOYEE_POSTE_OPTIONS, QUALIFICATION_OPTIONS } from "@/lib/hr-options";
+import {
+  EMPLOYEE_POSTE_OPTIONS,
+  QUALIFICATION_OPTIONS,
+} from "@/lib/hr-options";
 import { fakerFR } from "@faker-js/faker";
 import type { AnyFieldApi } from "@tanstack/react-form";
 
@@ -64,6 +67,7 @@ const STEP_FIELDS: string[][] = [
     "civilStatus",
     "children",
     "socialSecurityNumber",
+    "cartePro",
   ],
   [
     "email",
@@ -97,6 +101,7 @@ const emptyDefaults: CreateEmployeeDto = {
   civilStatus: "single",
   children: 0,
   socialSecurityNumber: "",
+  cartePro: "",
   employeeNumber: "",
   hireDate: "",
   position: "",
@@ -358,9 +363,7 @@ function QualificationsPicker({
   const [custom, setCustom] = useState("");
   const toggle = (q: string) =>
     onChange(
-      selected.includes(q)
-        ? selected.filter((x) => x !== q)
-        : [...selected, q],
+      selected.includes(q) ? selected.filter((x) => x !== q) : [...selected, q],
     );
   const addCustom = () => {
     const v = custom.trim();
@@ -625,6 +628,21 @@ function PersonalStep({ form }: { form: FormApi }) {
                 onChange={(e) =>
                   field.handleChange(parseInt(e.target.value) || 0)
                 }
+              />
+              <FieldError field={field} />
+            </div>
+          )}
+        </form.Field>
+        <form.Field name="cartePro">
+          {(field) => (
+            <div className="space-y-2 col-span-2">
+              <Label htmlFor={field.name}>N° Carte Pro</Label>
+              <Input
+                id={field.name}
+                placeholder="CAR-075-2025-01-01-123456789012"
+                value={field.state.value ?? ""}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
               />
               <FieldError field={field} />
             </div>
@@ -994,7 +1012,8 @@ function EmploymentStep({ form }: { form: FormApi }) {
               >
                 Soumis à l&apos;indemnité d&apos;habillage
                 <span className="block text-xs text-muted-foreground">
-                  Calculée automatiquement en paie selon le nombre d&apos;heures.
+                  Calculée automatiquement en paie selon le nombre
+                  d&apos;heures.
                 </span>
               </Label>
             </div>

@@ -362,6 +362,7 @@ export default function ApplicationsPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleView}
             data={applications}
             columns={columns}
             searchKeys={["applicantName", "position", "email"]}

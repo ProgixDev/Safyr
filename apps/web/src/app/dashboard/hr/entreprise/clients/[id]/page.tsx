@@ -489,7 +489,11 @@ export default function ClientDetailPage({
 
   const handleDownloadReceipt = (g: ClientGift) => {
     // Mock : le reçu/facture sera servi par le backend une fois branché.
-    console.log("Télécharger le reçu/facture du cadeau:", g.id, giftReceipts[g.id]);
+    console.log(
+      "Télécharger le reçu/facture du cadeau:",
+      g.id,
+      giftReceipts[g.id],
+    );
   };
 
   const contractColumns: ColumnDef<ClientContract>[] = [
@@ -812,9 +816,6 @@ export default function ClientDetailPage({
                 searchKey="description"
                 searchPlaceholder="Rechercher un contrat..."
                 onRowClick={(c) => setViewContract(c)}
-                rowClassName={() =>
-                  "cursor-pointer transition-colors hover:bg-accent"
-                }
                 actions={(c) => (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -870,9 +871,6 @@ export default function ClientDetailPage({
                 searchKey="giftDescription"
                 searchPlaceholder="Rechercher un cadeau..."
                 onRowClick={(g) => setViewGift(g)}
-                rowClassName={() =>
-                  "cursor-pointer transition-colors hover:bg-accent"
-                }
                 actions={(g) => (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1162,10 +1160,7 @@ export default function ClientDetailPage({
         {viewGift && (
           <div className="space-y-3 text-base">
             <div className="space-y-1">
-              <DetailRow
-                label="Description"
-                value={viewGift.giftDescription}
-              />
+              <DetailRow label="Description" value={viewGift.giftDescription} />
               <DetailRow
                 label="Date"
                 value={new Date(viewGift.date).toLocaleDateString("fr-FR")}

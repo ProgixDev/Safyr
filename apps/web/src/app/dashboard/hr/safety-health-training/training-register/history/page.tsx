@@ -499,7 +499,11 @@ export default function TrainingRegisterPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredTrainings} />
+          <DataTable
+            onRowClick={handleView}
+            columns={columns}
+            data={filteredTrainings}
+          />
         </CardContent>
       </Card>
 

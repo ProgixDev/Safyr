@@ -37,6 +37,19 @@ export interface ModuleNavigationBarProps {
   showNav?: boolean;
 }
 
+/**
+ * Style commun des entrées de la barre de module.
+ * `shrink-0` + `whitespace-nowrap` garantissent que tous les menus restent
+ * sur une seule ligne ; le padding et la taille de police s'adaptent à la
+ * largeur de l'écran pour éviter le retour à la ligne.
+ */
+const NAV_ITEM_BASE =
+  "flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium whitespace-nowrap transition-all lg:gap-2 lg:px-2.5 lg:text-sm xl:px-3";
+
+const NAV_ITEM_ACTIVE = "bg-primary text-primary-foreground shadow-sm";
+const NAV_ITEM_IDLE = "text-foreground hover:bg-accent hover:text-foreground";
+const NAV_ITEM_DISABLED = "text-muted-foreground opacity-50 cursor-not-allowed";
+
 export function ModuleNavigationBar({
   moduleIcon: ModuleIcon,
   dashboardHref,
@@ -69,7 +82,7 @@ export function ModuleNavigationBar({
   return (
     <div className="border-t bg-muted/30">
       {showNav && (
-        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2">
+        <nav className="module-nav-scroll flex flex-nowrap items-center gap-x-1 overflow-x-auto px-3 py-2 lg:gap-x-2 xl:gap-x-3 xl:px-6">
           {!shouldExpand ? (
             <>
               {/* Active Menu Item Name */}
@@ -104,17 +117,15 @@ export function ModuleNavigationBar({
               <Link
                 href={dashboardHref}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-all whitespace-nowrap font-medium",
-                  isDashboardActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-foreground hover:bg-accent hover:text-foreground",
+                  NAV_ITEM_BASE,
+                  isDashboardActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE,
                 )}
               >
                 <ModuleIcon className="h-4 w-4" />
                 <span>Tableau de bord</span>
               </Link>
 
-              <div className="h-6 w-px bg-border" />
+              <div className="h-6 w-px shrink-0 bg-border" />
 
               {/* All Navigation Items */}
               {navItems.map((item) => {
@@ -125,7 +136,7 @@ export function ModuleNavigationBar({
                   return (
                     <div
                       key={item.label}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg text-muted-foreground opacity-50 cursor-not-allowed whitespace-nowrap"
+                      className={cn(NAV_ITEM_BASE, NAV_ITEM_DISABLED)}
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
@@ -145,10 +156,8 @@ export function ModuleNavigationBar({
                       <DropdownMenuTrigger asChild>
                         <button
                           className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-all whitespace-nowrap font-medium",
-                            isActive
-                              ? "bg-primary text-primary-foreground shadow-sm"
-                              : "text-foreground hover:bg-accent hover:text-foreground",
+                            NAV_ITEM_BASE,
+                            isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE,
                           )}
                         >
                           <Icon className="h-4 w-4" />
@@ -220,10 +229,8 @@ export function ModuleNavigationBar({
                       key={item.label}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-all whitespace-nowrap font-medium",
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-foreground hover:bg-accent hover:text-foreground",
+                        NAV_ITEM_BASE,
+                        isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE,
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -389,7 +396,7 @@ export function ModuleNavigationBar({
           {/* Active Item's Children (Sub-items) */}
           {!shouldExpand && activeItem?.children && (
             <>
-              <div className="h-6 w-px bg-border" />
+              <div className="h-6 w-px shrink-0 bg-border" />
               <div className="flex items-center gap-1 flex-1 overflow-x-auto">
                 {activeItem.children.map((child, index) => {
                   const prevSection =
@@ -402,7 +409,7 @@ export function ModuleNavigationBar({
                   const node = child.disabled ? (
                     <div
                       key={child.href}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg text-muted-foreground opacity-50 cursor-not-allowed whitespace-nowrap"
+                      className={cn(NAV_ITEM_BASE, NAV_ITEM_DISABLED)}
                     >
                       <span>{child.label}</span>
                     </div>
@@ -411,10 +418,10 @@ export function ModuleNavigationBar({
                       key={child.href}
                       href={child.href}
                       className={cn(
-                        "flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-all whitespace-nowrap font-medium",
+                        NAV_ITEM_BASE,
                         pathname === child.href
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-foreground hover:bg-accent hover:text-foreground",
+                          ? NAV_ITEM_ACTIVE
+                          : NAV_ITEM_IDLE,
                       )}
                     >
                       <span>{child.label}</span>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -216,10 +217,7 @@ export default function ExpenseReportsPage() {
   })) as unknown as ExpenseReport[];
 
   // Persiste les items modifiés d'un rapport (opérations au niveau ligne).
-  const persistReportItems = (
-    reportId: string,
-    items: ExpenseItem[],
-  ) => {
+  const persistReportItems = (reportId: string, items: ExpenseItem[]) => {
     const totalAmount = items.reduce((sum, it) => sum + Number(it.amount), 0);
     updateExpenseMutation.mutate({
       id: reportId,
@@ -506,30 +504,13 @@ export default function ExpenseReportsPage() {
       key: "actions",
       label: "Actions",
       render: (item: TableItem) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleViewItem(item)}>
-              <Eye className="mr-2 h-4 w-4 text-green-600" />
-              Voir
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleEditReport(item.reportId)}>
-              <Pencil className="mr-2 h-4 w-4 text-orange-500" />
-              Modifier la note
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleDeleteItem(item.id, item.reportId)}
-              className="text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <RowActionsMenu
+          onView={() => handleViewItem(item)}
+          onEdit={() => handleEditReport(item.reportId)}
+          editLabel="Modifier la note"
+          onDelete={() => handleDeleteItem(item.id, item.reportId)}
+          deleteLabel="Supprimer la note"
+        />
       ),
     },
   ];
@@ -653,6 +634,7 @@ export default function ExpenseReportsPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleViewItem}
             columns={columns}
             data={allItems}
             getRowId={(item) => item.index.toString()}

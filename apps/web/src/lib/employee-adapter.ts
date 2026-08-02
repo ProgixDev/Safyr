@@ -35,6 +35,7 @@ export function toUiEmployee(e: ApiEmployee): UiEmployee {
       bankName: e.bankDetails?.bankName ?? "",
     },
     socialSecurityNumber: e.socialSecurityNumber ?? "",
+    cartePro: e.cartePro ?? "",
     employeeNumber: e.employeeNumber ?? "",
     hireDate: toDate(e.hireDate),
     position: e.position ?? "",

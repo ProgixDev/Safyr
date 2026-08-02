@@ -43,7 +43,9 @@ export default function SitesPage() {
 
   const totalPosts = sites.reduce((acc, s) => acc + s.posts.length, 0);
   const activeSites = sites.filter((s) => s.active).length;
-  const withGps = sites.filter((s) => s.latitude != null && s.longitude != null).length;
+  const withGps = sites.filter(
+    (s) => s.latitude != null && s.longitude != null,
+  ).length;
 
   const columns: ColumnDef<Site>[] = [
     {
@@ -69,7 +71,8 @@ export default function SitesPage() {
         <div className="text-sm">
           {s.address && <div>{s.address}</div>}
           <div className="text-muted-foreground">
-            {[s.postalCode, s.city, s.country].filter(Boolean).join(" · ") || "—"}
+            {[s.postalCode, s.city, s.country].filter(Boolean).join(" · ") ||
+              "—"}
           </div>
         </div>
       ),
@@ -198,9 +201,6 @@ export default function SitesPage() {
               </DropdownMenu>
             )}
             onRowClick={(s) => router.push(`/dashboard/hr/sites/${s.id}`)}
-            rowClassName={() =>
-              "cursor-pointer transition-colors hover:bg-accent"
-            }
             getRowId={(s) => s.id}
           />
         </CardContent>

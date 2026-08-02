@@ -16,10 +16,7 @@ import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useLogbookEvents,
-  useValidateLogbookEvent,
-} from "@/hooks/logbook";
+import { useLogbookEvents, useValidateLogbookEvent } from "@/hooks/logbook";
 import type { LogbookEvent, Severity } from "@safyr/api-client";
 
 const TYPE_LABELS: Record<LogbookEvent["type"], string> = {
@@ -31,7 +28,11 @@ const TYPE_LABELS: Record<LogbookEvent["type"], string> = {
 
 const SEVERITY_META: Record<
   Severity,
-  { label: string; color: string; badge: "default" | "secondary" | "destructive" | "outline" }
+  {
+    label: string;
+    color: string;
+    badge: "default" | "secondary" | "destructive" | "outline";
+  }
 > = {
   low: { label: "Faible", color: "bg-green-500", badge: "secondary" },
   medium: { label: "Moyenne", color: "bg-yellow-500", badge: "secondary" },
@@ -68,7 +69,9 @@ function formatDateTime(iso: string): string {
 
 function agentName(e: LogbookEvent): string {
   if (!e.member) return "—";
-  const full = [e.member.firstName, e.member.lastName].filter(Boolean).join(" ");
+  const full = [e.member.firstName, e.member.lastName]
+    .filter(Boolean)
+    .join(" ");
   return full || e.member.employeeNumber || "—";
 }
 
@@ -90,7 +93,8 @@ export default function LogbookEventsApiPage() {
     todayStart.setHours(0, 0, 0, 0);
     for (const e of events) {
       if (e.status === "open") result.open += 1;
-      if (e.status === "validated" || e.status === "closed") result.validated += 1;
+      if (e.status === "validated" || e.status === "closed")
+        result.validated += 1;
       if (e.severity === "critical") result.critical += 1;
       if (new Date(e.occurredAt) >= todayStart) result.today += 1;
     }

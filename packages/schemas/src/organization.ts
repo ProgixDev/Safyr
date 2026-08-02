@@ -117,6 +117,13 @@ export const AuthorizationNumberSchema = optionalPattern(
   plainTrim,
 );
 
+// TVA intracommunautaire française : FR + clé (2 caractères) + SIREN (9 chiffres).
+const NumTVASchema = optionalPattern(
+  /^FR[0-9A-Z]{2}\d{9}$/,
+  "Numéro de TVA invalide (ex. FR40303265045)",
+  (v) => upperTrim(stripSpaces(v)),
+);
+
 export const UpdateRepresentativeSchema = z.object({
   firstName: OptionalNameSchema,
   lastName: OptionalNameSchema,
@@ -138,6 +145,8 @@ export const UpdateOrganizationSchema = z.object({
   authorizationNumber: AuthorizationNumberSchema,
   email: EmailSchema,
   phone: PhoneFrSchema,
+  phone2: PhoneFrSchema,
+  numTVA: NumTVASchema,
   siret: SiretSchema,
   ape: ApeSchema,
   address: optionalText(300),

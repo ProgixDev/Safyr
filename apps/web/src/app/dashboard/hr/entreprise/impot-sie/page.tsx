@@ -36,6 +36,8 @@ import {
   Eye,
   FileText,
 } from "lucide-react";
+import { IMPOTS_PRO_URL, openExternal } from "@/lib/external-links";
+import { DocumentActionsMenu } from "@/components/ui/row-actions-menu";
 
 // Téléchargement (mock) d'un document : génère un fichier placeholder.
 // À remplacer par le vrai fichier servi par le backend une fois branché.
@@ -237,6 +239,37 @@ export default function ImpotSIEPage() {
     },
   ]);
 
+  // ── Courriers : menu action (voir / téléverser / télécharger / supprimer) ──
+  const [viewedCourrier, setViewedCourrier] = useState<Courrier | null>(null);
+
+  const handleViewCourrier = (courrier: Courrier) => {
+    setViewedCourrier(courrier);
+  };
+
+  /** Attache (ou remplace) le document scanné du courrier. */
+  const handleUploadCourrier = (courrier: Courrier) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf,.png,.jpg,.jpeg,.doc,.docx";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setCourriers((prev) =>
+        prev.map((c) =>
+          c.id === courrier.id ? { ...c, document: file.name } : c,
+        ),
+      );
+    };
+    input.click();
+  };
+
+  const handleDeleteCourrier = (courrier: Courrier) => {
+    setCourriers((prev) => prev.filter((c) => c.id !== courrier.id));
+    setViewedCourrier((current) =>
+      current?.id === courrier.id ? null : current,
+    );
+  };
+
   const getStatutColor = (statut: string) => {
     switch (statut) {
       case "complet":
@@ -393,7 +426,11 @@ export default function ImpotSIEPage() {
         <div className="flex gap-2">
           {dossier.grandLivre ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadMock("Document")}
+              >
                 <Download className="h-3 w-3 mr-1" />
                 Télécharger
               </Button>
@@ -413,7 +450,11 @@ export default function ImpotSIEPage() {
       render: (dossier) => (
         <div className="flex gap-2">
           {dossier.declaration ? (
-            <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadMock("Document")}
+            >
               <Download className="h-3 w-3 mr-1" />
               Télécharger
             </Button>
@@ -432,7 +473,11 @@ export default function ImpotSIEPage() {
       render: (dossier) => (
         <div className="flex gap-2">
           {dossier.arDeclaration ? (
-            <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadMock("Document")}
+            >
               <Download className="h-3 w-3 mr-1" />
               Télécharger
             </Button>
@@ -451,7 +496,11 @@ export default function ImpotSIEPage() {
       render: (dossier) => (
         <div className="flex gap-2">
           {dossier.paiement ? (
-            <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadMock("Document")}
+            >
               <Download className="h-3 w-3 mr-1" />
               Télécharger
             </Button>
@@ -474,8 +523,8 @@ export default function ImpotSIEPage() {
             // Mettre à jour le statut directement
             setTvaDossiers((prev) =>
               prev.map((d) =>
-                d.id === dossier.id ? { ...d, statut: value } : d
-              )
+                d.id === dossier.id ? { ...d, statut: value } : d,
+              ),
             );
           }}
         >
@@ -506,9 +555,9 @@ export default function ImpotSIEPage() {
       render: (dossier) => (
         <div className="flex gap-1">
           {dossier.grandLivre && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="h-7 w-7 p-0"
               onClick={() => handleViewDocument(dossier, "grandLivre")}
               title="Voir Grand Livre"
@@ -517,9 +566,9 @@ export default function ImpotSIEPage() {
             </Button>
           )}
           {dossier.declaration && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="h-7 w-7 p-0"
               onClick={() => handleViewDocument(dossier, "declaration")}
               title="Voir Déclaration"
@@ -528,9 +577,9 @@ export default function ImpotSIEPage() {
             </Button>
           )}
           {dossier.arDeclaration && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="h-7 w-7 p-0"
               onClick={() => handleViewDocument(dossier, "arDeclaration")}
               title="Voir AR"
@@ -539,9 +588,9 @@ export default function ImpotSIEPage() {
             </Button>
           )}
           {dossier.paiement && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="h-7 w-7 p-0"
               onClick={() => handleViewDocument(dossier, "paiement")}
               title="Voir Paiement"
@@ -549,56 +598,68 @@ export default function ImpotSIEPage() {
               <Eye className="h-3.5 w-3.5" />
             </Button>
           )}
-          {!dossier.grandLivre && !dossier.declaration && !dossier.arDeclaration && !dossier.paiement && (
-            <span className="text-xs text-muted-foreground">Aucun document</span>
-          )}
+          {!dossier.grandLivre &&
+            !dossier.declaration &&
+            !dossier.arDeclaration &&
+            !dossier.paiement && (
+              <span className="text-xs text-muted-foreground">
+                Aucun document
+              </span>
+            )}
         </div>
       ),
     },
   ];
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-const [selectedDocument, setSelectedDocument] = useState<TVADocument | null>(null);
-const [editingStatut, setEditingStatut] = useState<string>("");
-const [selectedDocumentType, setSelectedDocumentType] = useState<string | null>(null);
-const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-const [previewDocument, setPreviewDocument] = useState<{name: string, content: string, type: string} | null>(null);
-// Fonction pour ouvrir le modal de visualisation
+  const [selectedDocument, setSelectedDocument] = useState<TVADocument | null>(
+    null,
+  );
+  const [editingStatut, setEditingStatut] = useState<string>("");
+  const [selectedDocumentType, setSelectedDocumentType] = useState<
+    string | null
+  >(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<{
+    name: string;
+    content: string;
+    type: string;
+  } | null>(null);
+  // Fonction pour ouvrir le modal de visualisation
 
-const handleViewDocument = (dossier: TVADocument, type?: string) => {
-  let filename = "";
-  let label = "";
-  
-  switch(type) {
-    case "grandLivre":
-      filename = dossier.grandLivre || "";
-      label = "Grand Livre TVA";
-      break;
-    case "declaration":
-      filename = dossier.declaration || "";
-      label = "Déclaration TVA";
-      break;
-    case "arDeclaration":
-      filename = dossier.arDeclaration || "";
-      label = "AR Déclaration";
-      break;
-    case "paiement":
-      filename = dossier.paiement || "";
-      label = "Paiement TVA";
-      break;
-    default:
-      return;
-  }
-  
-  if (!filename) return;
-  
-  setPreviewDocument({
-    name: filename,
-    content: `Document : ${filename}\n\nMois : ${dossier.mois}\nAnnée : ${dossier.annee}\nStatut : ${getStatutText(dossier.statut)}\n\n--- Contenu du document ---\n\n${label}\n${"-".repeat(label.length)}\n\nCeci est un aperçu du document.\nLe contenu réel sera affiché une fois le backend connecté.\n\nFichier : ${filename}\nTaille : 2.4 MB\nType : PDF`,
-    type: label
-  });
-};
+  const handleViewDocument = (dossier: TVADocument, type?: string) => {
+    let filename = "";
+    let label = "";
 
+    switch (type) {
+      case "grandLivre":
+        filename = dossier.grandLivre || "";
+        label = "Grand Livre TVA";
+        break;
+      case "declaration":
+        filename = dossier.declaration || "";
+        label = "Déclaration TVA";
+        break;
+      case "arDeclaration":
+        filename = dossier.arDeclaration || "";
+        label = "AR Déclaration";
+        break;
+      case "paiement":
+        filename = dossier.paiement || "";
+        label = "Paiement TVA";
+        break;
+      default:
+        return;
+    }
+
+    if (!filename) return;
+
+    setPreviewDocument({
+      name: filename,
+      content: `Document : ${filename}\n\nMois : ${dossier.mois}\nAnnée : ${dossier.annee}\nStatut : ${getStatutText(dossier.statut)}\n\n--- Contenu du document ---\n\n${label}\n${"-".repeat(label.length)}\n\nCeci est un aperçu du document.\nLe contenu réel sera affiché une fois le backend connecté.\n\nFichier : ${filename}\nTaille : 2.4 MB\nType : PDF`,
+      type: label,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -611,6 +672,16 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
           </p>
         </div>
         <div className="flex gap-2">
+          {/* Lien unique vers l'espace professionnel, accessible en haut de
+              chaque onglet (remplace les anciens cadres "Liens rapides"). */}
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={() => openExternal(IMPOTS_PRO_URL)}
+          >
+            <ExternalLink className="h-4 w-4" />
+            Connexion à l&apos;espace professionnel | impots.gouv.fr
+          </Button>
           <Select value={selectedYear} onValueChange={setSelectedYear}>
             <SelectTrigger className="w-32">
               <SelectValue />
@@ -686,20 +757,20 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-       <TabsList className="grid w-full grid-cols-4 text-base h-auto p-1">
-  <TabsTrigger value="tva" className="text-base py-3 px-4">
-    Dossiers TVA
-  </TabsTrigger>
-  <TabsTrigger value="cfe" className="text-base py-3 px-4">
-    CFE
-  </TabsTrigger>
-  <TabsTrigger value="prelevement" className="text-base py-3 px-4">
-    Prélèvement Source
-  </TabsTrigger>
-  <TabsTrigger value="courriers" className="text-base py-3 px-4">
-    Courriers
-  </TabsTrigger>
-</TabsList>
+        <TabsList className="grid w-full grid-cols-4 text-base h-auto p-1">
+          <TabsTrigger value="tva" className="text-base py-3 px-4">
+            Dossiers TVA
+          </TabsTrigger>
+          <TabsTrigger value="cfe" className="text-base py-3 px-4">
+            CFE
+          </TabsTrigger>
+          <TabsTrigger value="prelevement" className="text-base py-3 px-4">
+            Prélèvement Source
+          </TabsTrigger>
+          <TabsTrigger value="courriers" className="text-base py-3 px-4">
+            Courriers
+          </TabsTrigger>
+        </TabsList>
         <TabsContent value="tva">
           <Card>
             <CardHeader>
@@ -768,36 +839,25 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
                       `${dossier.montant.toLocaleString()} €`,
                   },
                   {
-                    key: "declaration",
-                    label: "Déclaration CFE",
-                    render: (dossier) => (
-                      <div className="flex gap-2">
-                        {dossier.declaration ? (
-                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
-                            <Download className="h-3 w-3 mr-1" />
-                            Télécharger
-                          </Button>
-                        ) : (
-                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
-                            <Upload className="h-3 w-3 mr-1" />
-                            Uploader
-                          </Button>
-                        )}
-                      </div>
-                    ),
-                  },
-                  {
                     key: "avis",
-                    label: "Avis d'imposition",
+                    label: "Avis CFE",
                     render: (dossier) => (
                       <div className="flex gap-2">
                         {dossier.avis ? (
-                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadMock("Document")}
+                          >
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => uploadMock()}
+                          >
                             <Upload className="h-3 w-3 mr-1" />
                             Uploader
                           </Button>
@@ -811,12 +871,20 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
                     render: (dossier) => (
                       <div className="flex gap-2">
                         {dossier.paiement ? (
-                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadMock("Document")}
+                          >
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => uploadMock()}
+                          >
                             <Upload className="h-3 w-3 mr-1" />
                             Uploader
                           </Button>
@@ -876,12 +944,20 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
                     render: (prelevement) => (
                       <div className="flex gap-2">
                         {prelevement.declaration ? (
-                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadMock("Document")}
+                          >
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => uploadMock()}
+                          >
                             <Upload className="h-3 w-3 mr-1" />
                             Uploader
                           </Button>
@@ -895,12 +971,20 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
                     render: (prelevement) => (
                       <div className="flex gap-2">
                         {prelevement.bordereau ? (
-                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadMock("Document")}
+                          >
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm" onClick={() => uploadMock()}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => uploadMock()}
+                          >
                             <Upload className="h-3 w-3 mr-1" />
                             Uploader
                           </Button>
@@ -922,7 +1006,13 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
                 searchPlaceholder="Rechercher une période..."
               />
 
-              <Button className="w-full mt-4">
+              <Button
+                className="w-full mt-4"
+                onClick={() => {
+                  setNewDocumentType("prelevement");
+                  setIsNewDocumentModalOpen(true);
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Nouvelle déclaration
               </Button>
@@ -994,24 +1084,31 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
                     key: "actions",
                     label: "Actions",
                     render: (courrier) => (
-                      <div className="flex items-center gap-2">
-                        {courrier.document && (
-                          <Button variant="outline" size="sm" onClick={() => downloadMock("Document")}>
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button variant="outline" size="sm">
-                          <Edit3 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <DocumentActionsMenu
+                        onView={() => handleViewCourrier(courrier)}
+                        onUpload={() => handleUploadCourrier(courrier)}
+                        onDownload={
+                          courrier.document
+                            ? () => downloadMock(courrier.document!)
+                            : undefined
+                        }
+                        onDelete={() => handleDeleteCourrier(courrier)}
+                      />
                     ),
                   },
                 ]}
                 searchKey="objet"
                 searchPlaceholder="Rechercher un courrier..."
+                onRowClick={handleViewCourrier}
               />
 
-              <Button className="w-full mt-4">
+              <Button
+                className="w-full mt-4"
+                onClick={() => {
+                  setNewDocumentType("courrier");
+                  setIsNewDocumentModalOpen(true);
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Nouveau courrier
               </Button>
@@ -1020,70 +1117,73 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
         </TabsContent>
       </Tabs>
 
-      {/* Liens rapides */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ExternalLink className="h-5 w-5" />
-            Liens Rapides
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button
-              variant="outline"
-              className="flex items-center gap-2 justify-start h-auto p-4"
-              onClick={() => window.open("https://impots.gouv.fr", "_blank")}
-            >
-              <div className="p-2 bg-blue-100 rounded">
-                <ExternalLink className="h-4 w-4 text-blue-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium">impots.gouv.fr</p>
-                <p className="text-xs text-muted-foreground">
-                  Espace professionnel
-                </p>
-              </div>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="flex items-center gap-2 justify-start h-auto p-4"
-              onClick={() =>
-                window.open("https://cfspro.impots.gouv.fr", "_blank")
+      {/* Modal consultation d'un courrier */}
+      <Modal
+        open={!!viewedCourrier}
+        onOpenChange={(open) => !open && setViewedCourrier(null)}
+        type="details"
+        title="Détail du courrier"
+        size="md"
+        actions={{
+          primary: {
+            label: "Fermer",
+            onClick: () => setViewedCourrier(null),
+          },
+          ...(viewedCourrier?.document
+            ? {
+                secondary: {
+                  label: "Télécharger",
+                  variant: "outline" as const,
+                  onClick: () => downloadMock(viewedCourrier.document!),
+                },
               }
-            >
-              <div className="p-2 bg-green-100 rounded">
-                <ExternalLink className="h-4 w-4 text-green-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium">CFS Pro</p>
-                <p className="text-xs text-muted-foreground">
-                  Centre des Finances
+            : {}),
+        }}
+      >
+        {viewedCourrier && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Date</Label>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(viewedCourrier.date).toLocaleDateString("fr-FR")}
                 </p>
               </div>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="flex items-center gap-2 justify-start h-auto p-4"
-              onClick={() =>
-                window.open("https://www.net-entreprises.fr", "_blank")
-              }
-            >
-              <div className="p-2 bg-purple-100 rounded">
-                <ExternalLink className="h-4 w-4 text-purple-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium">Net-Entreprises</p>
-                <p className="text-xs text-muted-foreground">
-                  Déclarations sociales
+              <div>
+                <Label className="text-sm font-medium">Type</Label>
+                <p className="text-sm text-muted-foreground">
+                  {viewedCourrier.type === "recu" ? "Reçu" : "Envoyé"}
                 </p>
               </div>
-            </Button>
+              <div>
+                <Label className="text-sm font-medium">Organisme</Label>
+                <p className="text-sm text-muted-foreground">
+                  {getOrganismeText(viewedCourrier.organisme)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Statut</Label>
+                <p className="text-sm text-muted-foreground">
+                  {getStatutText(viewedCourrier.statut)}
+                </p>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Objet</Label>
+              <p className="text-sm text-muted-foreground">
+                {viewedCourrier.objet}
+              </p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Document joint</Label>
+              <p className="text-sm text-muted-foreground">
+                {viewedCourrier.document ?? "Aucun document joint"}
+              </p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </Modal>
+
       {/* Modal nouveau document */}
       <Modal
         open={isNewDocumentModalOpen}
@@ -1290,60 +1390,60 @@ const handleViewDocument = (dossier: TVADocument, type?: string) => {
         </div>
       </Modal>
 
-     {/* Modal d'aperçu du document */}
-{previewDocument && (
-  <Modal
-    open={!!previewDocument}
-    onOpenChange={() => setPreviewDocument(null)}
-    type="form"
-    size="xl"
-    title={`Aperçu : ${previewDocument.type}`}
-    icon={<FileText className="h-5 w-5" />}
-    actions={{
-      primary: {
-        label: "Télécharger",
-        onClick: () => {
-          downloadMock(previewDocument.name);
-        },
-      },
-      secondary: {
-        label: "Fermer",
-        onClick: () => setPreviewDocument(null),
-        variant: "outline" as const,
-      },
-    }}
-  >
-    <div className="space-y-4">
-      {/* En-tête du document */}
-      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded">
-            <FileText className="h-5 w-5 text-primary" />
+      {/* Modal d'aperçu du document */}
+      {previewDocument && (
+        <Modal
+          open={!!previewDocument}
+          onOpenChange={() => setPreviewDocument(null)}
+          type="form"
+          size="xl"
+          title={`Aperçu : ${previewDocument.type}`}
+          icon={<FileText className="h-5 w-5" />}
+          actions={{
+            primary: {
+              label: "Télécharger",
+              onClick: () => {
+                downloadMock(previewDocument.name);
+              },
+            },
+            secondary: {
+              label: "Fermer",
+              onClick: () => setPreviewDocument(null),
+              variant: "outline" as const,
+            },
+          }}
+        >
+          <div className="space-y-4">
+            {/* En-tête du document */}
+            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">{previewDocument.name}</p>
+                  <p className="text-xs text-muted-foreground">PDF • 2.4 MB</p>
+                </div>
+              </div>
+              <Badge variant="outline">Aperçu</Badge>
+            </div>
+
+            {/* Contenu du document */}
+            <div className="border rounded-lg p-6 bg-white dark:bg-gray-900 min-h-[300px]">
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                <pre className="whitespace-pre-wrap font-mono text-sm bg-muted/50 p-4 rounded-lg">
+                  {previewDocument.content}
+                </pre>
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground text-center">
+              Aperçu généré à titre indicatif. Téléchargez le document pour la
+              version complète.
+            </div>
           </div>
-          <div>
-            <p className="font-medium">{previewDocument.name}</p>
-            <p className="text-xs text-muted-foreground">PDF • 2.4 MB</p>
-          </div>
-        </div>
-        <Badge variant="outline">Aperçu</Badge>
-      </div>
-
-      {/* Contenu du document */}
-      <div className="border rounded-lg p-6 bg-white dark:bg-gray-900 min-h-[300px]">
-        <div className="prose prose-sm max-w-none dark:prose-invert">
-          <pre className="whitespace-pre-wrap font-mono text-sm bg-muted/50 p-4 rounded-lg">
-            {previewDocument.content}
-          </pre>
-        </div>
-      </div>
-
-      <div className="text-xs text-muted-foreground text-center">
-        Aperçu généré à titre indicatif. Téléchargez le document pour la version complète.
-      </div>
-    </div>
-  </Modal>
-)}
-
+        </Modal>
+      )}
     </div>
   );
 }

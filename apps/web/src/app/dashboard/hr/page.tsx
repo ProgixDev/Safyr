@@ -23,6 +23,8 @@ import {
   Megaphone,
   GraduationCap,
   UserX,
+  Building2,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -595,8 +597,9 @@ function CostPerEmployeeWidget({ isLoading }: { isLoading: boolean }) {
               { name: "Salaire brut", value: 2150, color: "#34d399" },
               { name: "Charges", value: 700, color: "#fb923c" },
             ]}
-            centerValue="2 850€"
+            centerValue="2 850 €"
             centerCaption="moy./mois"
+            valueSuffix=" €"
           />
           <div className="flex items-center justify-center gap-2 text-sm pt-1">
             <TrendingUp className="h-4 w-4 text-red-400" />
@@ -850,6 +853,16 @@ function QuickActionsWidget({ isLoading }: { isLoading: boolean }) {
       label: "Nouveau salarié",
       href: "/dashboard/hr/collaborators",
       icon: UserCheck,
+    },
+    {
+      label: "Nouveau client",
+      href: "/dashboard/hr/entreprise/clients?new=1",
+      icon: Building2,
+    },
+    {
+      label: "Nouveau site",
+      href: "/dashboard/hr/sites?new=1",
+      icon: MapPin,
     },
     {
       label: "Voir congés",

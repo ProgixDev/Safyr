@@ -24,6 +24,15 @@ export async function uploadOrganizationDocument(
   });
 }
 
+export async function deleteOrganizationDocument(
+  requirementId: string,
+): Promise<{ id: string; requirementId: string }> {
+  return apiFetch<{ id: string; requirementId: string }>(
+    `/organization/documents/${requirementId}`,
+    { method: "DELETE" },
+  );
+}
+
 export async function getActiveOrganization(): Promise<Organization> {
   return apiFetch<Organization>("/organization");
 }

@@ -411,6 +411,7 @@ function WorkedHoursContent() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleViewDetails}
             data={mockWorkedHours}
             columns={workedHoursColumns}
             searchKeys={["employeeName"]}
@@ -430,7 +431,6 @@ function WorkedHoursContent() {
                   })
                 : (value as string)
             }
-            rowClassName={() => "hover:bg-muted/50 transition-colors"}
           />
         </CardContent>
       </Card>

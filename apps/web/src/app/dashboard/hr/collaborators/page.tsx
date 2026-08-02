@@ -256,7 +256,7 @@ export default function EmployeesPage() {
           className="gap-2"
         >
           <Plus className="h-4 w-4" />
-          Nouvel employé
+          Nouveau salarié
         </Button>
       </div>
 
@@ -573,6 +573,7 @@ function pendingToEmployee(p: CreateEmployeePayload, idx: number): Employee {
     civilStatus: p.civilStatus ?? null,
     children: p.children ?? null,
     socialSecurityNumber: p.socialSecurityNumber ?? null,
+    cartePro: p.cartePro ?? null,
     employeeNumber: p.employeeNumber,
     hireDate: p.hireDate ?? null,
     position: p.position,

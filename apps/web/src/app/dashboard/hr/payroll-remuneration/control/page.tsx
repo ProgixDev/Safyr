@@ -415,6 +415,7 @@ export default function PayrollControlPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleViewDetails}
             data={anomalies}
             columns={columns}
             searchKeys={["employeeName", "description"]}

@@ -383,6 +383,8 @@ export interface Employee {
 
   // Social Security
   socialSecurityNumber: string;
+  /** Numéro de carte professionnelle CNAPS. */
+  cartePro?: string;
   healthCard?: string; // File path/URL
 
   // Employment

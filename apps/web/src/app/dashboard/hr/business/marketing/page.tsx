@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,11 @@ export default function MarketingPage() {
   );
   const [posts, setPosts] = useState<SocialPost[]>(mockSocialPosts);
   const [autoReplies] = useState<EmailAutoReply[]>(mockEmailAutoReplies);
-  const [crmCustomers] = useState<CRMCustomer[]>(mockCRMCustomers);
+  const [crmCustomers, setCrmCustomers] =
+    useState<CRMCustomer[]>(mockCRMCustomers);
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(
+    null,
+  );
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isAutoReplyModalOpen, setIsAutoReplyModalOpen] = useState(false);
   const [isCRMModalOpen, setIsCRMModalOpen] = useState(false);
@@ -69,12 +74,21 @@ export default function MarketingPage() {
       key: "platform",
       label: "Plateforme",
       render: (post) => {
-        const variants: Record<string, "default" | "secondary" | "outline"> = {
+        const variants: Record<
+          string,
+          "default" | "secondary" | "outline" | "destructive"
+        > = {
           LinkedIn: "default",
           Facebook: "secondary",
           Instagram: "outline",
+          YouTube: "destructive",
+          X: "secondary",
         };
-        return <Badge variant={variants[post.platform]}>{post.platform}</Badge>;
+        return (
+          <Badge variant={variants[post.platform] ?? "outline"}>
+            {post.platform}
+          </Badge>
+        );
       },
     },
     {
@@ -146,6 +160,55 @@ export default function MarketingPage() {
   const handleRowClick = (item: SocialPost | EmailAutoReply | CRMCustomer) => {
     setSelectedItem(item);
     setIsViewModalOpen(true);
+  };
+
+  // ── CRM clients : menu actions (voir / modifier / supprimer) ────────
+  const resetCrmForm = () => {
+    setEditingCustomerId(null);
+    setCrmFormData({
+      name: "",
+      email: "",
+      phone: "",
+      company: "",
+      status: "Prospect",
+    });
+  };
+
+  const handleEditCustomer = (customer: CRMCustomer) => {
+    setEditingCustomerId(customer.id);
+    setCrmFormData({
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone ?? "",
+      company: customer.company ?? "",
+      status: customer.status,
+    });
+    setIsCRMModalOpen(true);
+  };
+
+  const handleDeleteCustomer = (customer: CRMCustomer) => {
+    setCrmCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+  };
+
+  const handleSaveCustomer = () => {
+    if (editingCustomerId) {
+      setCrmCustomers((prev) =>
+        prev.map((c) =>
+          c.id === editingCustomerId ? { ...c, ...crmFormData } : c,
+        ),
+      );
+    } else {
+      setCrmCustomers((prev) => [
+        ...prev,
+        {
+          ...crmFormData,
+          id: `CRM-${Date.now()}`,
+          lastContact: new Date().toISOString(),
+        } as CRMCustomer,
+      ]);
+    }
+    setIsCRMModalOpen(false);
+    resetCrmForm();
   };
 
   const totalEngagement = posts
@@ -277,7 +340,14 @@ export default function MarketingPage() {
             {crmCustomers.map((customer) => (
               <Card key={customer.id}>
                 <CardHeader>
-                  <CardTitle className="text-lg">{customer.name}</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-lg">{customer.name}</CardTitle>
+                    <RowActionsMenu
+                      onView={() => handleRowClick(customer)}
+                      onEdit={() => handleEditCustomer(customer)}
+                      onDelete={() => handleDeleteCustomer(customer)}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground mb-2">
@@ -333,6 +403,8 @@ export default function MarketingPage() {
                 <SelectItem value="LinkedIn">LinkedIn</SelectItem>
                 <SelectItem value="Facebook">Facebook</SelectItem>
                 <SelectItem value="Instagram">Instagram</SelectItem>
+                <SelectItem value="YouTube">YouTube</SelectItem>
+                <SelectItem value="X">X</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -467,22 +539,26 @@ export default function MarketingPage() {
       {/* CRM Add Client Modal */}
       <Modal
         open={isCRMModalOpen}
-        onOpenChange={setIsCRMModalOpen}
+        onOpenChange={(open) => {
+          setIsCRMModalOpen(open);
+          if (!open) resetCrmForm();
+        }}
         type="form"
-        title="Ajouter un client"
+        title={editingCustomerId ? "Modifier le client" : "Ajouter un client"}
         size="lg"
         actions={{
           primary: {
-            label: "Ajouter le client",
-            onClick: () => {
-              // Handle save client
-              alert("Client ajouté au CRM!");
-              setIsCRMModalOpen(false);
-            },
+            label: editingCustomerId
+              ? "Enregistrer les modifications"
+              : "Ajouter le client",
+            onClick: handleSaveCustomer,
           },
           secondary: {
             label: "Annuler",
-            onClick: () => setIsCRMModalOpen(false),
+            onClick: () => {
+              setIsCRMModalOpen(false);
+              resetCrmForm();
+            },
             variant: "outline",
           },
         }}

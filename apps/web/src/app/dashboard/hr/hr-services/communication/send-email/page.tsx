@@ -107,7 +107,7 @@ export default function SendEmailPage() {
       setBody("");
       return;
     }
-    
+
     setSelectedTemplate(templateId);
     const template = mockEmailTemplates.find((t) => t.id === templateId);
     if (template) {

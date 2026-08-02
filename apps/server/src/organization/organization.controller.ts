@@ -1,6 +1,8 @@
 import {
   Controller,
+  Delete,
   Get,
+  Param,
   Patch,
   Post,
   Body,
@@ -103,6 +105,17 @@ export class OrganizationController {
       },
       parsed.requirementId,
       parsed.expiryDate,
+    );
+  }
+
+  @Delete("documents/:requirementId")
+  async deleteDocument(
+    @Req() req: FastifyRequest,
+    @Param("requirementId") requirementId: string,
+  ) {
+    return this.organizationService.deleteDocumentByRequirement(
+      await this.getOrgId(req),
+      requirementId,
     );
   }
 }

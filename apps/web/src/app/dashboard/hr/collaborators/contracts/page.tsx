@@ -465,6 +465,7 @@ export default function ContractsPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleView}
             data={contracts}
             columns={columns}
             searchKeys={["position", "department"]}

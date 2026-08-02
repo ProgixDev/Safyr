@@ -5,6 +5,7 @@ import {
   createRepresentative,
   getOrganizationCompliance,
   uploadOrganizationDocument,
+  deleteOrganizationDocument,
 } from "@safyr/api-client";
 import { organizationKeys } from "./keys";
 
@@ -57,6 +58,16 @@ export function useUploadOrganizationDocument() {
         requirementId,
         expiryDate ? { expiryDate } : undefined,
       ),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: organizationKeys.compliance() }),
+  });
+}
+
+export function useDeleteOrganizationDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (requirementId: string) =>
+      deleteOrganizationDocument(requirementId),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: organizationKeys.compliance() }),
   });

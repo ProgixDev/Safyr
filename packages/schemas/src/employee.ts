@@ -70,6 +70,17 @@ export const SsnFrSchema = optionalPattern(
   stripSpaces,
 );
 
+/**
+ * Numéro de carte professionnelle CNAPS.
+ * Format usuel : CAR-XXX-YYYY-MM-DD-NNNNNNNNNNNN (lettres, chiffres, tirets).
+ * Volontairement permissif : le CNAPS a fait évoluer le format au fil du temps.
+ */
+export const CarteProSchema = optionalPattern(
+  /^[A-Z0-9-]{8,40}$/,
+  "Numéro de carte professionnelle invalide",
+  (v) => v.trim().toUpperCase(),
+);
+
 export const BirthDateSchema = z
   .string()
   .refine((v) => v === "" || isIsoDate(v), "Date invalide")
@@ -215,6 +226,7 @@ export const CreateEmployeeSchema = z.object({
   civilStatus: CivilStatusSchema.optional(),
   children: z.number().int().min(0).max(30).optional(),
   socialSecurityNumber: SsnFrSchema,
+  cartePro: CarteProSchema,
   employeeNumber: z.string().trim().min(1, "Numéro d'employé requis").max(40),
   hireDate: PastOrTodayDate,
   position: z.string().trim().min(1, "Poste requis").max(120),
@@ -240,6 +252,7 @@ export const UpdateEmployeeSchema = z.object({
   civilStatus: CivilStatusSchema.optional(),
   children: z.number().int().min(0).max(30).optional(),
   socialSecurityNumber: SsnFrSchema,
+  cartePro: CarteProSchema,
   employeeNumber: optionalText(40),
   hireDate: PastOrTodayDate,
   position: optionalText(120),

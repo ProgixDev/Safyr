@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, Flame, HeartPulse, Zap, ChevronRight } from "lucide-react";
+import {
+  ShieldCheck,
+  Flame,
+  HeartPulse,
+  Zap,
+  ChevronRight,
+} from "lucide-react";
 
 const BASE = "/dashboard/hr/safety-health-training/authorizations-matrix";
 
@@ -31,7 +37,7 @@ export default function AuthorizationsMatrixIndexPage() {
       <div>
         <h1 className="flex items-center gap-2 text-3xl font-bold">
           <ShieldCheck className="h-7 w-7" />
-          Matrice des Habilitations
+          Habilitations
         </h1>
         <p className="text-muted-foreground">
           Suivi des habilitations des agents par type

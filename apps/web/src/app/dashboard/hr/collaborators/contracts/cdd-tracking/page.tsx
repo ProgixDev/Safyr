@@ -456,7 +456,11 @@ export default function CDDRegisterPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredEntries} />
+          <DataTable
+            onRowClick={handleView}
+            columns={columns}
+            data={filteredEntries}
+          />
         </CardContent>
       </Card>
 

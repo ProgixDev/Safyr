@@ -35,7 +35,6 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
   "http://localhost:4000";
 
-
 const SEEDED_ACCOUNTS: {
   email: string;
   name: string;
@@ -188,15 +187,12 @@ export default function DevInboxPage() {
       }
 
       // 4. Vérifie l'OTP → cookie posé par better-auth
-      const verifyRes = await fetch(
-        `${API_BASE}/api/auth/sign-in/email-otp`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ email, otp }),
-        },
-      );
+      const verifyRes = await fetch(`${API_BASE}/api/auth/sign-in/email-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, otp }),
+      });
       if (!verifyRes.ok) {
         const txt = await verifyRes.text();
         alert(`Verify OTP échoué : ${txt.slice(0, 200)}`);
@@ -342,7 +338,9 @@ export default function DevInboxPage() {
           </p>
           {currentUser && (
             <p className="text-xs mt-2">
-              <Badge variant="default">Connecté en tant que {currentUser}</Badge>
+              <Badge variant="default">
+                Connecté en tant que {currentUser}
+              </Badge>
             </p>
           )}
         </div>
@@ -362,9 +360,7 @@ export default function DevInboxPage() {
             {SEEDED_ACCOUNTS.map((acc) => (
               <Button
                 key={acc.email}
-                variant={
-                  currentUser === acc.email ? "default" : "outline"
-                }
+                variant={currentUser === acc.email ? "default" : "outline"}
                 onClick={() => quickLogin(acc.email)}
                 disabled={loginAs === acc.email}
                 className="justify-start h-auto py-3"
@@ -399,9 +395,9 @@ export default function DevInboxPage() {
               </Button>
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Test direct des endpoints API avec le cookie de session actuel.
-              Si tu vois ❌ partout, tu n&apos;es pas connecté — utilise un
-              bouton de connexion ci-dessus.
+              Test direct des endpoints API avec le cookie de session actuel. Si
+              tu vois ❌ partout, tu n&apos;es pas connecté — utilise un bouton
+              de connexion ci-dessus.
             </p>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-2 text-sm">
@@ -417,9 +413,7 @@ export default function DevInboxPage() {
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <span>
-                    {val.ok ? "✅" : val.code === 401 ? "🔒" : "❌"}
-                  </span>
+                  <span>{val.ok ? "✅" : val.code === 401 ? "🔒" : "❌"}</span>
                   <span className="font-medium">{key}</span>
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -523,7 +517,9 @@ export default function DevInboxPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
-                      <CardTitle className="text-base">{mail.subject}</CardTitle>
+                      <CardTitle className="text-base">
+                        {mail.subject}
+                      </CardTitle>
                       <p className="text-xs text-muted-foreground">
                         À <span className="font-medium">{mail.to}</span> · le{" "}
                         {new Date(mail.sentAt).toLocaleString("fr-FR")}

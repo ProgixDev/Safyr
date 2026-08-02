@@ -310,10 +310,10 @@ export default function SocialReportPage() {
         type === "maladie"
           ? "Maladie"
           : type === "accidentTravail"
-          ? "Accident travail"
-          : type === "conges"
-          ? "Congés"
-          : "Autres",
+            ? "Accident travail"
+            : type === "conges"
+              ? "Congés"
+              : "Autres",
       jours: days,
     }),
   );
@@ -384,65 +384,69 @@ export default function SocialReportPage() {
     <div className="space-y-8 p-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 min-h-screen">
       {/* Header avec design moderne */}
       {/* Header - Design professionnel bleu marine */}
-<div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 p-8 text-white shadow-xl border border-slate-600/30">
-  <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5" />
-  <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-blue-500/5 blur-3xl" />
-  <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-blue-500/5 blur-3xl" />
-  <div className="absolute right-1/3 top-1/2 h-32 w-32 rounded-full bg-blue-400/5 blur-2xl" />
-  
-  <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-    <div>
-      <div className="flex items-center gap-3">
-        <div className="rounded-lg bg-blue-500/20 p-2.5 backdrop-blur-sm border border-blue-400/20">
-          <BarChart3 className="h-7 w-7 text-blue-400" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Bilan Social Automatisé
-          </h1>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="inline-flex items-center gap-1.5 text-sm text-blue-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-              Données RH
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-sm text-blue-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-              Paie
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-sm text-blue-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-              Planning
-            </span>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 p-8 text-white shadow-xl border border-slate-600/30">
+        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5" />
+        <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-blue-500/5 blur-3xl" />
+        <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-blue-500/5 blur-3xl" />
+        <div className="absolute right-1/3 top-1/2 h-32 w-32 rounded-full bg-blue-400/5 blur-2xl" />
+
+        <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-blue-500/20 p-2.5 backdrop-blur-sm border border-blue-400/20">
+                <BarChart3 className="h-7 w-7 text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">
+                  Bilan Social Automatisé
+                </h1>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="inline-flex items-center gap-1.5 text-sm text-blue-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                    Données RH
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-sm text-blue-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                    Paie
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-sm text-blue-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                    Planning
+                  </span>
+                </div>
+              </div>
+            </div>
+            <p className="mt-2 text-slate-300 max-w-2xl ml-1">
+              Génération automatique du bilan social à partir des données RH,
+              Paie et Planning
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Select
+              value={selectedYear.toString()}
+              onValueChange={handleYearChange}
+            >
+              <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2024">2024</SelectItem>
+                <SelectItem value="2023">2023</SelectItem>
+                <SelectItem value="2022">2022</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              className="gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm"
+            >
+              <Download className="h-4 w-4" />
+              Exporter
+            </Button>
           </div>
         </div>
       </div>
-      <p className="mt-2 text-slate-300 max-w-2xl ml-1">
-        Génération automatique du bilan social à partir des données RH, Paie et Planning
-      </p>
-    </div>
-    
-    <div className="flex gap-2">
-      <Select value={selectedYear.toString()} onValueChange={handleYearChange}>
-        <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="2024">2024</SelectItem>
-          <SelectItem value="2023">2023</SelectItem>
-          <SelectItem value="2022">2022</SelectItem>
-        </SelectContent>
-      </Select>
-      <Button 
-        variant="secondary" 
-        onClick={handleExport}
-        className="gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm"
-      >
-        <Download className="h-4 w-4" />
-        Exporter
-      </Button>
-    </div>
-  </div>
-</div>
 
       {/* KPI Cards modernes */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -453,7 +457,9 @@ export default function SocialReportPage() {
               <div className="rounded-lg bg-indigo-100 dark:bg-indigo-900/30 p-2">
                 <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <span className="text-sm font-medium text-muted-foreground">Effectif total</span>
+              <span className="text-sm font-medium text-muted-foreground">
+                Effectif total
+              </span>
             </div>
             <p className="mt-2 text-3xl font-bold">
               {report.employeeDistribution.total}
@@ -472,7 +478,9 @@ export default function SocialReportPage() {
               <div className="rounded-lg bg-green-100 dark:bg-green-900/30 p-2">
                 <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
-              <span className="text-sm font-medium text-muted-foreground">Masse salariale</span>
+              <span className="text-sm font-medium text-muted-foreground">
+                Masse salariale
+              </span>
             </div>
             <p className="mt-2 text-3xl font-bold">
               {report.payroll.grossTotal.toLocaleString("fr-FR")} €
@@ -491,7 +499,9 @@ export default function SocialReportPage() {
               <div className="rounded-lg bg-orange-100 dark:bg-orange-900/30 p-2">
                 <Activity className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               </div>
-              <span className="text-sm font-medium text-muted-foreground">Turnover</span>
+              <span className="text-sm font-medium text-muted-foreground">
+                Turnover
+              </span>
             </div>
             <p className="mt-2 text-3xl font-bold">
               {report.turnover.globalRate}%
@@ -510,7 +520,9 @@ export default function SocialReportPage() {
               <div className="rounded-lg bg-purple-100 dark:bg-purple-900/30 p-2">
                 <GraduationCap className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
-              <span className="text-sm font-medium text-muted-foreground">Formation</span>
+              <span className="text-sm font-medium text-muted-foreground">
+                Formation
+              </span>
             </div>
             <p className="mt-2 text-3xl font-bold">
               {report.training.totalExpenses.toLocaleString("fr-FR")} €
@@ -567,7 +579,7 @@ export default function SocialReportPage() {
                         />
                       ))}
                     </Pie>
-                    <Tooltip 
+                    <Tooltip
                       contentStyle={{
                         borderRadius: "12px",
                         border: "none",
@@ -579,11 +591,17 @@ export default function SocialReportPage() {
               </div>
               <div className="space-y-3">
                 {genderData.map((item, index) => (
-                  <div key={item.name} className="flex items-center justify-between">
+                  <div
+                    key={item.name}
+                    className="flex items-center justify-between"
+                  >
                     <div className="flex items-center gap-2">
                       <div
                         className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                        style={{
+                          backgroundColor:
+                            CHART_COLORS[index % CHART_COLORS.length],
+                        }}
                       />
                       <span className="text-sm">{item.name}</span>
                     </div>
@@ -638,7 +656,13 @@ export default function SocialReportPage() {
                     radius={[0, 8, 8, 0]}
                   >
                     <defs>
-                      <linearGradient id="ageGradient" x1="0" y1="0" x2="1" y2="0">
+                      <linearGradient
+                        id="ageGradient"
+                        x1="0"
+                        y1="0"
+                        x2="1"
+                        y2="0"
+                      >
                         <stop offset="0%" stopColor="#6366f1" />
                         <stop offset="100%" stopColor="#8b5cf6" />
                       </linearGradient>
@@ -689,11 +713,7 @@ export default function SocialReportPage() {
                       {contractData.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
-                          fill={[
-                            "#6366f1",
-                            "#8b5cf6",
-                            "#a855f7",
-                          ][index % 3]}
+                          fill={["#6366f1", "#8b5cf6", "#a855f7"][index % 3]}
                           stroke="white"
                           strokeWidth={2}
                         />
@@ -711,16 +731,17 @@ export default function SocialReportPage() {
               </div>
               <div className="space-y-4">
                 {contractData.map((item, index) => (
-                  <div key={item.name} className="flex items-center justify-between">
+                  <div
+                    key={item.name}
+                    className="flex items-center justify-between"
+                  >
                     <div className="flex items-center gap-2">
                       <div
                         className="h-3 w-3 rounded-full"
                         style={{
-                          backgroundColor: [
-                            "#6366f1",
-                            "#8b5cf6",
-                            "#a855f7",
-                          ][index % 3],
+                          backgroundColor: ["#6366f1", "#8b5cf6", "#a855f7"][
+                            index % 3
+                          ],
                         }}
                       />
                       <span className="text-sm">{item.name}</span>
@@ -730,7 +751,9 @@ export default function SocialReportPage() {
                 ))}
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Durée moyenne CDD</span>
+                    <span className="text-sm font-medium">
+                      Durée moyenne CDD
+                    </span>
                     <span className="text-sm font-bold">
                       {report.contracts.averageCddDuration} mois
                     </span>
@@ -775,9 +798,11 @@ export default function SocialReportPage() {
             </div>
             <div className="h-[180px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={Object.entries(report.turnover.bySite).map(
-                  ([site, rate]) => ({ site, taux: rate })
-                )}>
+                <BarChart
+                  data={Object.entries(report.turnover.bySite).map(
+                    ([site, rate]) => ({ site, taux: rate }),
+                  )}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="site" />
                   <YAxis />
@@ -790,7 +815,13 @@ export default function SocialReportPage() {
                   />
                   <Bar dataKey="taux" fill="#f59e0b" radius={[4, 4, 0, 0]}>
                     <defs>
-                      <linearGradient id="turnoverGradient" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient
+                        id="turnoverGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
                         <stop offset="0%" stopColor="#f59e0b" />
                         <stop offset="100%" stopColor="#f97316" />
                       </linearGradient>
@@ -831,13 +862,18 @@ export default function SocialReportPage() {
                 </div>
               </div>
               <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-                <div className="text-xs text-muted-foreground">Charges patronales</div>
+                <div className="text-xs text-muted-foreground">
+                  Charges patronales
+                </div>
                 <div className="text-lg font-bold text-orange-600">
-                  {report.payroll.employerContributions.toLocaleString("fr-FR")} €
+                  {report.payroll.employerContributions.toLocaleString("fr-FR")}{" "}
+                  €
                 </div>
               </div>
               <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-                <div className="text-xs text-muted-foreground">Coût total employeur</div>
+                <div className="text-xs text-muted-foreground">
+                  Coût total employeur
+                </div>
                 <div className="text-lg font-bold text-indigo-600">
                   {report.payroll.totalCost.toLocaleString("fr-FR")} €
                 </div>
@@ -857,7 +893,13 @@ export default function SocialReportPage() {
                     }}
                   />
                   <defs>
-                    <linearGradient id="payrollGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient
+                      id="payrollGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
                       <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1} />
                       <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                     </linearGradient>
@@ -892,30 +934,38 @@ export default function SocialReportPage() {
               <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-center">
                 <div className="text-xs text-muted-foreground">Hommes</div>
                 <div className="text-lg font-bold text-indigo-600">
-                  {report.genderPayGap.averageMaleGross.toLocaleString("fr-FR")} €
+                  {report.genderPayGap.averageMaleGross.toLocaleString("fr-FR")}{" "}
+                  €
                 </div>
               </div>
               <div className="p-3 bg-pink-50 dark:bg-pink-900/20 rounded-xl text-center">
                 <div className="text-xs text-muted-foreground">Femmes</div>
                 <div className="text-lg font-bold text-pink-600">
-                  {report.genderPayGap.averageFemaleGross.toLocaleString("fr-FR")} €
+                  {report.genderPayGap.averageFemaleGross.toLocaleString(
+                    "fr-FR",
+                  )}{" "}
+                  €
                 </div>
               </div>
-              <div className={`p-3 rounded-xl text-center ${
-                report.genderPayGap.gapPercentage < 5 
-                  ? "bg-green-50 dark:bg-green-900/20" 
-                  : report.genderPayGap.gapPercentage < 10 
-                  ? "bg-orange-50 dark:bg-orange-900/20"
-                  : "bg-red-50 dark:bg-red-900/20"
-              }`}>
+              <div
+                className={`p-3 rounded-xl text-center ${
+                  report.genderPayGap.gapPercentage < 5
+                    ? "bg-green-50 dark:bg-green-900/20"
+                    : report.genderPayGap.gapPercentage < 10
+                      ? "bg-orange-50 dark:bg-orange-900/20"
+                      : "bg-red-50 dark:bg-red-900/20"
+                }`}
+              >
                 <div className="text-xs text-muted-foreground">Écart</div>
-                <div className={`text-lg font-bold ${
-                  report.genderPayGap.gapPercentage < 5 
-                    ? "text-green-600" 
-                    : report.genderPayGap.gapPercentage < 10 
-                    ? "text-orange-600"
-                    : "text-red-600"
-                }`}>
+                <div
+                  className={`text-lg font-bold ${
+                    report.genderPayGap.gapPercentage < 5
+                      ? "text-green-600"
+                      : report.genderPayGap.gapPercentage < 10
+                        ? "text-orange-600"
+                        : "text-red-600"
+                  }`}
+                >
                   {report.genderPayGap.gapPercentage}%
                 </div>
               </div>
@@ -935,7 +985,13 @@ export default function SocialReportPage() {
                   />
                   <Bar dataKey="salaire" radius={[0, 8, 8, 0]}>
                     <defs>
-                      <linearGradient id="genderGapGradient" x1="0" y1="0" x2="1" y2="0">
+                      <linearGradient
+                        id="genderGapGradient"
+                        x1="0"
+                        y1="0"
+                        x2="1"
+                        y2="0"
+                      >
                         <stop offset="0%" stopColor="#6366f1" />
                         <stop offset="100%" stopColor="#ec4899" />
                       </linearGradient>
@@ -999,12 +1055,11 @@ export default function SocialReportPage() {
                     {absenceData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={[
-                          "#6366f1",
-                          "#8b5cf6",
-                          "#a855f7",
-                          "#d946ef",
-                        ][index % 4]}
+                        fill={
+                          ["#6366f1", "#8b5cf6", "#a855f7", "#d946ef"][
+                            index % 4
+                          ]
+                        }
                         stroke="white"
                         strokeWidth={2}
                       />
@@ -1043,7 +1098,9 @@ export default function SocialReportPage() {
                 </div>
               </div>
               <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center">
-                <div className="text-xs text-muted-foreground">Participants</div>
+                <div className="text-xs text-muted-foreground">
+                  Participants
+                </div>
                 <div className="text-sm font-bold">
                   {report.training.participants}
                 </div>
@@ -1070,7 +1127,13 @@ export default function SocialReportPage() {
                   />
                   <Bar dataKey="cout" fill="#06b6d4" radius={[4, 4, 0, 0]}>
                     <defs>
-                      <linearGradient id="hourlyCostGradient" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient
+                        id="hourlyCostGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
                         <stop offset="0%" stopColor="#06b6d4" />
                         <stop offset="100%" stopColor="#3b82f6" />
                       </linearGradient>
@@ -1127,7 +1190,9 @@ export default function SocialReportPage() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-sm text-muted-foreground">Année précédente</div>
+              <div className="text-sm text-muted-foreground">
+                Année précédente
+              </div>
               <div className="text-2xl font-bold">
                 {report.comparison.previousYear.toLocaleString("fr-FR")} €
               </div>
@@ -1148,7 +1213,9 @@ export default function SocialReportPage() {
               <div className="text-sm text-muted-foreground">Tendance</div>
               <div className="flex items-center justify-center gap-1">
                 <ArrowUp className="h-6 w-6 text-green-500" />
-                <span className="text-lg font-medium text-green-600">Croissance</span>
+                <span className="text-lg font-medium text-green-600">
+                  Croissance
+                </span>
               </div>
             </div>
           </div>

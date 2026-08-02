@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ export default function TendersPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
+  const [editingTenderId, setEditingTenderId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     client: "",
@@ -121,6 +123,7 @@ export default function TendersPage() {
   ];
 
   const handleCreate = () => {
+    setEditingTenderId(null);
     setFormData({
       title: "",
       client: "",
@@ -134,6 +137,30 @@ export default function TendersPage() {
   };
 
   const handleSave = () => {
+    if (editingTenderId) {
+      setTenders((prev) =>
+        prev.map((t) =>
+          t.id === editingTenderId
+            ? {
+                ...t,
+                title: formData.title,
+                client: formData.client,
+                source: formData.source as Tender["source"],
+                sourceUrl: formData.sourceUrl,
+                publicationDate: formData.publicationDate,
+                deadline: formData.deadline,
+                estimatedValue: formData.estimatedValue
+                  ? parseFloat(formData.estimatedValue)
+                  : undefined,
+              }
+            : t,
+        ),
+      );
+      setEditingTenderId(null);
+      setIsCreateModalOpen(false);
+      return;
+    }
+
     const newTender: Tender = {
       id: (tenders.length + 1).toString(),
       reference: `AO-2024-${String(tenders.length + 1).padStart(3, "0")}`,
@@ -158,6 +185,70 @@ export default function TendersPage() {
   const handleRowClick = (tender: Tender) => {
     setSelectedTender(tender);
     setIsViewModalOpen(true);
+  };
+
+  const handleEditTender = (tender: Tender) => {
+    setEditingTenderId(tender.id);
+    setFormData({
+      title: tender.title,
+      client: tender.client,
+      source: tender.source,
+      sourceUrl: tender.sourceUrl ?? "",
+      publicationDate: tender.publicationDate,
+      deadline: tender.deadline,
+      estimatedValue: tender.estimatedValue?.toString() ?? "",
+    });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleDeleteTender = (tender: Tender) => {
+    setTenders((prev) => prev.filter((t) => t.id !== tender.id));
+  };
+
+  /** Téléverse une pièce du dossier d'appel d'offre. */
+  const handleUploadTenderDocument = (tender: Tender) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf,.doc,.docx,.xlsx,.xls,.png,.jpg,.jpeg";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setTenders((prev) =>
+        prev.map((t) =>
+          t.id === tender.id
+            ? { ...t, documents: [...(t.documents ?? []), file.name] }
+            : t,
+        ),
+      );
+    };
+    input.click();
+  };
+
+  /** Exporte la fiche de l'appel d'offre et la liste de ses pièces. */
+  const handleDownloadTender = (tender: Tender) => {
+    const lines = [
+      `Appel d'offre : ${tender.reference}`,
+      `Objet : ${tender.title}`,
+      `Client : ${tender.client}`,
+      `Source : ${tender.source}${tender.sourceUrl ? ` (${tender.sourceUrl})` : ""}`,
+      `Publication : ${tender.publicationDate}`,
+      `Date limite : ${tender.deadline}`,
+      `Statut : ${tender.status}`,
+      "",
+      "Pièces du dossier :",
+      ...(tender.documents?.length
+        ? tender.documents.map((d) => ` - ${d}`)
+        : [" (aucune pièce)"]),
+    ];
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${tender.reference}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleCreateDossier = (tenderId: string) => {
@@ -290,6 +381,15 @@ export default function TendersPage() {
         searchKey="title"
         searchPlaceholder="Rechercher un appel d'offre..."
         onRowClick={handleRowClick}
+        actions={(tender) => (
+          <RowActionsMenu
+            onView={() => handleRowClick(tender)}
+            onEdit={() => handleEditTender(tender)}
+            onUpload={() => handleUploadTenderDocument(tender)}
+            onDownload={() => handleDownloadTender(tender)}
+            onDelete={() => handleDeleteTender(tender)}
+          />
+        )}
       />
 
       {/* Create Modal */}
@@ -297,7 +397,9 @@ export default function TendersPage() {
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         type="form"
-        title="Nouvel appel d'offre"
+        title={
+          editingTenderId ? "Modifier l'appel d'offre" : "Nouvel appel d'offre"
+        }
         size="lg"
         actions={{
           primary: {

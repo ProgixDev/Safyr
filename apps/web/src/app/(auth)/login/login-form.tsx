@@ -39,7 +39,9 @@ function getLoginDraft(): LoginDraft {
   try {
     const draft = JSON.parse(rawDraft) as Partial<LoginDraft>;
     const mode: LoginMode =
-      draft.mode === "magic-link" || draft.mode === "otp" || draft.mode === "password"
+      draft.mode === "magic-link" ||
+      draft.mode === "otp" ||
+      draft.mode === "password"
         ? draft.mode
         : "password";
     return {

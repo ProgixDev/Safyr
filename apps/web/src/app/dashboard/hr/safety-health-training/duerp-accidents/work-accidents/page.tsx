@@ -283,10 +283,89 @@ export default function WorkAccidentsPage() {
     setIsCreateModalOpen(false);
   };
 
-  const handleExportPDF = () => {
-    alert(
-      "Export PDF du registre des accidents du travail (conforme CNAPS)...",
+  /** Colonnes communes aux exports PDF et Excel du registre. */
+  const buildExportRows = () => {
+    const headers = [
+      "Salarié",
+      "Date de l'accident",
+      "Heure",
+      "Lieu",
+      "Description",
+      "Lésions",
+      "Gravité",
+      "Statut",
+      "N° déclaration",
+      "Date de déclaration",
+      "Arrêt de travail",
+      "Début d'arrêt",
+      "Fin d'arrêt",
+      "Reprise",
+      "CPAM notifiée",
+    ];
+    const fr = (d?: Date) =>
+      d ? new Date(d).toLocaleDateString("fr-FR") : "—";
+    const rows = filteredAccidents.map((a) => [
+      getEmployeeName(a.employeeId),
+      fr(a.accidentDate),
+      a.accidentTime || "—",
+      a.location,
+      a.description,
+      a.injuries,
+      severityLabels[a.severity],
+      statusLabels[a.status],
+      a.declarationNumber || "—",
+      fr(a.declarationDate),
+      a.workStoppage ? "Oui" : "Non",
+      fr(a.workStoppageStart),
+      fr(a.workStoppageEnd),
+      fr(a.returnToWork),
+      a.cpamNotified ? "Oui" : "Non",
+    ]);
+    return { headers, rows };
+  };
+
+  const handleExportPDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    const autoTable = (await import("jspdf-autotable")).default;
+    const { headers, rows } = buildExportRows();
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text("Registre des accidents du travail", 14, 16);
+    doc.setFontSize(9);
+    doc.text(
+      `Édité le ${new Date().toLocaleDateString("fr-FR")} — ${rows.length} accident(s)`,
+      14,
+      22,
     );
+    autoTable(doc, {
+      startY: 28,
+      head: [headers],
+      body: rows,
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [34, 211, 238] },
+    });
+    doc.save(
+      `registre-accidents-travail-${new Date().toISOString().slice(0, 10)}.pdf`,
+    );
+  };
+
+  const handleExportExcel = () => {
+    const { headers, rows } = buildExportRows();
+    const csv = [headers, ...rows]
+      .map((r) =>
+        r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";"),
+      )
+      .join("\r\n");
+    // BOM UTF-8 pour qu'Excel affiche correctement les accents.
+    const blob = new Blob(["﻿" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `registre-accidents-travail-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Apply filters
@@ -427,6 +506,10 @@ export default function WorkAccidentsPage() {
             <Download className="mr-2 h-4 w-4" />
             Exporter PDF
           </Button>
+          <Button onClick={handleExportExcel} variant="outline">
+            <Download className="mr-2 h-4 w-4" />
+            Exporter Excel
+          </Button>
           <Button onClick={handleCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Déclarer un accident
@@ -503,7 +586,11 @@ export default function WorkAccidentsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredAccidents} />
+          <DataTable
+            onRowClick={handleView}
+            columns={columns}
+            data={filteredAccidents}
+          />
         </CardContent>
       </Card>
 

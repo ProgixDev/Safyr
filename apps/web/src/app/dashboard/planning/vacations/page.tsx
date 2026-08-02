@@ -76,7 +76,9 @@ function isSameDay(a: Date, b: Date): boolean {
 }
 
 export default function VacationsPage() {
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
+  const [weekStart, setWeekStart] = useState<Date>(() =>
+    startOfWeek(new Date()),
+  );
   const weekEnd = addDays(weekStart, 7);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 

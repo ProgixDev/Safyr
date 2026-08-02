@@ -21,6 +21,7 @@ import { Edit, Loader2, Save, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/types";
 import { useUpdateEmployee } from "@/hooks/employees";
+import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { ApiError, type UpdateEmployeePayload } from "@safyr/api-client";
 
 interface Props {
@@ -39,6 +40,7 @@ type FormValues = {
   civilStatus: "single" | "married" | "divorced" | "widowed" | "civil-union";
   children: number;
   socialSecurityNumber: string;
+  cartePro: string;
   position: string;
   employeeNumber: string;
   hireDate: string;
@@ -124,6 +126,7 @@ export function EmployeeInfoTab({ employee }: Props) {
       civilStatus: employee.civilStatus,
       children: employee.children ?? 0,
       socialSecurityNumber: employee.socialSecurityNumber,
+      cartePro: employee.cartePro ?? "",
       position: employee.position,
       employeeNumber: employee.employeeNumber,
       hireDate: toIso(employee.hireDate),
@@ -153,6 +156,7 @@ export function EmployeeInfoTab({ employee }: Props) {
         civilStatus: value.civilStatus,
         children: value.children,
         socialSecurityNumber: value.socialSecurityNumber,
+        cartePro: value.cartePro,
         position: value.position,
         employeeNumber: value.employeeNumber,
         hireDate: value.hireDate || undefined,
@@ -303,6 +307,17 @@ export function EmployeeInfoTab({ employee }: Props) {
                 </FormFieldRow>
               )}
             </form.Field>
+            <form.Field name="cartePro">
+              {(field) => (
+                <FormFieldRow
+                  field={field}
+                  label="N° Carte Pro"
+                  editing={isEditing}
+                >
+                  <Input placeholder="CAR-075-2025-01-01-123456789012" />
+                </FormFieldRow>
+              )}
+            </form.Field>
           </div>
         </CardContent>
       </Card>
@@ -310,9 +325,7 @@ export function EmployeeInfoTab({ employee }: Props) {
       {/* Informations d'emploi */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">
-            Informations d&apos;emploi
-          </CardTitle>
+          <CardTitle className="text-xl">Informations d&apos;emploi</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
@@ -340,21 +353,15 @@ export function EmployeeInfoTab({ employee }: Props) {
             </form.Field>
             <form.Field name="position">
               {(field) => (
-                <FormFieldRow field={field} label="Poste" editing={isEditing}>
-                  <Input />
-                </FormFieldRow>
-              )}
-            </form.Field>
-            <form.Field name="role">
-              {(field) => (
                 <SelectRow
                   field={field}
-                  label="Rôle"
+                  label="Poste"
                   editing={isEditing}
-                  options={[
-                    { value: "agent", label: "Agent" },
-                    { value: "owner", label: "Propriétaire" },
-                  ]}
+                  // Même liste de postes que le registre unique du personnel.
+                  options={EMPLOYEE_POSTE_OPTIONS.map((p) => ({
+                    value: p,
+                    label: p,
+                  }))}
                 />
               )}
             </form.Field>
@@ -514,9 +521,7 @@ export function EmployeeInfoTab({ employee }: Props) {
         </Card>
       </div>
 
-      {isEditing && (
-        <div className="border-t pt-4">{EditButtons}</div>
-      )}
+      {isEditing && <div className="border-t pt-4">{EditButtons}</div>}
     </div>
   );
 }

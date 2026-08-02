@@ -300,6 +300,7 @@ export default function TrainingAlertsPage() {
 
       {/* Alerts DataTable */}
       <DataTable
+        onRowClick={handleViewAlert}
         data={alerts}
         columns={columns}
         searchKeys={["employeeName", "number"]}

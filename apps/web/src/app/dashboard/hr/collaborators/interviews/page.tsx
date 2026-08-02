@@ -622,7 +622,11 @@ export default function InterviewsPage() {
           <CardTitle>Liste des entretiens et objectifs</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable columns={combinedColumns} data={allItems} />
+          <DataTable
+            onRowClick={handleView}
+            columns={combinedColumns}
+            data={allItems}
+          />
         </CardContent>
       </Card>
 

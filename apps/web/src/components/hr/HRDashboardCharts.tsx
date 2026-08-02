@@ -22,7 +22,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Sector,
 } from "recharts";
+import type { PieSectorDataItem } from "recharts/types/polar/Pie";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEmployees } from "@/hooks/employees";
@@ -149,11 +151,17 @@ export function MiniDonut({
   data,
   centerValue,
   centerCaption,
+  valueSuffix = "",
 }: {
   data: PieDatum[];
   centerValue: string;
   centerCaption?: string;
+  /** Unité affichée après chaque valeur (légende + infobulle), ex. " €". */
+  valueSuffix?: string;
 }) {
+  const formatValue = (value: number | string) =>
+    `${typeof value === "number" ? value.toLocaleString("fr-FR") : value}${valueSuffix}`;
+
   return (
     <div>
       <div className="relative">
@@ -173,11 +181,19 @@ export function MiniDonut({
                 <Cell key={`cell-${i}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip {...DARK_TOOLTIP} formatter={(value, name) => [value, name]} />
+            <Tooltip
+              {...DARK_TOOLTIP}
+              formatter={(value, name) => [
+                formatValue(value as number | string),
+                name,
+              ]}
+            />
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-light tracking-tight">{centerValue}</span>
+          <span className="text-xl font-light tracking-tight">
+            {centerValue}
+          </span>
           {centerCaption && (
             <span className="text-[11px] text-muted-foreground">
               {centerCaption}
@@ -194,7 +210,9 @@ export function MiniDonut({
             />
             <span className="text-[11px] text-muted-foreground">
               {entry.name}{" "}
-              <span className="text-foreground/80 font-medium">{entry.value}</span>
+              <span className="text-foreground/80 font-medium">
+                {formatValue(entry.value)}
+              </span>
             </span>
           </div>
         ))}
@@ -218,8 +236,18 @@ function DonutChart({ data }: { data: PieDatum[] }) {
             outerRadius={80}
             paddingAngle={3}
             dataKey="value"
-            activeIndex={activeIndex}
-            activeShape={{ outerRadius: 92 }}
+            // Recharts 3 a retiré `activeIndex` de <Pie> : on pilote nous-mêmes
+            // le rayon de chaque secteur via `shape`.
+            shape={(props: PieSectorDataItem & { index?: number }) => (
+              <Sector
+                {...props}
+                outerRadius={
+                  props.index === activeIndex
+                    ? (props.outerRadius ?? 80) + 12
+                    : (props.outerRadius ?? 80)
+                }
+              />
+            )}
             onClick={(_, index) =>
               setActiveIndex((cur) => (cur === index ? -1 : index))
             }
@@ -378,11 +406,17 @@ export function TrainingStatusBarWidget({ isLoading }: { isLoading: boolean }) {
     for (const emp of employees ?? []) {
       for (const cert of emp.certifications ?? []) {
         const group = CERT_GROUP[cert.type] ?? cert.type;
-        const row =
-          groups.get(group) ??
-          { type: group, aJour: 0, expirant: 0, expires: 0 };
+        const row = groups.get(group) ?? {
+          type: group,
+          aJour: 0,
+          expirant: 0,
+          expires: 0,
+        };
         if (cert.status === "expired") row.expires += 1;
-        else if (cert.status === "expiring" || cert.status === "pending-renewal")
+        else if (
+          cert.status === "expiring" ||
+          cert.status === "pending-renewal"
+        )
           row.expirant += 1;
         else row.aJour += 1;
         groups.set(group, row);
@@ -398,8 +432,15 @@ export function TrainingStatusBarWidget({ isLoading }: { isLoading: boolean }) {
       isEmpty={data.length === 0}
     >
       <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -24 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+        <BarChart
+          data={data}
+          margin={{ top: 8, right: 8, bottom: 0, left: -24 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="#334155"
+            vertical={false}
+          />
           <XAxis
             dataKey="type"
             tick={{ fill: "#94a3b8", fontSize: 11 }}
@@ -483,8 +524,15 @@ export function StaffFlowBarWidget({ isLoading }: { isLoading: boolean }) {
       isEmpty={!hasData}
     >
       <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -24 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+        <BarChart
+          data={data}
+          margin={{ top: 8, right: 8, bottom: 0, left: -24 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="#334155"
+            vertical={false}
+          />
           <XAxis
             dataKey="mois"
             tick={{ fill: "#94a3b8", fontSize: 11 }}
@@ -501,17 +549,35 @@ export function StaffFlowBarWidget({ isLoading }: { isLoading: boolean }) {
           <Legend
             wrapperStyle={{ fontSize: 12, color: "#94a3b8" }}
             iconType="circle"
-            formatter={(value) => (value === "entrees" ? "Embauches" : "Départs")}
+            formatter={(value) =>
+              value === "entrees" ? "Embauches" : "Départs"
+            }
           />
-          <Bar dataKey="entrees" name="entrees" fill="#34d399" radius={[4, 4, 0, 0]} maxBarSize={22} />
-          <Bar dataKey="sorties" name="sorties" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={22} />
+          <Bar
+            dataKey="entrees"
+            name="entrees"
+            fill="#34d399"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={22}
+          />
+          <Bar
+            dataKey="sorties"
+            name="sorties"
+            fill="#ef4444"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={22}
+          />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
   );
 }
 
-export function HeadcountTrendLineWidget({ isLoading }: { isLoading: boolean }) {
+export function HeadcountTrendLineWidget({
+  isLoading,
+}: {
+  isLoading: boolean;
+}) {
   const { data: employees, isLoading: q } = useEmployees();
   const data = useMemo(() => {
     const months = lastNMonths(12);
@@ -540,8 +606,15 @@ export function HeadcountTrendLineWidget({ isLoading }: { isLoading: boolean }) 
       isEmpty={!hasData}
     >
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+        <LineChart
+          data={data}
+          margin={{ top: 8, right: 12, bottom: 0, left: -20 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="#334155"
+            vertical={false}
+          />
           <XAxis
             dataKey="mois"
             tick={{ fill: "#94a3b8", fontSize: 11 }}

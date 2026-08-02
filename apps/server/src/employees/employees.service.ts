@@ -148,6 +148,7 @@ export class EmployeesService {
           civilStatus: dto.civilStatus || null,
           children: dto.children ?? null,
           socialSecurityNumber: dto.socialSecurityNumber || null,
+          cartePro: dto.cartePro || null,
           employeeNumber: dto.employeeNumber,
           hireDate: toDate(dto.hireDate),
           position: dto.position,

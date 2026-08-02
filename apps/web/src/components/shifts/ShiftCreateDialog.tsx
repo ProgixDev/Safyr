@@ -116,7 +116,8 @@ export function ShiftCreateDialog({ open, onOpenChange, defaultDate }: Props) {
       });
       onOpenChange(false);
     } catch (e) {
-      const message = e instanceof ApiError ? e.message : "Échec de la création";
+      const message =
+        e instanceof ApiError ? e.message : "Échec de la création";
       setError(message);
     }
   }
@@ -174,11 +175,7 @@ export function ShiftCreateDialog({ open, onOpenChange, defaultDate }: Props) {
           </div>
           <div className="space-y-2">
             <Label>Poste *</Label>
-            <Select
-              value={postId}
-              onValueChange={setPostId}
-              disabled={!siteId}
-            >
+            <Select value={postId} onValueChange={setPostId} disabled={!siteId}>
               <SelectTrigger>
                 <SelectValue
                   placeholder={

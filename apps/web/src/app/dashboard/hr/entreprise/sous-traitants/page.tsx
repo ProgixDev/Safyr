@@ -15,23 +15,12 @@ import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import {
   Users,
   Plus,
-  Edit3,
-  Eye,
-  Trash2,
-  MoreVertical,
   Building2,
   CheckCircle2,
   AlertTriangle,
   XCircle,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import {
   useSubcontractors,
   useCreateSubcontractor,
@@ -104,6 +93,7 @@ export default function SousTraitantsPage() {
 
   const [isNewSousTraitantModalOpen, setIsNewSousTraitantModalOpen] =
     useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [newSousTraitant, setNewSousTraitant] = useState<
     Omit<SousTraitant, "id">
   >({
@@ -217,13 +207,14 @@ export default function SousTraitantsPage() {
   };
 
   const handleSaveNewSousTraitant = async () => {
+    setFormError(null);
     try {
       await createSubcontractorMutation.mutateAsync(newSousTraitant);
       setIsNewSousTraitantModalOpen(false);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Erreur inconnue";
-      alert(`Échec de l'enregistrement du sous-traitant : ${message}`);
+      setFormError(`Échec de l'enregistrement du sous-traitant : ${message}`);
     }
   };
 
@@ -359,42 +350,12 @@ export default function SousTraitantsPage() {
             itemsPerPage={10}
             onRowClick={handleRowClick}
             getRowId={(st) => st.id}
-            rowClassName={() => "hover:bg-gray-100 dark:hover:bg-gray-800"}
             actions={(st) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  
-                  {/* Voir - Vert */}
-                  <DropdownMenuItem onClick={() => handleView(st)} className="text-green-600 focus:text-green-700 focus:bg-green-50">
-                    <Eye className="h-4 w-4 mr-2 text-green-600" />
-                    Voir les détails
-                  </DropdownMenuItem>
-                  
-                  {/* Modifier - Orange */}
-                  <DropdownMenuItem onClick={() => handleEdit(st)} className="text-orange-600 focus:text-orange-700 focus:bg-orange-50">
-                    <Edit3 className="h-4 w-4 mr-2 text-orange-600" />
-                    Modifier
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuSeparator />
-                  
-                  {/* Supprimer - Rouge */}
-                  <DropdownMenuItem
-                    onClick={() => handleDelete(st)}
-                    className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2 text-red-600" />
-                    Supprimer
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <RowActionsMenu
+                onView={() => handleView(st)}
+                onEdit={() => handleEdit(st)}
+                onDelete={() => handleDelete(st)}
+              />
             )}
           />
         </CardContent>
@@ -426,6 +387,14 @@ export default function SousTraitantsPage() {
         }}
       >
         <div className="space-y-6">
+          {formError && (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {formError}
+            </p>
+          )}
           <h3 className="text-lg font-medium">
             Informations de l&apos;entreprise
           </h3>

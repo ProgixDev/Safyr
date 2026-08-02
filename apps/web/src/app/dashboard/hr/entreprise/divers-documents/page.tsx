@@ -756,7 +756,9 @@ export default function DiversDocumentsPage() {
                                   <DropdownMenuItem
                                     onClick={() =>
                                       setDocuments((prev) =>
-                                        prev.filter((d) => d.id !== document.id),
+                                        prev.filter(
+                                          (d) => d.id !== document.id,
+                                        ),
                                       )
                                     }
                                     className="text-red-600"
@@ -901,7 +903,9 @@ export default function DiversDocumentsPage() {
                                   <DropdownMenuItem
                                     onClick={() =>
                                       setCourriers((prev) =>
-                                        prev.filter((c) => c.id !== courrier.id),
+                                        prev.filter(
+                                          (c) => c.id !== courrier.id,
+                                        ),
                                       )
                                     }
                                     className="text-red-600"

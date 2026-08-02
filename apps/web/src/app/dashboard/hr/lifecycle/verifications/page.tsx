@@ -28,6 +28,7 @@ import {
 import { RegulatoryVerification } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
+import { CNAPS_TELESERVICES_URL, openExternal } from "@/lib/external-links";
 
 // Mock data - replace with API call
 const mockVerifications: RegulatoryVerification[] = [
@@ -89,13 +90,11 @@ const applicantNames: Record<string, string> = {
   "3": "Pierre Bernard",
 };
 
-// Ouvre la vérification de la carte pro sur le portail DRACAR (CNAPS).
-function openDracar(cnapsNumber?: string) {
-  const base = "https://dracar.cnaps-securite.fr";
-  const url = cnapsNumber
-    ? `${base}/recherche?numero=${encodeURIComponent(cnapsNumber)}`
-    : base;
-  window.open(url, "_blank", "noopener");
+// Ouvre la vérification de la carte pro sur les téléservices CNAPS (DRACAR).
+// Le portail ne permet pas de pré-remplir le numéro par URL : on ouvre
+// l'accueil et le numéro reste affiché dans le tableau pour la saisie.
+function openDracar() {
+  openExternal(CNAPS_TELESERVICES_URL);
 }
 
 export default function VerificationsPage() {
@@ -303,66 +302,63 @@ export default function VerificationsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => openDracar(verif.cnapsNumber)}
+            onClick={() => openDracar()}
             className="gap-1 border-blue-300 text-blue-700 hover:bg-blue-50"
           >
             <Shield className="h-4 w-4" />
             DRACAR
           </Button>
           <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => handleView(verif)}
-              className="gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              Voir
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleEdit(verif)}
-              className="gap-2"
-            >
-              <Pencil className="h-4 w-4" />
-              Modifier
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => openDracar(verif.cnapsNumber)}
-              className="gap-2"
-            >
-              <Shield className="h-4 w-4 text-blue-600" />
-              Vérifier sur DRACAR
-            </DropdownMenuItem>
-            {verif.status === "pending" && (
-              <>
-                <DropdownMenuItem
-                  onClick={() => handleVerify(verif.id)}
-                  className="gap-2"
-                >
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  Marquer conforme
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleReject(verif.id)}
-                  className="gap-2 text-destructive"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Marquer non conforme
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuItem
-              onClick={() => handleDelete(verif.id)}
-              className="gap-2 text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-              Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => handleView(verif)}
+                className="gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                Voir
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleEdit(verif)}
+                className="gap-2"
+              >
+                <Pencil className="h-4 w-4" />
+                Modifier
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openDracar()} className="gap-2">
+                <Shield className="h-4 w-4 text-blue-600" />
+                Vérifier sur DRACAR
+              </DropdownMenuItem>
+              {verif.status === "pending" && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleVerify(verif.id)}
+                    className="gap-2"
+                  >
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    Marquer conforme
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleReject(verif.id)}
+                    className="gap-2 text-destructive"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Marquer non conforme
+                  </DropdownMenuItem>
+                </>
+              )}
+              <DropdownMenuItem
+                onClick={() => handleDelete(verif.id)}
+                className="gap-2 text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
           </DropdownMenu>
         </div>
       ),
@@ -393,6 +389,7 @@ export default function VerificationsPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleView}
             data={verifications}
             columns={columns}
             searchKeys={["cnapsNumber", "applicationId"]}

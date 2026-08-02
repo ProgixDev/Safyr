@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,33 +13,19 @@ import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import {
   Users,
   Plus,
-  Edit3,
-  Eye,
-  Trash2,
-  MoreVertical,
   Building2,
   FileCheck,
   AlertTriangle,
   Gift,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { ClientContract, ClientGift } from "@/lib/types";
 import type { Client } from "@safyr/api-client";
-import {
-  useClients,
-  useCreateClient,
-  useDeleteClient,
-} from "@/hooks/clients";
+import { useClients, useCreateClient, useDeleteClient } from "@/hooks/clients";
 
 export default function ClientsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: clients = [] } = useClients();
 
   const [contracts] = useState<ClientContract[]>([
@@ -91,9 +77,14 @@ export default function ClientsPage() {
     },
   ]);
 
-  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
+  // Ouvre directement le formulaire quand on arrive depuis l'action rapide
+  // "Nouveau client" du tableau de bord (/...?new=1).
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(
+    searchParams.get("new") === "1",
+  );
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const createClientMutation = useCreateClient();
   const deleteClientMutation = useDeleteClient();
@@ -139,15 +130,25 @@ export default function ClientsPage() {
   };
 
   const handleNewClient = async () => {
+    setFormError(null);
+
     if (!newClient.name.trim()) {
+      setFormError("Le nom du client est obligatoire.");
       return;
     }
+
+    // Le back-end rejette les chaînes vides sur les champs optionnels :
+    // on ne transmet que les champs réellement renseignés.
+    const payload = Object.fromEntries(
+      Object.entries(newClient).filter(([, value]) => value.trim() !== ""),
+    ) as typeof newClient;
+
     try {
-      await createClientMutation.mutateAsync(newClient);
+      await createClientMutation.mutateAsync(payload);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Erreur inconnue";
-      alert(`Échec de l'enregistrement du client : ${message}`);
+      setFormError(`Échec de l'enregistrement du client : ${message}`);
       return;
     }
     setIsNewClientModalOpen(false);
@@ -214,33 +215,11 @@ export default function ClientsPage() {
   ];
 
   const clientActions = (client: Client) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <MoreVertical className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleView(client)}>
-          <Eye className="mr-2 h-4 w-4 text-green-600" />
-          Voir
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleEdit(client)}>
-          <Edit3 className="mr-2 h-4 w-4 text-orange-500" />
-          Modifier
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => handleDeleteClick(client)}
-          className="text-red-600"
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Supprimer
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <RowActionsMenu
+      onView={() => handleView(client)}
+      onEdit={() => handleEdit(client)}
+      onDelete={() => handleDeleteClick(client)}
+    />
   );
 
   return (
@@ -305,9 +284,6 @@ export default function ClientsPage() {
             searchPlaceholder="Rechercher un client..."
             actions={clientActions}
             onRowClick={handleView}
-            rowClassName={() =>
-              "cursor-pointer transition-colors hover:bg-accent"
-            }
           />
         </CardContent>
       </Card>
@@ -319,8 +295,11 @@ export default function ClientsPage() {
         title="Nouveau client"
         actions={{
           primary: {
-            label: "Ajouter",
+            label: createClientMutation.isPending
+              ? "Enregistrement…"
+              : "Ajouter",
             onClick: handleNewClient,
+            disabled: createClientMutation.isPending,
           },
           secondary: {
             label: "Annuler",
@@ -330,6 +309,14 @@ export default function ClientsPage() {
         }}
       >
         <div className="space-y-4">
+          {formError && (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {formError}
+            </p>
+          )}
           <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3">
             <p className="mb-2 text-sm font-medium">
               Remplissage automatique (annuaire des entreprises)

@@ -77,7 +77,12 @@ function toDto(p: Post): CreatePostDto {
   };
 }
 
-export function PostFormDialog({ open, onOpenChange, siteId, existing }: Props) {
+export function PostFormDialog({
+  open,
+  onOpenChange,
+  siteId,
+  existing,
+}: Props) {
   const isEdit = !!existing;
   const createMutation = useCreatePost(siteId);
   const updateMutation = useUpdatePost(siteId);
@@ -147,7 +152,11 @@ export function PostFormDialog({ open, onOpenChange, siteId, existing }: Props) 
           variant: "outline",
         },
         primary: {
-          label: pending ? "Enregistrement..." : isEdit ? "Mettre à jour" : "Créer",
+          label: pending
+            ? "Enregistrement..."
+            : isEdit
+              ? "Mettre à jour"
+              : "Créer",
           onClick: () => form.handleSubmit(),
           disabled: pending,
         },

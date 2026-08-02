@@ -54,6 +54,8 @@ import {
   CreditCard,
 } from "lucide-react";
 import { OnboardingPath, OnboardingTask } from "@/lib/types";
+import { useEmployees } from "@/hooks/employees";
+import type { Employee as ApiEmployee } from "@safyr/api-client";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -371,6 +373,8 @@ export default function OnboardingPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [employeeInfo, setEmployeeInfo] = useState<EmployeeInfo | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  // Dossiers salariés réels : source des documents du parcours d'intégration.
+  const { data: apiEmployees = [] } = useEmployees();
   const [formData, setFormData] = useState({
     employeeName: "",
     startDate: "",
@@ -381,20 +385,50 @@ export default function OnboardingPage() {
     }[],
   });
 
+  /**
+   * Construit la fiche « documents » à partir du dossier salarié réel
+   * (API), afin que le parcours d'intégration ne dépende plus de données
+   * de démonstration.
+   */
+  const buildInfoFromEmployee = (employee: ApiEmployee): EmployeeInfo => ({
+    id: employee.id,
+    employeeNumber: employee.employeeNumber ?? "—",
+    firstName: employee.firstName ?? "",
+    lastName: employee.lastName ?? "",
+    email: employee.email ?? "",
+    phone: employee.phone ?? "",
+    position: employee.position ?? "—",
+    department: employee.position ?? "—",
+    hireDate: employee.hireDate ? new Date(employee.hireDate) : new Date(),
+    documents: employee.documents.map((doc) => ({
+      id: doc.id,
+      name: doc.requirement?.name ?? doc.name,
+      type: "other",
+      category: "documents",
+      status: doc.status === "valid" ? "validated" : "pending",
+      uploadedAt: doc.createdAt ? new Date(doc.createdAt) : undefined,
+      fileName: doc.name,
+      fileSize: doc.size,
+    })),
+  });
+
   // Charger les documents du salarié
   const loadEmployeeDocuments = (employeeId: string) => {
-    const info = mockEmployeeInfo[employeeId];
-    if (info) {
-      setEmployeeInfo(info);
-      setSelectedEmployeeId(employeeId);
-    }
+    // Priorité au dossier salarié réel ; repli sur les données de démo.
+    const employee = apiEmployees.find((e) => e.id === employeeId);
+    const info = employee
+      ? buildInfoFromEmployee(employee)
+      : mockEmployeeInfo[employeeId];
+
+    setEmployeeInfo(info ?? null);
+    setSelectedEmployeeId(employeeId);
     setIsDocumentsModalOpen(true);
   };
 
   // Télécharger un document
   const downloadDocument = (doc: EmployeeDocument) => {
     const fileName = doc.fileName || `${doc.name}.pdf`;
-    const content = `Document: ${doc.name}\nType: ${documentTypeLabels[doc.type]}\nStatut: ${doc.status === 'validated' ? 'Validé' : 'En attente'}\nTaille: ${doc.fileSize ? Math.round(doc.fileSize / 1024) : '?'} KB\nDate: ${doc.uploadedAt ? doc.uploadedAt.toLocaleDateString('fr-FR') : 'Non téléchargé'}`;
+    const content = `Document: ${doc.name}\nType: ${documentTypeLabels[doc.type]}\nStatut: ${doc.status === "validated" ? "Validé" : "En attente"}\nTaille: ${doc.fileSize ? Math.round(doc.fileSize / 1024) : "?"} KB\nDate: ${doc.uploadedAt ? doc.uploadedAt.toLocaleDateString("fr-FR") : "Non téléchargé"}`;
 
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -409,7 +443,11 @@ export default function OnboardingPage() {
   const downloadAllDocuments = async (employeeId: string) => {
     setDownloadingAll(true);
     try {
-      const info = mockEmployeeInfo[employeeId];
+      // Même source que la modale : dossier salarié réel, puis repli démo.
+      const employee = apiEmployees.find((e) => e.id === employeeId);
+      const info = employee
+        ? buildInfoFromEmployee(employee)
+        : mockEmployeeInfo[employeeId];
       if (!info) return;
 
       // Télécharger chaque document
@@ -420,22 +458,26 @@ export default function OnboardingPage() {
       });
 
       // Créer un fichier récapitulatif
-      const summary = `Récapitulatif des documents de ${info.firstName} ${info.lastName}\n${'='.repeat(50)}\n\n` +
+      const summary =
+        `Récapitulatif des documents de ${info.firstName} ${info.lastName}\n${"=".repeat(50)}\n\n` +
         `Employé: ${info.firstName} ${info.lastName}\n` +
         `Matricule: ${info.employeeNumber}\n` +
         `Poste: ${info.position}\n` +
         `Département: ${info.department}\n` +
-        `Date d'embauche: ${info.hireDate.toLocaleDateString('fr-FR')}\n` +
+        `Date d'embauche: ${info.hireDate.toLocaleDateString("fr-FR")}\n` +
         `Email: ${info.email}\n` +
         `Téléphone: ${info.phone}\n\n` +
-        `Documents (${info.documents.length}):\n${'='.repeat(30)}\n\n` +
-        info.documents.map((doc, idx) => 
-          `${idx + 1}. ${doc.name}\n` +
-          `   Type: ${documentTypeLabels[doc.type]}\n` +
-          `   Statut: ${doc.status === 'validated' ? '✅ Validé' : '⏳ En attente'}\n` +
-          `   Taille: ${doc.fileSize ? Math.round(doc.fileSize / 1024) : '?'} KB\n` +
-          `   Téléchargé le: ${doc.uploadedAt ? doc.uploadedAt.toLocaleDateString('fr-FR') : 'Non téléchargé'}\n`
-        ).join('\n');
+        `Documents (${info.documents.length}):\n${"=".repeat(30)}\n\n` +
+        info.documents
+          .map(
+            (doc, idx) =>
+              `${idx + 1}. ${doc.name}\n` +
+              `   Type: ${documentTypeLabels[doc.type]}\n` +
+              `   Statut: ${doc.status === "validated" ? "✅ Validé" : "⏳ En attente"}\n` +
+              `   Taille: ${doc.fileSize ? Math.round(doc.fileSize / 1024) : "?"} KB\n` +
+              `   Téléchargé le: ${doc.uploadedAt ? doc.uploadedAt.toLocaleDateString("fr-FR") : "Non téléchargé"}\n`,
+          )
+          .join("\n");
 
       const summaryBlob = new Blob([summary], { type: "text/plain" });
       const summaryUrl = URL.createObjectURL(summaryBlob);
@@ -444,7 +486,6 @@ export default function OnboardingPage() {
       summaryA.download = `documents_${info.firstName}_${info.lastName}_resume.txt`;
       summaryA.click();
       URL.revokeObjectURL(summaryUrl);
-
     } catch (error) {
       console.error("Erreur lors du téléchargement des documents:", error);
     } finally {
@@ -460,17 +501,24 @@ export default function OnboardingPage() {
   };
 
   // Mettre à jour le statut d'un document
-  const updateDocumentStatus = (documentId: string, status: "validated" | "rejected") => {
+  const updateDocumentStatus = (
+    documentId: string,
+    status: "validated" | "rejected",
+  ) => {
     if (!employeeInfo) return;
-    
-    const updatedDocs = employeeInfo.documents.map(doc =>
+
+    const updatedDocs = employeeInfo.documents.map((doc) =>
       doc.id === documentId
-        ? { ...doc, status, validatedAt: status === "validated" ? new Date() : undefined }
-        : doc
+        ? {
+            ...doc,
+            status,
+            validatedAt: status === "validated" ? new Date() : undefined,
+          }
+        : doc,
     );
-    
+
     setEmployeeInfo({ ...employeeInfo, documents: updatedDocs });
-    
+
     // Mettre à jour aussi dans les données mockées
     if (selectedEmployeeId) {
       mockEmployeeInfo[selectedEmployeeId] = {
@@ -704,7 +752,7 @@ export default function OnboardingPage() {
       label: "Documents",
       render: (path: OnboardingPath) => {
         const docs = getDocumentsForPath(path);
-        const validated = docs.filter(d => d.status === "validated").length;
+        const validated = docs.filter((d) => d.status === "validated").length;
         return (
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
@@ -810,6 +858,7 @@ export default function OnboardingPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleView}
             data={onboardingPaths}
             columns={columns}
             searchKeys={["employeeName"]}
@@ -1076,7 +1125,9 @@ export default function OnboardingPage() {
                           size="sm"
                           onClick={() => {
                             const docs = getDocumentsForPath(viewingPath);
-                            const doc = docs.find(d => d.category === "documents");
+                            const doc = docs.find(
+                              (d) => d.category === "documents",
+                            );
                             if (doc) downloadDocument(doc);
                           }}
                         >
@@ -1098,7 +1149,11 @@ export default function OnboardingPage() {
         onOpenChange={setIsDocumentsModalOpen}
         type="details"
         title={`Documents du dossier salarié`}
-        description={employeeInfo ? `${employeeInfo.firstName} ${employeeInfo.lastName}` : ""}
+        description={
+          employeeInfo
+            ? `${employeeInfo.firstName} ${employeeInfo.lastName}`
+            : ""
+        }
         size="xl"
         actions={{
           secondary: {
@@ -1113,7 +1168,10 @@ export default function OnboardingPage() {
                 downloadAllDocuments(selectedEmployeeId);
               }
             },
-            disabled: downloadingAll || !employeeInfo || employeeInfo.documents.length === 0,
+            disabled:
+              downloadingAll ||
+              !employeeInfo ||
+              employeeInfo.documents.length === 0,
           },
         }}
       >
@@ -1122,7 +1180,9 @@ export default function OnboardingPage() {
             {/* Infos employé */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
               <div>
-                <Label className="text-xs text-muted-foreground">Matricule</Label>
+                <Label className="text-xs text-muted-foreground">
+                  Matricule
+                </Label>
                 <p className="font-medium">{employeeInfo.employeeNumber}</p>
               </div>
               <div>
@@ -1130,7 +1190,9 @@ export default function OnboardingPage() {
                 <p className="font-medium">{employeeInfo.position}</p>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Département</Label>
+                <Label className="text-xs text-muted-foreground">
+                  Département
+                </Label>
                 <p className="font-medium">{employeeInfo.department}</p>
               </div>
               <div>
@@ -1138,12 +1200,18 @@ export default function OnboardingPage() {
                 <p className="font-medium text-sm">{employeeInfo.email}</p>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Téléphone</Label>
+                <Label className="text-xs text-muted-foreground">
+                  Téléphone
+                </Label>
                 <p className="font-medium">{employeeInfo.phone}</p>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Date d'embauche</Label>
-                <p className="font-medium">{employeeInfo.hireDate.toLocaleDateString("fr-FR")}</p>
+                <Label className="text-xs text-muted-foreground">
+                  Date d'embauche
+                </Label>
+                <p className="font-medium">
+                  {employeeInfo.hireDate.toLocaleDateString("fr-FR")}
+                </p>
               </div>
             </div>
 
@@ -1156,11 +1224,21 @@ export default function OnboardingPage() {
                 <div className="flex gap-2">
                   <Badge variant="outline" className="text-xs">
                     <FileCheck className="h-3 w-3 mr-1 text-green-500" />
-                    {employeeInfo.documents.filter(d => d.status === "validated").length} validés
+                    {
+                      employeeInfo.documents.filter(
+                        (d) => d.status === "validated",
+                      ).length
+                    }{" "}
+                    validés
                   </Badge>
                   <Badge variant="outline" className="text-xs">
                     <Clock className="h-3 w-3 mr-1 text-orange-500" />
-                    {employeeInfo.documents.filter(d => d.status === "pending").length} en attente
+                    {
+                      employeeInfo.documents.filter(
+                        (d) => d.status === "pending",
+                      ).length
+                    }{" "}
+                    en attente
                   </Badge>
                 </div>
               </div>
@@ -1181,18 +1259,26 @@ export default function OnboardingPage() {
                       <Icon className="h-5 w-5 text-muted-foreground" />
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium">{doc.name}</span>
+                          <span className="text-sm font-medium">
+                            {doc.name}
+                          </span>
                           <Badge variant="secondary" className="text-xs">
                             {documentTypeLabels[doc.type]}
                           </Badge>
                           {doc.status === "validated" && (
-                            <Badge variant="default" className="text-xs bg-green-500">
+                            <Badge
+                              variant="default"
+                              className="text-xs bg-green-500"
+                            >
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Validé
                             </Badge>
                           )}
                           {doc.status === "pending" && (
-                            <Badge variant="outline" className="text-xs text-orange-500 border-orange-500">
+                            <Badge
+                              variant="outline"
+                              className="text-xs text-orange-500 border-orange-500"
+                            >
                               <Clock className="h-3 w-3 mr-1" />
                               En attente
                             </Badge>
@@ -1210,12 +1296,14 @@ export default function OnboardingPage() {
                           )}
                           {doc.uploadedAt && (
                             <span>
-                              Téléchargé le: {doc.uploadedAt.toLocaleDateString("fr-FR")}
+                              Téléchargé le:{" "}
+                              {doc.uploadedAt.toLocaleDateString("fr-FR")}
                             </span>
                           )}
                           {doc.validatedAt && (
                             <span className="text-green-600">
-                              Validé le: {doc.validatedAt.toLocaleDateString("fr-FR")}
+                              Validé le:{" "}
+                              {doc.validatedAt.toLocaleDateString("fr-FR")}
                             </span>
                           )}
                         </div>
@@ -1227,7 +1315,9 @@ export default function OnboardingPage() {
                               variant="ghost"
                               size="sm"
                               className="h-8 text-green-500 hover:text-green-600"
-                              onClick={() => updateDocumentStatus(doc.id, "validated")}
+                              onClick={() =>
+                                updateDocumentStatus(doc.id, "validated")
+                              }
                             >
                               <CheckCircle className="h-4 w-4" />
                             </Button>
@@ -1235,7 +1325,9 @@ export default function OnboardingPage() {
                               variant="ghost"
                               size="sm"
                               className="h-8 text-red-500 hover:text-red-600"
-                              onClick={() => updateDocumentStatus(doc.id, "rejected")}
+                              onClick={() =>
+                                updateDocumentStatus(doc.id, "rejected")
+                              }
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

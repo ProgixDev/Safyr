@@ -450,7 +450,9 @@ export default function TimeManagementPage() {
         {request.status === "pending" && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleValidation(true, request.id)}>
+            <DropdownMenuItem
+              onClick={() => handleValidation(true, request.id)}
+            >
               <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
               Approuver
             </DropdownMenuItem>
@@ -543,6 +545,7 @@ export default function TimeManagementPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleViewDetails}
             data={requests}
             columns={requestColumns}
             searchKeys={["employeeName", "employeeNumber", "department"]}

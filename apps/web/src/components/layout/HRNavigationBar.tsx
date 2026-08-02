@@ -73,7 +73,10 @@ const navItems: NavItem[] = [
         label: "Parcours d'intégration",
         href: "/dashboard/hr/lifecycle/onboarding",
       },
-      { label: "Parcours de départ", href: "/dashboard/hr/lifecycle/offboarding" },
+      {
+        label: "Parcours de départ",
+        href: "/dashboard/hr/lifecycle/offboarding",
+      },
     ],
   },
   {
@@ -85,10 +88,7 @@ const navItems: NavItem[] = [
         href: "/dashboard/hr/time-activity/worked-hours",
       },
       {
-        label: "Compteur Heures Sup.",
-        href: "/dashboard/hr/time-activity/overtime-counter",
-      },
-      {
+        // Fusionne l'ancien menu "Compteur Heures Sup." (onglet "Vue globale").
         label: "Suivi Compteur Heures Sup.",
         href: "/dashboard/hr/time-activity/track-overtime-counter",
       },
@@ -137,7 +137,7 @@ const navItems: NavItem[] = [
     icon: ShieldCheck,
     children: [
       {
-        label: "Matrice des Habilitations",
+        label: "Habilitations",
         href: "/dashboard/hr/safety-health-training/authorizations-matrix",
       },
       {

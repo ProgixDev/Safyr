@@ -98,3 +98,10 @@ CREATE INDEX IF NOT EXISTS "payroll_variable_organizationId_idx" ON "payroll_var
 
 -- Indemnité d'habillage (fiche employé) ---------------------------------------
 ALTER TABLE "member" ADD COLUMN IF NOT EXISTS "dressingAllowance" BOOLEAN NOT NULL DEFAULT false;
+
+-- Entreprise : 2e téléphone + numéro de TVA -----------------------------------
+ALTER TABLE "organization" ADD COLUMN IF NOT EXISTS "phone2" TEXT;
+ALTER TABLE "organization" ADD COLUMN IF NOT EXISTS "numTVA" TEXT;
+
+-- Salarié : numéro de carte professionnelle CNAPS -----------------------------
+ALTER TABLE "member" ADD COLUMN IF NOT EXISTS "cartePro" TEXT;

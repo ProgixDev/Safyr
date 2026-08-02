@@ -5,13 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
-import {
-  Activity,
-  CheckCircle2,
-  Clock,
-  MapPin,
-  Users,
-} from "lucide-react";
+import { Activity, CheckCircle2, Clock, MapPin, Users } from "lucide-react";
 import { useTimeEntries } from "@/hooks/time-entries";
 import type { TimeEntry } from "@safyr/api-client";
 

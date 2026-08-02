@@ -126,6 +126,8 @@ model Organization {
   authorizationNumber String?
   email               String?
   phone               String?
+  phone2              String?
+  numTVA              String?
 
   representativeId String?         @unique
   representative   Representative? @relation(fields: [representativeId], references: [id], onDelete: SetNull)
@@ -159,6 +161,8 @@ model Member {
   position             String?
   appointmentDate      DateTime?
   socialSecurityNumber String?
+  // Numéro de carte professionnelle CNAPS (vérifiable via DRACAR)
+  cartePro             String?
 
   // --- Employment ---
   employeeNumber String?

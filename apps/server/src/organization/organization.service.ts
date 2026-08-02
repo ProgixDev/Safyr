@@ -218,4 +218,28 @@ export class OrganizationService {
 
     return document;
   }
+
+  /**
+   * Supprime le document rattaché à une exigence documentaire de
+   * l'entreprise (fichier de stockage + ligne en base).
+   */
+  async deleteDocumentByRequirement(orgId: string, requirementId: string) {
+    const existing = await this.prisma.document.findUnique({
+      where: {
+        organizationId_requirementId: {
+          organizationId: orgId,
+          requirementId,
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException("Aucun document à supprimer");
+    }
+
+    await this.prisma.document.delete({ where: { id: existing.id } });
+    await this.storage.deleteObjectSafe(SAFYR_BUCKET, existing.storageKey);
+
+    return { id: existing.id, requirementId };
+  }
 }

@@ -30,6 +30,7 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { CertificationFormDialog } from "./CertificationFormDialog";
 import { Modal } from "@/components/ui/modal";
 import { formatDate } from "@/lib/date-utils";
+import { CNAPS_TELESERVICES_URL, openExternal } from "@/lib/external-links";
 
 type CertStatus = "valid" | "expired" | "expiring-soon" | "pending-renewal";
 
@@ -295,7 +296,7 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
     cnapsNumber: "CNAPS-2024-001234",
     lastChecked: new Date("2024-12-15T10:30:00"),
     status: "valid",
-    dracarLink: `https://dracar.cnaps-securite.fr/employee/${employee.id}`,
+    dracarLink: CNAPS_TELESERVICES_URL,
   });
 
   const [verificationHistory] = useState([
@@ -353,15 +354,7 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
   };
 
   const handleOpenDRACAR = () => {
-    if (cnapsData?.dracarLink) {
-      window.open(cnapsData.dracarLink, "_blank", "noopener,noreferrer");
-    } else {
-      window.open(
-        "https://www.cnaps-securite.fr/service-dracar/",
-        "_blank",
-        "noopener,noreferrer",
-      );
-    }
+    openExternal(cnapsData?.dracarLink ?? CNAPS_TELESERVICES_URL);
   };
 
   const verificationColumns: ColumnDef<(typeof verificationHistory)[0]>[] = [
@@ -603,7 +596,9 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
             variant: "outline",
           },
           primary: {
-            label: deleteCertMutation.isPending ? "Suppression..." : "Supprimer",
+            label: deleteCertMutation.isPending
+              ? "Suppression..."
+              : "Supprimer",
             variant: "destructive",
             disabled: deleteCertMutation.isPending,
             onClick: async () => {

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
+import { OvertimeCounterOverview } from "@/components/payroll/OvertimeCounterOverview";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,7 +56,12 @@ import {
 
 // Types
 type ContractType = "full_time" | "part_time";
-type OvertimeStatus = "pending" | "validated" | "paid" | "carried_over" | "rejected";
+type OvertimeStatus =
+  | "pending"
+  | "validated"
+  | "paid"
+  | "carried_over"
+  | "rejected";
 
 interface MonthlyOvertime {
   id: string;
@@ -265,8 +271,10 @@ const mockMonthlyOvertime: MonthlyOvertime[] = [
 export default function OvertimeTrackingPage() {
   const [employees, setEmployees] = useState(mockEmployees);
   const [monthlyData, setMonthlyData] = useState(mockMonthlyOvertime);
-  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeContract | null>(null);
-  const [selectedOvertime, setSelectedOvertime] = useState<MonthlyOvertime | null>(null);
+  const [selectedEmployee, setSelectedEmployee] =
+    useState<EmployeeContract | null>(null);
+  const [selectedOvertime, setSelectedOvertime] =
+    useState<MonthlyOvertime | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isValidateModalOpen, setIsValidateModalOpen] = useState(false);
@@ -277,32 +285,51 @@ export default function OvertimeTrackingPage() {
 
   // Statistiques globales
   const stats = useMemo(() => {
-    const totalOvertime = monthlyData.reduce((sum, m) => sum + m.overtimeHours, 0);
-    const totalPaid = monthlyData.filter(m => m.status === "paid").reduce((sum, m) => sum + m.overtimeHours, 0);
-    const totalPending = monthlyData.filter(m => m.status === "pending").reduce((sum, m) => sum + m.overtimeHours, 0);
-    const totalValidated = monthlyData.filter(m => m.status === "validated").reduce((sum, m) => sum + m.overtimeHours, 0);
-    
-    const employeesWithOvertime = new Set(monthlyData.map(m => m.employeeId)).size;
-    
+    const totalOvertime = monthlyData.reduce(
+      (sum, m) => sum + m.overtimeHours,
+      0,
+    );
+    const totalPaid = monthlyData
+      .filter((m) => m.status === "paid")
+      .reduce((sum, m) => sum + m.overtimeHours, 0);
+    const totalPending = monthlyData
+      .filter((m) => m.status === "pending")
+      .reduce((sum, m) => sum + m.overtimeHours, 0);
+    const totalValidated = monthlyData
+      .filter((m) => m.status === "validated")
+      .reduce((sum, m) => sum + m.overtimeHours, 0);
+
+    const employeesWithOvertime = new Set(monthlyData.map((m) => m.employeeId))
+      .size;
+
     return {
       totalOvertime,
       totalPaid,
       totalPending,
       totalValidated,
       employeesWithOvertime,
-      averageOvertime: employeesWithOvertime > 0 ? totalOvertime / employeesWithOvertime : 0,
+      averageOvertime:
+        employeesWithOvertime > 0 ? totalOvertime / employeesWithOvertime : 0,
     };
   }, [monthlyData]);
 
   // Calcul des heures par employé
   const employeeOvertimeSummary = useMemo(() => {
-    return employees.map(emp => {
-      const empData = monthlyData.filter(m => m.employeeId === emp.employeeId);
+    return employees.map((emp) => {
+      const empData = monthlyData.filter(
+        (m) => m.employeeId === emp.employeeId,
+      );
       const total = empData.reduce((sum, m) => sum + m.overtimeHours, 0);
-      const paid = empData.filter(m => m.status === "paid").reduce((sum, m) => sum + m.overtimeHours, 0);
-      const pending = empData.filter(m => m.status === "pending").reduce((sum, m) => sum + m.overtimeHours, 0);
-      const validated = empData.filter(m => m.status === "validated").reduce((sum, m) => sum + m.overtimeHours, 0);
-      
+      const paid = empData
+        .filter((m) => m.status === "paid")
+        .reduce((sum, m) => sum + m.overtimeHours, 0);
+      const pending = empData
+        .filter((m) => m.status === "pending")
+        .reduce((sum, m) => sum + m.overtimeHours, 0);
+      const validated = empData
+        .filter((m) => m.status === "validated")
+        .reduce((sum, m) => sum + m.overtimeHours, 0);
+
       return {
         ...emp,
         totalOvertime: total,
@@ -333,32 +360,31 @@ export default function OvertimeTrackingPage() {
   };
 
   const handleValidateOvertime = (id: string) => {
-    setMonthlyData(prev =>
-      prev.map(m =>
+    setMonthlyData((prev) =>
+      prev.map((m) =>
         m.id === id
-          ? { ...m, status: "validated", validatedBy: "Admin", validatedAt: new Date() }
-          : m
-      )
+          ? {
+              ...m,
+              status: "validated",
+              validatedBy: "Admin",
+              validatedAt: new Date(),
+            }
+          : m,
+      ),
     );
   };
 
   const handlePayOvertime = (id: string) => {
-    setMonthlyData(prev =>
-      prev.map(m =>
-        m.id === id
-          ? { ...m, status: "paid", paidAt: new Date() }
-          : m
-      )
+    setMonthlyData((prev) =>
+      prev.map((m) =>
+        m.id === id ? { ...m, status: "paid", paidAt: new Date() } : m,
+      ),
     );
   };
 
   const handleRejectOvertime = (id: string) => {
-    setMonthlyData(prev =>
-      prev.map(m =>
-        m.id === id
-          ? { ...m, status: "rejected" }
-          : m
-      )
+    setMonthlyData((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, status: "rejected" } : m)),
     );
   };
 
@@ -368,18 +394,20 @@ export default function OvertimeTrackingPage() {
       ...data,
       status: "pending",
     };
-    setMonthlyData(prev => [...prev, newEntry]);
+    setMonthlyData((prev) => [...prev, newEntry]);
   };
 
   // Colonnes pour la vue synthétique
-  const summaryColumns: ColumnDef<EmployeeContract & {
-    totalOvertime: number;
-    paidOvertime: number;
-    pendingOvertime: number;
-    validatedOvertime: number;
-    monthCount: number;
-    overLimit: boolean;
-  }>[] = [
+  const summaryColumns: ColumnDef<
+    EmployeeContract & {
+      totalOvertime: number;
+      paidOvertime: number;
+      pendingOvertime: number;
+      validatedOvertime: number;
+      monthCount: number;
+      overLimit: boolean;
+    }
+  >[] = [
     {
       key: "employee",
       label: "Employé",
@@ -392,7 +420,9 @@ export default function OvertimeTrackingPage() {
             <span>•</span>
             <span>{item.department}</span>
             <Badge variant="outline" className="text-xs">
-              {item.contractType === "full_time" ? "Temps plein" : "Temps partiel"}
+              {item.contractType === "full_time"
+                ? "Temps plein"
+                : "Temps partiel"}
             </Badge>
           </div>
         </div>
@@ -403,7 +433,9 @@ export default function OvertimeTrackingPage() {
       label: "Total heures sup",
       sortable: true,
       render: (item) => (
-        <span className={`font-semibold ${item.overLimit ? "text-red-600" : "text-blue-600"}`}>
+        <span
+          className={`font-semibold ${item.overLimit ? "text-red-600" : "text-blue-600"}`}
+        >
           {item.totalOvertime.toFixed(1)}h
         </span>
       ),
@@ -442,9 +474,7 @@ export default function OvertimeTrackingPage() {
       key: "monthCount",
       label: "Mois",
       sortable: true,
-      render: (item) => (
-        <span className="text-sm">{item.monthCount} mois</span>
-      ),
+      render: (item) => <span className="text-sm">{item.monthCount} mois</span>,
     },
   ];
 
@@ -457,7 +487,9 @@ export default function OvertimeTrackingPage() {
       render: (item) => (
         <div>
           <div className="font-medium">{item.employeeName}</div>
-          <div className="text-sm text-muted-foreground">{item.employeeNumber}</div>
+          <div className="text-sm text-muted-foreground">
+            {item.employeeNumber}
+          </div>
         </div>
       ),
     },
@@ -466,16 +498,16 @@ export default function OvertimeTrackingPage() {
       label: "Période",
       sortable: true,
       render: (item) => (
-        <span>{item.month} {item.year}</span>
+        <span>
+          {item.month} {item.year}
+        </span>
       ),
     },
     {
       key: "contractHours",
       label: "Quota",
       sortable: true,
-      render: (item) => (
-        <span className="text-sm">{item.contractHours}h</span>
-      ),
+      render: (item) => <span className="text-sm">{item.contractHours}h</span>,
     },
     {
       key: "actualHours",
@@ -505,17 +537,17 @@ export default function OvertimeTrackingPage() {
       key: "type",
       label: "Type",
       sortable: true,
-      render: (item) => (
-        <Badge variant="outline">{item.type}</Badge>
-      ),
+      render: (item) => <Badge variant="outline">{item.type}</Badge>,
     },
   ];
 
   // Filtres pour la vue détaillée
   const filteredDetailedData = useMemo(() => {
-    return monthlyData.filter(item => {
-      const statusMatch = filterStatus === "all" || item.status === filterStatus;
-      const deptMatch = filterDepartment === "all" || item.department === filterDepartment;
+    return monthlyData.filter((item) => {
+      const statusMatch =
+        filterStatus === "all" || item.status === filterStatus;
+      const deptMatch =
+        filterDepartment === "all" || item.department === filterDepartment;
       return statusMatch && deptMatch;
     });
   }, [monthlyData, filterStatus, filterDepartment]);
@@ -544,231 +576,259 @@ export default function OvertimeTrackingPage() {
         </div>
       </div>
 
-      {/* Statistiques */}
-      <InfoCardContainer>
-        <InfoCard
-          icon={Clock}
-          title="Total Heures Sup"
-          value={`${stats.totalOvertime.toFixed(1)}h`}
-          subtext={`${stats.employeesWithOvertime} employés concernés`}
-          color="blue"
-        />
-        <InfoCard
-          icon={AlertCircle}
-          title="En Attente"
-          value={`${stats.totalPending.toFixed(1)}h`}
-          subtext="À valider ou payer"
-          color="orange"
-        />
-        <InfoCard
-          icon={CheckCircle}
-          title="Validé"
-          value={`${stats.totalValidated.toFixed(1)}h`}
-          subtext="En attente de paiement"
-          color="green"
-        />
-        <InfoCard
-          icon={BadgeEuro}
-          title="Payé"
-          value={`${stats.totalPaid.toFixed(1)}h`}
-          subtext="Déjà réglé"
-          color="purple"
-        />
-      </InfoCardContainer>
+      {/* Le menu "Compteur heures sup." a été fusionné ici : son contenu est
+          disponible dans l'onglet "Vue globale". */}
+      <Tabs defaultValue="suivi" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="suivi">Suivi détaillé</TabsTrigger>
+          <TabsTrigger value="global">Vue globale</TabsTrigger>
+        </TabsList>
 
-      {/* Vue Tabs */}
-      <div className="flex items-center justify-between">
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "summary" | "detailed")} className="w-full">
-          <TabsList>
-            <TabsTrigger value="summary">Vue Synthétique</TabsTrigger>
-            <TabsTrigger value="detailed">Vue Détaillée</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        
-        {viewMode === "detailed" && (
-          <div className="flex gap-2 ml-4">
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-40">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="pending">En attente</SelectItem>
-                <SelectItem value="validated">Validé</SelectItem>
-                <SelectItem value="paid">Payé</SelectItem>
-                <SelectItem value="rejected">Rejeté</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-              <SelectTrigger className="w-40">
-                <Users className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Département" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous</SelectItem>
-                <SelectItem value="Sécurité">Sécurité</SelectItem>
-                <SelectItem value="Direction">Direction</SelectItem>
-                <SelectItem value="RH">RH</SelectItem>
-                <SelectItem value="Commercial">Commercial</SelectItem>
-              </SelectContent>
-            </Select>
+        <TabsContent value="global">
+          <OvertimeCounterOverview />
+        </TabsContent>
+
+        <TabsContent value="suivi" className="flex flex-col gap-6">
+          {/* Statistiques */}
+          <InfoCardContainer>
+            <InfoCard
+              icon={Clock}
+              title="Total Heures Sup"
+              value={`${stats.totalOvertime.toFixed(1)}h`}
+              subtext={`${stats.employeesWithOvertime} employés concernés`}
+              color="blue"
+            />
+            <InfoCard
+              icon={AlertCircle}
+              title="En Attente"
+              value={`${stats.totalPending.toFixed(1)}h`}
+              subtext="À valider ou payer"
+              color="orange"
+            />
+            <InfoCard
+              icon={CheckCircle}
+              title="Validé"
+              value={`${stats.totalValidated.toFixed(1)}h`}
+              subtext="En attente de paiement"
+              color="green"
+            />
+            <InfoCard
+              icon={BadgeEuro}
+              title="Payé"
+              value={`${stats.totalPaid.toFixed(1)}h`}
+              subtext="Déjà réglé"
+              color="purple"
+            />
+          </InfoCardContainer>
+
+          {/* Vue Tabs */}
+          <div className="flex items-center justify-between">
+            <Tabs
+              value={viewMode}
+              onValueChange={(v) => setViewMode(v as "summary" | "detailed")}
+              className="w-full"
+            >
+              <TabsList>
+                <TabsTrigger value="summary">Vue Synthétique</TabsTrigger>
+                <TabsTrigger value="detailed">Vue Détaillée</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {viewMode === "detailed" && (
+              <div className="flex gap-2 ml-4">
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-40">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    <SelectItem value="pending">En attente</SelectItem>
+                    <SelectItem value="validated">Validé</SelectItem>
+                    <SelectItem value="paid">Payé</SelectItem>
+                    <SelectItem value="rejected">Rejeté</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={filterDepartment}
+                  onValueChange={setFilterDepartment}
+                >
+                  <SelectTrigger className="w-40">
+                    <Users className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Département" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous</SelectItem>
+                    <SelectItem value="Sécurité">Sécurité</SelectItem>
+                    <SelectItem value="Direction">Direction</SelectItem>
+                    <SelectItem value="RH">RH</SelectItem>
+                    <SelectItem value="Commercial">Commercial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Tableau Synthétique */}
-      {viewMode === "summary" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Récapitulatif par employé
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              data={employeeOvertimeSummary}
-              columns={summaryColumns}
-              searchKeys={["employeeName", "employeeNumber", "department"]}
-              searchPlaceholder="Rechercher un employé..."
-              getRowId={(item) => item.employeeId}
-              onRowClick={(item) => {
-                setSelectedEmployee(item);
-                setIsDetailsModalOpen(true);
-              }}
-              rowClassName={(item) => 
-                item.overLimit ? "bg-red-50 dark:bg-red-950/20" : ""
-              }
-              actions={(item) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setSelectedEmployee(item);
-                        setIsDetailsModalOpen(true);
-                      }}
-                      className="text-green-600 focus:text-green-700 focus:bg-green-50"
-                    >
-                      <Eye className="mr-2 h-4 w-4 text-green-600" />
-                      Voir détails
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"
-                    >
-                      <History className="mr-2 h-4 w-4 text-blue-600" />
-                      Historique
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-purple-600 focus:text-purple-700 focus:bg-purple-50"
-                    >
-                      <Settings className="mr-2 h-4 w-4 text-purple-600" />
-                      Gérer le quota
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            />
-          </CardContent>
-        </Card>
-      )}
+          {/* Tableau Synthétique */}
+          {viewMode === "summary" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Récapitulatif par employé
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  data={employeeOvertimeSummary}
+                  columns={summaryColumns}
+                  searchKeys={["employeeName", "employeeNumber", "department"]}
+                  searchPlaceholder="Rechercher un employé..."
+                  getRowId={(item) => item.employeeId}
+                  onRowClick={(item) => {
+                    setSelectedEmployee(item);
+                    setIsDetailsModalOpen(true);
+                  }}
+                  rowClassName={(item) =>
+                    item.overLimit ? "bg-red-50 dark:bg-red-950/20" : ""
+                  }
+                  actions={(item) => (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedEmployee(item);
+                            setIsDetailsModalOpen(true);
+                          }}
+                          className="text-green-600 focus:text-green-700 focus:bg-green-50"
+                        >
+                          <Eye className="mr-2 h-4 w-4 text-green-600" />
+                          Voir détails
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
+                          <History className="mr-2 h-4 w-4 text-blue-600" />
+                          Historique
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-purple-600 focus:text-purple-700 focus:bg-purple-50">
+                          <Settings className="mr-2 h-4 w-4 text-purple-600" />
+                          Gérer le quota
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Tableau Détaillé */}
-      {viewMode === "detailed" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Suivi mensuel détaillé
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              data={filteredDetailedData}
-              columns={detailedColumns}
-              searchKeys={["employeeName", "employeeNumber", "month"]}
-              searchPlaceholder="Rechercher..."
-              getRowId={(item) => item.id}
-              actions={(item) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setSelectedOvertime(item);
-                        setIsDetailsModalOpen(true);
-                      }}
-                      className="text-green-600 focus:text-green-700 focus:bg-green-50"
-                    >
-                      <Eye className="mr-2 h-4 w-4 text-green-600" />
-                      Voir détails
-                    </DropdownMenuItem>
-                    
-                    {item.status === "pending" && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => handleValidateOvertime(item.id)}
-                          className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"
+          {/* Tableau Détaillé */}
+          {viewMode === "detailed" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Suivi mensuel détaillé
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  data={filteredDetailedData}
+                  columns={detailedColumns}
+                  searchKeys={["employeeName", "employeeNumber", "month"]}
+                  searchPlaceholder="Rechercher..."
+                  getRowId={(item) => item.id}
+                  actions={(item) => (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
                         >
-                          <CheckCircle className="mr-2 h-4 w-4 text-blue-600" />
-                          Valider
-                        </DropdownMenuItem>
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() => handleRejectOvertime(item.id)}
-                          className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                          onClick={() => {
+                            setSelectedOvertime(item);
+                            setIsDetailsModalOpen(true);
+                          }}
+                          className="text-green-600 focus:text-green-700 focus:bg-green-50"
                         >
-                          <AlertCircle className="mr-2 h-4 w-4 text-red-600" />
-                          Rejeter
+                          <Eye className="mr-2 h-4 w-4 text-green-600" />
+                          Voir détails
                         </DropdownMenuItem>
-                      </>
-                    )}
-                    
-                    {item.status === "validated" && (
-                      <DropdownMenuItem
-                        onClick={() => handlePayOvertime(item.id)}
-                        className="text-purple-600 focus:text-purple-700 focus:bg-purple-50"
-                      >
-                        <BadgeEuro className="mr-2 h-4 w-4 text-purple-600" />
-                        Marquer comme payé
-                      </DropdownMenuItem>
-                    )}
-                    
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                      Supprimer
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            />
-          </CardContent>
-        </Card>
-      )}
+
+                        {item.status === "pending" && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => handleValidateOvertime(item.id)}
+                              className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4 text-blue-600" />
+                              Valider
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleRejectOvertime(item.id)}
+                              className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                            >
+                              <AlertCircle className="mr-2 h-4 w-4 text-red-600" />
+                              Rejeter
+                            </DropdownMenuItem>
+                          </>
+                        )}
+
+                        {item.status === "validated" && (
+                          <DropdownMenuItem
+                            onClick={() => handlePayOvertime(item.id)}
+                            className="text-purple-600 focus:text-purple-700 focus:bg-purple-50"
+                          >
+                            <BadgeEuro className="mr-2 h-4 w-4 text-purple-600" />
+                            Marquer comme payé
+                          </DropdownMenuItem>
+                        )}
+
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                          <Trash2 className="mr-2 h-4 w-4 text-red-600" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Modal Détails */}
       <Modal
         open={isDetailsModalOpen}
         onOpenChange={setIsDetailsModalOpen}
         type="details"
-        title={selectedEmployee ? `Détails - ${selectedEmployee.employeeName}` : "Détails"}
+        title={
+          selectedEmployee
+            ? `Détails - ${selectedEmployee.employeeName}`
+            : "Détails"
+        }
         size="lg"
       >
         {selectedEmployee && (
@@ -777,7 +837,8 @@ export default function OvertimeTrackingPage() {
               <div>
                 <Label className="text-sm font-medium">Employé</Label>
                 <p className="text-sm text-muted-foreground">
-                  {selectedEmployee.employeeName} ({selectedEmployee.employeeNumber})
+                  {selectedEmployee.employeeName} (
+                  {selectedEmployee.employeeNumber})
                 </p>
               </div>
               <div>
@@ -789,7 +850,9 @@ export default function OvertimeTrackingPage() {
               <div>
                 <Label className="text-sm font-medium">Type de contrat</Label>
                 <p className="text-sm text-muted-foreground">
-                  {selectedEmployee.contractType === "full_time" ? "Temps plein" : "Temps partiel"}
+                  {selectedEmployee.contractType === "full_time"
+                    ? "Temps plein"
+                    : "Temps partiel"}
                 </p>
               </div>
               <div>
@@ -829,25 +892,35 @@ export default function OvertimeTrackingPage() {
 
             {/* Barre de progression */}
             <div>
-              <Label className="text-sm font-medium">Utilisation du plafond</Label>
+              <Label className="text-sm font-medium">
+                Utilisation du plafond
+              </Label>
               <div className="mt-2">
                 <div className="flex justify-between text-sm mb-1">
-                  <span>{selectedEmployee.totalOvertimeAccumulated}h utilisés</span>
+                  <span>
+                    {selectedEmployee.totalOvertimeAccumulated}h utilisés
+                  </span>
                   <span>{selectedEmployee.annualOvertimeLimit}h max</span>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
                   <div
                     className={`h-2 rounded-full transition-all ${
-                      selectedEmployee.totalOvertimeAccumulated / selectedEmployee.annualOvertimeLimit > 0.8
+                      selectedEmployee.totalOvertimeAccumulated /
+                        selectedEmployee.annualOvertimeLimit >
+                      0.8
                         ? "bg-red-500"
-                        : selectedEmployee.totalOvertimeAccumulated / selectedEmployee.annualOvertimeLimit > 0.5
+                        : selectedEmployee.totalOvertimeAccumulated /
+                              selectedEmployee.annualOvertimeLimit >
+                            0.5
                           ? "bg-orange-500"
                           : "bg-green-500"
                     }`}
                     style={{
                       width: `${Math.min(
                         100,
-                        (selectedEmployee.totalOvertimeAccumulated / selectedEmployee.annualOvertimeLimit) * 100
+                        (selectedEmployee.totalOvertimeAccumulated /
+                          selectedEmployee.annualOvertimeLimit) *
+                          100,
                       )}%`,
                     }}
                   />
@@ -885,7 +958,7 @@ export default function OvertimeTrackingPage() {
                 <SelectValue placeholder="Sélectionner un employé" />
               </SelectTrigger>
               <SelectContent>
-                {employees.map(emp => (
+                {employees.map((emp) => (
                   <SelectItem key={emp.employeeId} value={emp.employeeId}>
                     {emp.employeeName} ({emp.employeeNumber})
                   </SelectItem>
@@ -902,8 +975,23 @@ export default function OvertimeTrackingPage() {
                   <SelectValue placeholder="Mois" />
                 </SelectTrigger>
                 <SelectContent>
-                  {["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"].map(m => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  {[
+                    "Janvier",
+                    "Février",
+                    "Mars",
+                    "Avril",
+                    "Mai",
+                    "Juin",
+                    "Juillet",
+                    "Août",
+                    "Septembre",
+                    "Octobre",
+                    "Novembre",
+                    "Décembre",
+                  ].map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -915,8 +1003,10 @@ export default function OvertimeTrackingPage() {
                   <SelectValue placeholder="Année" />
                 </SelectTrigger>
                 <SelectContent>
-                  {[2023, 2024, 2025].map(y => (
-                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                  {[2023, 2024, 2025].map((y) => (
+                    <SelectItem key={y} value={y.toString()}>
+                      {y}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

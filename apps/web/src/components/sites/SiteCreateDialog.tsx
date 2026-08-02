@@ -4,11 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import { CreateSiteSchema, type CreateSiteDto } from "@safyr/schemas/site";
-import {
-  ApiError,
-  type Site,
-  type UpdateSitePayload,
-} from "@safyr/api-client";
+import { ApiError, type Site, type UpdateSitePayload } from "@safyr/api-client";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -236,7 +232,9 @@ export function SiteCreateDialog({
                   }
                   onChange={(e) =>
                     field.handleChange(
-                      e.target.value === "" ? undefined : Number(e.target.value),
+                      e.target.value === ""
+                        ? undefined
+                        : Number(e.target.value),
                     )
                   }
                   placeholder="48.8584"
@@ -258,7 +256,9 @@ export function SiteCreateDialog({
                   }
                   onChange={(e) =>
                     field.handleChange(
-                      e.target.value === "" ? undefined : Number(e.target.value),
+                      e.target.value === ""
+                        ? undefined
+                        : Number(e.target.value),
                     )
                   }
                   placeholder="2.2945"
@@ -281,7 +281,9 @@ export function SiteCreateDialog({
                   }
                   onChange={(e) =>
                     field.handleChange(
-                      e.target.value === "" ? undefined : Number(e.target.value),
+                      e.target.value === ""
+                        ? undefined
+                        : Number(e.target.value),
                     )
                   }
                   placeholder="100"

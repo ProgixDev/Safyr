@@ -101,7 +101,10 @@ const departmentBreakdown = {
 };
 
 // Couleurs par département
-const departmentColors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
+const departmentColors: Record<
+  string,
+  { bg: string; border: string; text: string; icon: string }
+> = {
   Sécurité: {
     bg: "bg-blue-50 dark:bg-blue-950/30",
     border: "border-blue-200 dark:border-blue-800",
@@ -158,15 +161,36 @@ export default function PersonnelCostPage() {
   const confirmEdit = () => {
     if (selectedCost) {
       setPersonnelCosts(
-        personnelCosts.map((c) =>
-          c.employeeId === selectedCost.employeeId
-            ? {
-                ...c,
-                grossSalary: editGrossSalary,
-                workedHours: editWorkedHours,
-              }
-            : c,
-        ),
+        personnelCosts.map((c) => {
+          if (c.employeeId !== selectedCost.employeeId) return c;
+
+          // Les charges et les coûts sont dérivés du brut : sans ce recalcul,
+          // modifier le salaire brut ne changeait rien à l'écran.
+          const round2 = (n: number) => Math.round(n * 100) / 100;
+          const ratio = c.grossSalary > 0 ? editGrossSalary / c.grossSalary : 1;
+
+          const employerContributions = round2(c.employerContributions * ratio);
+          const employeeContributions = round2(c.employeeContributions * ratio);
+          const totalEmployerCost = round2(
+            editGrossSalary + employerContributions,
+          );
+
+          return {
+            ...c,
+            grossSalary: editGrossSalary,
+            workedHours: editWorkedHours,
+            netSalary: round2(c.netSalary * ratio),
+            taxableNet: round2(c.taxableNet * ratio),
+            employeeContributions,
+            employerContributions,
+            totalEmployerCost,
+            totalCost: totalEmployerCost,
+            costPerHour:
+              editWorkedHours > 0
+                ? round2(totalEmployerCost / editWorkedHours)
+                : 0,
+          };
+        }),
       );
       setIsEditModalOpen(false);
       setSelectedCost(null);
@@ -390,7 +414,8 @@ export default function PersonnelCostPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {Object.entries(departmentBreakdown).map(([dept, data]) => {
-              const colors = departmentColors[dept] || departmentColors.Sécurité;
+              const colors =
+                departmentColors[dept] || departmentColors.Sécurité;
               return (
                 <div
                   key={dept}
@@ -405,24 +430,31 @@ export default function PersonnelCostPage() {
                       {data.count} employé{data.count !== 1 ? "s" : ""}
                     </Badge>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Coût total</span>
+                      <span className="text-sm text-muted-foreground">
+                        Coût total
+                      </span>
                       <span className="font-semibold">
                         {data.totalCost.toLocaleString("fr-FR")} €
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Coût moyen / h</span>
+                      <span className="text-sm text-muted-foreground">
+                        Coût moyen / h
+                      </span>
                       <Badge variant="secondary" className="font-mono">
                         {data.avgCostPerHour.toFixed(2)} €/h
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t">
-                      <span className="text-sm text-muted-foreground">Coût / employé</span>
+                      <span className="text-sm text-muted-foreground">
+                        Coût / employé
+                      </span>
                       <span className="text-sm font-medium">
-                        {(data.totalCost / data.count).toLocaleString("fr-FR")} €
+                        {(data.totalCost / data.count).toLocaleString("fr-FR")}{" "}
+                        €
                       </span>
                     </div>
                   </div>
@@ -468,7 +500,9 @@ export default function PersonnelCostPage() {
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
-                        <span className={`text-lg font-bold ${rankColors[index]}`}>
+                        <span
+                          className={`text-lg font-bold ${rankColors[index]}`}
+                        >
                           #{index + 1}
                         </span>
                       </div>
@@ -478,7 +512,10 @@ export default function PersonnelCostPage() {
                           {cost.employeeId}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="font-mono text-xs">
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-xs"
+                          >
                             {cost.costPerHour.toFixed(2)} €/h
                           </Badge>
                           <span className="text-xs text-muted-foreground">
@@ -495,7 +532,8 @@ export default function PersonnelCostPage() {
                         Brut: {cost.grossSalary.toLocaleString("fr-FR")} €
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Charges: {cost.employerContributions.toLocaleString("fr-FR")} €
+                        Charges:{" "}
+                        {cost.employerContributions.toLocaleString("fr-FR")} €
                       </div>
                     </div>
                   </div>
@@ -512,6 +550,7 @@ export default function PersonnelCostPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleViewDetails}
             data={personnelCosts}
             columns={columns}
             searchKeys={["employeeName", "employeeId"]}

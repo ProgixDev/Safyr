@@ -55,9 +55,7 @@ export default function SiteDetailPage({
   const [postToDelete, setPostToDelete] = useState<Post | null>(null);
 
   if (isLoading) {
-    return (
-      <div className="p-6 text-muted-foreground">Chargement du site…</div>
-    );
+    return <div className="p-6 text-muted-foreground">Chargement du site…</div>;
   }
 
   if (!site) {
@@ -186,7 +184,10 @@ export default function SiteDetailPage({
                     )}
                     <div className="flex flex-wrap gap-1 mt-1">
                       {p.defaultStartTime && p.defaultEndTime && (
-                        <Badge variant="secondary" className="font-mono text-xs">
+                        <Badge
+                          variant="secondary"
+                          className="font-mono text-xs"
+                        >
                           {p.defaultStartTime} → {p.defaultEndTime}
                         </Badge>
                       )}
@@ -265,7 +266,9 @@ export default function SiteDetailPage({
             variant: "outline",
           },
           primary: {
-            label: deletePostMutation.isPending ? "Suppression..." : "Supprimer",
+            label: deletePostMutation.isPending
+              ? "Suppression..."
+              : "Supprimer",
             variant: "destructive",
             disabled: deletePostMutation.isPending,
             onClick: async () => {

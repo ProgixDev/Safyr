@@ -50,21 +50,25 @@ export default function LiveApiPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const positions = useMemo<ActivePosition[]>(
-    () => (data ?? []).filter((p) => p.clockInLat != null && p.clockInLng != null),
+    () =>
+      (data ?? []).filter((p) => p.clockInLat != null && p.clockInLng != null),
     [data],
   );
 
   const noGps = useMemo<ActivePosition[]>(
-    () => (data ?? []).filter((p) => p.clockInLat == null || p.clockInLng == null),
+    () =>
+      (data ?? []).filter((p) => p.clockInLat == null || p.clockInLng == null),
     [data],
   );
 
   const initialView = useMemo(() => {
     if (positions.length === 0) return PARIS;
     const avgLat =
-      positions.reduce((acc, p) => acc + (p.clockInLat ?? 0), 0) / positions.length;
+      positions.reduce((acc, p) => acc + (p.clockInLat ?? 0), 0) /
+      positions.length;
     const avgLng =
-      positions.reduce((acc, p) => acc + (p.clockInLng ?? 0), 0) / positions.length;
+      positions.reduce((acc, p) => acc + (p.clockInLng ?? 0), 0) /
+      positions.length;
     return { latitude: avgLat, longitude: avgLng, zoom: 11 };
   }, [positions]);
 
@@ -145,7 +149,9 @@ export default function LiveApiPage() {
                     onClose={() => setSelectedId(null)}
                   >
                     <div className="space-y-1 min-w-[160px]">
-                      <p className="font-semibold text-sm">{fullName(selected)}</p>
+                      <p className="font-semibold text-sm">
+                        {fullName(selected)}
+                      </p>
                       {selected.member.position && (
                         <p className="text-xs text-muted-foreground">
                           {selected.member.position}

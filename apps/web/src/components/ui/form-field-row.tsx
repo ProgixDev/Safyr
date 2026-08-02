@@ -83,7 +83,9 @@ export function FormFieldRow({
           )}
         >
           {field.state.meta.errors
-            .map((err) => (typeof err === "string" ? err : (err?.message ?? "")))
+            .map((err) =>
+              typeof err === "string" ? err : (err?.message ?? ""),
+            )
             .filter(Boolean)
             .join(", ") || helperText}
         </p>

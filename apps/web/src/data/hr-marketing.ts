@@ -1,6 +1,6 @@
 export interface SocialPost {
   id: string;
-  platform: "LinkedIn" | "Facebook" | "Instagram" | "Twitter";
+  platform: "LinkedIn" | "Facebook" | "Instagram" | "YouTube" | "X";
   content: string;
   scheduledDate: string;
   publishedDate?: string;

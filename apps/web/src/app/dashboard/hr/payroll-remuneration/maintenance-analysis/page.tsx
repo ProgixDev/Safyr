@@ -295,6 +295,7 @@ export default function SalaryMaintenanceAnalysisPage() {
       </InfoCardContainer>
 
       <DataTable
+        onRowClick={handleViewDetails}
         data={maintenances}
         columns={columns}
         searchKeys={["employeeName"]}

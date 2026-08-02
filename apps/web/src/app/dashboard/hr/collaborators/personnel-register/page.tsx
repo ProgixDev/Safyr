@@ -35,7 +35,10 @@ import {
   UserCheck,
 } from "lucide-react";
 import { PersonnelRegisterEntry } from "@/lib/types";
-import { EMPLOYEE_POSTE_OPTIONS, QUALIFICATION_OPTIONS } from "@/lib/hr-options";
+import {
+  EMPLOYEE_POSTE_OPTIONS,
+  QUALIFICATION_OPTIONS,
+} from "@/lib/hr-options";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
@@ -305,7 +308,9 @@ export default function PersonnelRegisterPage() {
       e.position ?? "",
       e.qualification ?? "",
       e.entryDate ? new Date(e.entryDate).toLocaleDateString("fr-FR") : "",
-      e.exitDate ? new Date(e.exitDate).toLocaleDateString("fr-FR") : "En poste",
+      e.exitDate
+        ? new Date(e.exitDate).toLocaleDateString("fr-FR")
+        : "En poste",
       e.cnapsProfessionalCardNumber ?? "",
     ]);
     return { headers, rows };
@@ -479,10 +484,8 @@ export default function PersonnelRegisterPage() {
             <Download className="mr-2 h-4 w-4" />
             Exporter Excel
           </Button>
-          <Button onClick={handleCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouvelle entrée
-          </Button>
+          {/* Pas de création ici : le registre unique est une vue de
+              consultation. Les entrées proviennent des dossiers salariés. */}
         </div>
       </div>
 
@@ -553,8 +556,10 @@ export default function PersonnelRegisterPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredEntries}
-            rowClassName={() => "hover:bg-gray-100 dark:hover:bg-gray-800"}
+          <DataTable
+            onRowClick={handleView}
+            columns={columns}
+            data={filteredEntries}
           />
         </CardContent>
       </Card>

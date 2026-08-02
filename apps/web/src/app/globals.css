@@ -23,6 +23,10 @@
   --ring: oklch(0.75 0.15 195);
   --radius: 0.75rem;
 
+  /* Survol des lignes de tableau : bleu clair, identique à la page
+     "documents" du formulaire Mon entreprise / Client. */
+  --row-hover: oklch(0.945 0.032 220);
+
   /* Utility Colors */
   --success: oklch(0.7 0.15 145);
   --success-foreground: oklch(0.98 0 0);
@@ -52,43 +56,43 @@
 }
 
 .dark {
-    --card: oklch(0.145 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.145 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.25 0.02 240);
-    --secondary-foreground: oklch(0.85 0.02 240);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.3 0.04 220);
-    --accent-foreground: oklch(0.8 0.08 220);
-    --destructive: oklch(0.396 0.141 25.723);
-    --destructive-foreground: oklch(0.985 0 0);
-    --border: oklch(0.269 0 0);
-    --input: oklch(0.269 0 0);
-    --ring: oklch(0.439 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.25 0.02 240);
+  --secondary-foreground: oklch(0.85 0.02 240);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.3 0.04 220);
+  --accent-foreground: oklch(0.8 0.08 220);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
 
-    /* Sidebar Dark */
-    --sidebar: oklch(0.17 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(0.269 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.985 0 0);
-    --sidebar-primary-foreground: oklch(0.205 0 0);
-    --sidebar-ring: oklch(0.439 0 0);
+  /* Sidebar Dark */
+  --sidebar: oklch(0.17 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.985 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
 
-    /* Utility Colors Dark */
-    --success: oklch(0.6 0.18 145);
-    --success-foreground: oklch(0.98 0 0);
-    --warning: oklch(0.7 0.15 85);
-    --warning-foreground: oklch(0.98 0 0);
-    --info: oklch(0.75 0.15 195);
-    --info-foreground: oklch(0.15 0.02 230);
-    --neutral: oklch(0.4 0.02 240);
-    --neutral-foreground: oklch(0.98 0 0);
+  /* Utility Colors Dark */
+  --success: oklch(0.6 0.18 145);
+  --success-foreground: oklch(0.98 0 0);
+  --warning: oklch(0.7 0.15 85);
+  --warning-foreground: oklch(0.98 0 0);
+  --info: oklch(0.75 0.15 195);
+  --info-foreground: oklch(0.15 0.02 230);
+  --neutral: oklch(0.4 0.02 240);
+  --neutral-foreground: oklch(0.98 0 0);
 }
 
 @theme inline {
@@ -106,6 +110,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-row-hover: var(--row-hover);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -189,6 +194,18 @@ body {
   font-weight: 400;
 }
 
+/* Barre de navigation des modules : tous les menus tiennent sur une seule
+   ligne. Si l'écran est trop étroit, on défile horizontalement plutôt que
+   de passer à la ligne — la barre de défilement reste invisible. */
+.module-nav-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.module-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Font display utility */
 .font-display {
   font-family: var(--font-space-grotesk), system-ui, sans-serif;
@@ -246,6 +263,9 @@ body {
   --muted-foreground: oklch(0.6 0.02 245);
   --accent: oklch(0.3 0.06 195);
   --accent-foreground: oklch(0.8 0.12 195);
+
+  /* Survol des lignes de tableau : bleu clair sur fond navy. */
+  --row-hover: oklch(0.3 0.055 220);
 
   /* Coral/red for alerts */
   --destructive: oklch(0.65 0.2 25);

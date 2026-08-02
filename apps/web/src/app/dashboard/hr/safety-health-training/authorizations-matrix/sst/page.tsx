@@ -410,6 +410,7 @@ export default function SSTPage() {
 
       {/* Certifications DataTable */}
       <DataTable
+        onRowClick={handleViewCertification}
         data={certifications}
         columns={columns}
         searchKeys={["employeeName", "number"]}

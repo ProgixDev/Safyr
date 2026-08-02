@@ -26,15 +26,8 @@ import {
   XCircle,
   Calendar,
   Plus,
-  MoreVertical,
-  Eye,
-  Trash2,
 } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { mockCSEDelegationHours } from "@/data/time-management";
 import { mockEmployees } from "@/data/employees";
 
@@ -49,15 +42,12 @@ export default function CSEHoursPage() {
     (typeof allSessions)[0] | null
   >(null);
   const [validationComment, setValidationComment] = useState("");
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [sessionFormData, setSessionFormData] = useState({
     employeeId: "",
     date: new Date().toISOString().split("T")[0],
     duration: 0,
-    type: "meeting" as
-      | "meeting"
-      | "employee_reception"
-      | "inquiry"
-      | "training",
+    type: "meeting" as "meeting" | "employee_reception" | "other" | "training",
     description: "",
   });
 
@@ -92,7 +82,7 @@ export default function CSEHoursPage() {
     const types: Record<string, string> = {
       meeting: "Réunion",
       employee_reception: "Réception salariés",
-      inquiry: "Enquête",
+      other: "Autre",
       training: "Formation",
     };
     return types[type] || type;
@@ -102,7 +92,7 @@ export default function CSEHoursPage() {
     const colors: Record<string, string> = {
       meeting: "bg-blue-100 text-blue-800",
       employee_reception: "bg-green-100 text-green-800",
-      inquiry: "bg-orange-100 text-orange-800",
+      other: "bg-orange-100 text-orange-800",
       training: "bg-purple-100 text-purple-800",
     };
     return colors[type] || "bg-gray-100 text-gray-800";
@@ -147,6 +137,50 @@ export default function CSEHoursPage() {
       setSelectedSession(null);
       setValidationComment("");
     }
+  };
+
+  /** Ouvre le formulaire de séance pré-rempli pour modification. */
+  const handleEditSession = (session: (typeof allSessions)[0]) => {
+    setEditingSessionId(session.id);
+    setSessionFormData({
+      employeeId: session.employeeId,
+      date: new Date(session.date).toISOString().split("T")[0],
+      duration: session.duration,
+      type: session.type,
+      description: session.description ?? "",
+    });
+    setIsNewSessionModalOpen(true);
+  };
+
+  const resetSessionForm = () => {
+    setEditingSessionId(null);
+    setSessionFormData({
+      employeeId: "",
+      date: new Date().toISOString().split("T")[0],
+      duration: 0,
+      type: "meeting",
+      description: "",
+    });
+  };
+
+  const handleSaveSession = () => {
+    if (editingSessionId) {
+      setAllSessions((prev) =>
+        prev.map((session) =>
+          session.id === editingSessionId
+            ? {
+                ...session,
+                date: new Date(sessionFormData.date),
+                duration: sessionFormData.duration,
+                type: sessionFormData.type,
+                description: sessionFormData.description,
+              }
+            : session,
+        ),
+      );
+    }
+    setIsNewSessionModalOpen(false);
+    resetSessionForm();
   };
 
   const handleDeleteClick = (session: (typeof allSessions)[0]) => {
@@ -239,50 +273,30 @@ export default function CSEHoursPage() {
   ];
 
   const sessionActions = (session: (typeof allSessions)[0]) => (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <MoreVertical className="h-4 w-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-48">
-        <div className="px-2 py-1.5 text-sm font-semibold">Actions</div>
-        <div className="border-t my-1" />
-        <button
-          className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm"
-          onClick={() => handleViewDetails(session)}
-        >
-          <Eye className="mr-2 h-4 w-4 text-green-600" />
-          Voir
-        </button>
-        {session.validated === false && (
-          <>
-            <button
-              className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm"
-              onClick={() => handleValidation(true, session.id)}
-            >
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Approuver
-            </button>
-            <button
-              className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm text-red-600"
-              onClick={() => handleValidation(false, session.id)}
-            >
-              <XCircle className="mr-2 h-4 w-4" />
-              Refuser
-            </button>
-          </>
-        )}
-        <div className="border-t my-1" />
-        <button
-          className="flex items-center w-full px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm text-red-600"
-          onClick={() => handleDeleteClick(session)}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Supprimer
-        </button>
-      </PopoverContent>
-    </Popover>
+    <RowActionsMenu
+      onView={() => handleViewDetails(session)}
+      onEdit={() => handleEditSession(session)}
+      onDelete={() => handleDeleteClick(session)}
+      extraItems={
+        session.validated === false
+          ? [
+              {
+                label: "Approuver",
+                icon: CheckCircle,
+                tone: "validate",
+                onClick: () => handleValidation(true, session.id),
+                separatorBefore: true,
+              },
+              {
+                label: "Refuser",
+                icon: XCircle,
+                tone: "delete",
+                onClick: () => handleValidation(false, session.id),
+              },
+            ]
+          : []
+      }
+    />
   );
 
   return (
@@ -345,6 +359,7 @@ export default function CSEHoursPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={handleViewDetails}
             data={allSessions}
             columns={sessionColumns}
             searchKeys={["employeeName", "description"]}
@@ -358,7 +373,7 @@ export default function CSEHoursPage() {
                   { value: "all", label: "Tous" },
                   { value: "meeting", label: "Réunion" },
                   { value: "employee_reception", label: "Réception salariés" },
-                  { value: "inquiry", label: "Enquête" },
+                  { value: "other", label: "Autre" },
                   { value: "training", label: "Formation" },
                 ],
               },
@@ -589,29 +604,32 @@ export default function CSEHoursPage() {
       {/* New Session Modal */}
       <Modal
         open={isNewSessionModalOpen}
-        onOpenChange={setIsNewSessionModalOpen}
+        onOpenChange={(open) => {
+          setIsNewSessionModalOpen(open);
+          if (!open) resetSessionForm();
+        }}
         type="form"
-        title="Nouvelle séance CSE"
-        description="Créer une nouvelle séance pour un élu CSE"
+        title={
+          editingSessionId ? "Modifier la séance CSE" : "Nouvelle séance CSE"
+        }
+        description={
+          editingSessionId
+            ? "Modifier les informations de la séance"
+            : "Créer une nouvelle séance pour un élu CSE"
+        }
         actions={{
           primary: {
-            label: "Créer la séance",
-            onClick: () => {
-              // Here you would normally save to database
-              console.log("Creating new CSE session:", sessionFormData);
-              setIsNewSessionModalOpen(false);
-              setSessionFormData({
-                employeeId: "",
-                date: new Date().toISOString().split("T")[0],
-                duration: 0,
-                type: "meeting",
-                description: "",
-              });
-            },
+            label: editingSessionId
+              ? "Enregistrer les modifications"
+              : "Créer la séance",
+            onClick: handleSaveSession,
           },
           secondary: {
             label: "Annuler",
-            onClick: () => setIsNewSessionModalOpen(false),
+            onClick: () => {
+              setIsNewSessionModalOpen(false);
+              resetSessionForm();
+            },
           },
         }}
       >
@@ -669,7 +687,7 @@ export default function CSEHoursPage() {
                   value:
                     | "meeting"
                     | "employee_reception"
-                    | "inquiry"
+                    | "other"
                     | "training",
                 ) => setSessionFormData({ ...sessionFormData, type: value })}
               >
@@ -681,7 +699,7 @@ export default function CSEHoursPage() {
                   <SelectItem value="employee_reception">
                     Réception salariés
                   </SelectItem>
-                  <SelectItem value="inquiry">Enquête</SelectItem>
+                  <SelectItem value="other">Autre</SelectItem>
                   <SelectItem value="training">Formation</SelectItem>
                 </SelectContent>
               </Select>

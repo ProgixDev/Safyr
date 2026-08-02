@@ -70,8 +70,13 @@ export function useCreatePost(siteId: string) {
 export function useUpdatePost(siteId: string) {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ postId, data }: { postId: string; data: UpdatePostPayload }) =>
-      updatePost(siteId, postId, data),
+    mutationFn: ({
+      postId,
+      data,
+    }: {
+      postId: string;
+      data: UpdatePostPayload;
+    }) => updatePost(siteId, postId, data),
     onSuccess: () => invalidate(),
   });
 }

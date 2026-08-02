@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,20 @@ import {
   Building2,
 } from "lucide-react";
 import type { TrainingPlan, TrainingBudget } from "@/lib/types";
+import { mockEmployees } from "@/data/employees";
+
+/**
+ * Les participants sont stockés sous forme de matricules (ex. "EMP001").
+ * On affiche le nom du salarié quand il est connu, sinon le matricule.
+ */
+function getParticipantName(employeeNumber: string) {
+  const employee = mockEmployees.find(
+    (e) => e.employeeNumber === employeeNumber,
+  );
+  return employee
+    ? `${employee.firstName} ${employee.lastName}`
+    : employeeNumber;
+}
 
 // Types de formation avec descriptions
 const TRAINING_TYPES = {
@@ -97,6 +112,50 @@ const TRAINING_TYPES = {
 } as const;
 
 type TrainingType = keyof typeof TRAINING_TYPES;
+
+/**
+ * Palette des cadres « Répartition par type de formation ».
+ * Reprend celle de « Répartition par département » (Analyse des coûts) pour
+ * garder une lecture cohérente d'un module à l'autre.
+ */
+const TRAINING_TYPE_COLORS = [
+  {
+    bg: "bg-blue-50 dark:bg-blue-950/30",
+    border: "border-blue-200 dark:border-blue-800",
+    text: "text-blue-700 dark:text-blue-300",
+    icon: "text-blue-500",
+  },
+  {
+    bg: "bg-purple-50 dark:bg-purple-950/30",
+    border: "border-purple-200 dark:border-purple-800",
+    text: "text-purple-700 dark:text-purple-300",
+    icon: "text-purple-500",
+  },
+  {
+    bg: "bg-green-50 dark:bg-green-950/30",
+    border: "border-green-200 dark:border-green-800",
+    text: "text-green-700 dark:text-green-300",
+    icon: "text-green-500",
+  },
+  {
+    bg: "bg-orange-50 dark:bg-orange-950/30",
+    border: "border-orange-200 dark:border-orange-800",
+    text: "text-orange-700 dark:text-orange-300",
+    icon: "text-orange-500",
+  },
+  {
+    bg: "bg-cyan-50 dark:bg-cyan-950/30",
+    border: "border-cyan-200 dark:border-cyan-800",
+    text: "text-cyan-700 dark:text-cyan-300",
+    icon: "text-cyan-500",
+  },
+  {
+    bg: "bg-rose-50 dark:bg-rose-950/30",
+    border: "border-rose-200 dark:border-rose-800",
+    text: "text-rose-700 dark:text-rose-300",
+    icon: "text-rose-500",
+  },
+] as const;
 
 // Mock data for training plans
 const mockTrainingPlans: TrainingPlan[] = [
@@ -217,7 +276,7 @@ export default function TrainingPlanPage() {
   const handleTrainingTypeChange = (value: string) => {
     const trainingType = value as TrainingType;
     const trainingInfo = TRAINING_TYPES[trainingType];
-    
+
     setPlanForm((prev) => ({
       ...prev,
       title: value,
@@ -289,7 +348,10 @@ export default function TrainingPlanPage() {
         description: planForm.description,
         plannedDate: new Date(planForm.plannedDate),
         duration: parseInt(planForm.duration) || 0,
-        participants: planForm.participants.split(",").map((p) => p.trim()).filter((p) => p),
+        participants: planForm.participants
+          .split(",")
+          .map((p) => p.trim())
+          .filter((p) => p),
         trainer: planForm.trainer,
         location: planForm.location,
         budget: parseFloat(planForm.budget) || 0,
@@ -333,7 +395,7 @@ export default function TrainingPlanPage() {
   // Fonction pour obtenir l'icône du type de formation
   const getTrainingIcon = (title: string) => {
     const type = Object.keys(TRAINING_TYPES).find(
-      (key) => TRAINING_TYPES[key as TrainingType].label === title
+      (key) => TRAINING_TYPES[key as TrainingType].label === title,
     ) as TrainingType | undefined;
     if (type && TRAINING_TYPES[type]) {
       const Icon = TRAINING_TYPES[type].icon;
@@ -345,18 +407,24 @@ export default function TrainingPlanPage() {
   // Fonction pour obtenir le badge de type de formation
   const getTrainingBadge = (title: string) => {
     const type = Object.keys(TRAINING_TYPES).find(
-      (key) => TRAINING_TYPES[key as TrainingType].label === title
+      (key) => TRAINING_TYPES[key as TrainingType].label === title,
     ) as TrainingType | undefined;
     if (type) {
       const colors: Record<TrainingType, string> = {
-        SSIAP1: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-        SSIAP2: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-        SSIAP3: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+        SSIAP1:
+          "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+        SSIAP2:
+          "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+        SSIAP3:
+          "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
         SST: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
         H0B0: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-        MAC_APS: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
-        MAC_SST: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
-        DIVERS: "bg-gray-100 text-gray-700 dark:bg-gray-800/30 dark:text-gray-300",
+        MAC_APS:
+          "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+        MAC_SST:
+          "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+        DIVERS:
+          "bg-gray-100 text-gray-700 dark:bg-gray-800/30 dark:text-gray-300",
       };
       return colors[type] || "";
     }
@@ -451,9 +519,9 @@ export default function TrainingPlanPage() {
 
   // Statistiques par type de formation
   const trainingStats = Object.entries(TRAINING_TYPES).map(([key, value]) => {
-    const count = trainingPlans.filter(p => p.title === value.label).length;
+    const count = trainingPlans.filter((p) => p.title === value.label).length;
     const budget = trainingPlans
-      .filter(p => p.title === value.label)
+      .filter((p) => p.title === value.label)
       .reduce((sum, p) => sum + p.budget, 0);
     return {
       type: key as TrainingType,
@@ -514,34 +582,78 @@ export default function TrainingPlanPage() {
         />
       </InfoCardContainer>
 
-      {/* Statistiques par type de formation */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {trainingStats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.type}
-              className="p-4 border rounded-lg bg-background hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium text-sm">{stat.label}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {stat.count} formation{stat.count > 1 ? "s" : ""}
-                </span>
-                <span className="font-medium">
-                  {stat.budget.toLocaleString("fr-FR")} €
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* Statistiques par type de formation — cadres colorés, sur le modèle de
+          « Répartition par département » (Rémunération & paie → Analyse des coûts). */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <GraduationCap className="h-5 w-5" />
+            Répartition par type de formation
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {trainingStats.map((stat, index) => {
+              const Icon = stat.icon;
+              const colors =
+                TRAINING_TYPE_COLORS[index % TRAINING_TYPE_COLORS.length];
+              const share =
+                totalBudgetUsed > 0 ? (stat.budget / totalBudgetUsed) * 100 : 0;
+              return (
+                <div
+                  key={stat.type}
+                  className={`rounded-lg border p-4 ${colors.bg} ${colors.border}`}
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon className={`h-4 w-4 ${colors.icon}`} />
+                      <h4 className={`font-semibold ${colors.text}`}>
+                        {stat.label}
+                      </h4>
+                    </div>
+                    <Badge variant="outline" className="font-mono">
+                      {stat.count} formation{stat.count > 1 ? "s" : ""}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Budget
+                      </span>
+                      <span className="font-semibold">
+                        {stat.budget.toLocaleString("fr-FR")} €
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Part du budget
+                      </span>
+                      <Badge variant="secondary" className="font-mono">
+                        {share.toFixed(1)} %
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between border-t pt-2">
+                      <span className="text-sm text-muted-foreground">
+                        Coût moyen
+                      </span>
+                      <span className="text-sm font-medium">
+                        {stat.count > 0
+                          ? `${Math.round(stat.budget / stat.count).toLocaleString("fr-FR")} €`
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Training Plans DataTable */}
       <DataTable
+        onRowClick={handleViewPlan}
         data={trainingPlans}
         columns={columns}
         searchKeys={["title", "description", "trainer"]}
@@ -635,6 +747,15 @@ export default function TrainingPlanPage() {
                 <p className="text-sm text-muted-foreground">
                   {selectedPlan.participants.length} personnes
                 </p>
+                {selectedPlan.participants.length > 0 && (
+                  <ul className="mt-1 space-y-0.5">
+                    {selectedPlan.participants.map((participant) => (
+                      <li key={participant} className="text-sm">
+                        {getParticipantName(participant)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div>
                 <Label className="text-sm font-medium">Budget</Label>
@@ -765,8 +886,8 @@ export default function TrainingPlanPage() {
             </Select>
             {planForm.title && (
               <p className="text-xs text-muted-foreground mt-1">
-                {TRAINING_TYPES[planForm.title as TrainingType]?.description || 
-                 "Formation personnalisée"}
+                {TRAINING_TYPES[planForm.title as TrainingType]?.description ||
+                  "Formation personnalisée"}
               </p>
             )}
           </div>

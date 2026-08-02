@@ -55,9 +55,7 @@ export function CompanySearch({ onSelect, placeholder }: Props) {
               void search();
             }
           }}
-          placeholder={
-            placeholder ?? "Rechercher une société (nom ou SIREN)…"
-          }
+          placeholder={placeholder ?? "Rechercher une société (nom ou SIREN)…"}
         />
         <Button
           type="button"

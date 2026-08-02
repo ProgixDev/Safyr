@@ -427,6 +427,7 @@ export default function SSIAPPage() {
 
       {/* Certifications DataTable */}
       <DataTable
+        onRowClick={handleViewCertification}
         data={certifications}
         columns={columns}
         searchKeys={["employeeName", "number"]}

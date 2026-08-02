@@ -54,7 +54,7 @@ import {
 } from "@/hooks/payroll";
 
 // Constante pour le taux d'indemnité d'habillage (par heure)
-const CLOTHING_ALLOWANCE_RATE = 0.50; // 0.50€ par heure travaillée
+const CLOTHING_ALLOWANCE_RATE = 0.5; // 0.50€ par heure travaillée
 
 // Mock data
 const mockVariables: PayrollVariable[] = [
@@ -241,9 +241,11 @@ type EmployeePivot = {
 };
 
 // Ajouter un champ hasClothingAllowance aux employés mockés
-const employeesWithAllowance = mockEmployees.map(emp => ({
+const employeesWithAllowance = mockEmployees.map((emp) => ({
   ...emp,
-  hasClothingAllowance: ["EMP001", "EMP002", "EMP005", "EMP004"].includes(emp.id),
+  hasClothingAllowance: ["EMP001", "EMP002", "EMP005", "EMP004"].includes(
+    emp.id,
+  ),
   clothingAllowanceRate: CLOTHING_ALLOWANCE_RATE,
 }));
 
@@ -251,12 +253,13 @@ const employeesWithAllowance = mockEmployees.map(emp => ({
 const calculateClothingAllowance = (
   employeeId: string,
   totalHours: number,
-  employees: Employee[]
+  employees: Employee[],
 ): number => {
-  const employee = employees.find(e => e.id === employeeId);
+  const employee = employees.find((e) => e.id === employeeId);
   if (!employee?.hasClothingAllowance) return 0;
-  
-  const rate = (employee as any).clothingAllowanceRate || CLOTHING_ALLOWANCE_RATE;
+
+  const rate =
+    (employee as any).clothingAllowanceRate || CLOTHING_ALLOWANCE_RATE;
   return Math.round(totalHours * rate * 100) / 100;
 };
 
@@ -359,7 +362,7 @@ export default function PayrollVariablesPage() {
     createdAt: new Date(v.createdAt),
     updatedAt: new Date(v.updatedAt),
   }));
-  
+
   const [isVariableModalOpen, setIsVariableModalOpen] = useState(
     initialState.isVariableModalOpen,
   );
@@ -419,7 +422,9 @@ export default function PayrollVariablesPage() {
   };
 
   const handleSelectEmployee = (employee: Employee) => {
-    const empWithAllowance = employeesWithAllowance.find(e => e.id === employee.id);
+    const empWithAllowance = employeesWithAllowance.find(
+      (e) => e.id === employee.id,
+    );
     setVariableForm((prev) => ({
       ...prev,
       employeeId: employee.employeeNumber,
@@ -427,7 +432,7 @@ export default function PayrollVariablesPage() {
     }));
     setEmployeeSearchOpen(false);
     setEmployeeSearchQuery("");
-    
+
     if (empWithAllowance?.hasClothingAllowance) {
       setShowAutoAllowanceInfo(true);
     } else {
@@ -485,22 +490,33 @@ export default function PayrollVariablesPage() {
         });
       } else {
         const employee = employeesWithAllowance.find(
-          e => e.employeeNumber === variableForm.employeeId
+          (e) => e.employeeNumber === variableForm.employeeId,
         );
-        
+
         // Calculer le total des heures
-        const hourTypes = ["h_jour", "h_dimanche", "h_ferie", "h_nuit", "h_dimanche_nuit", "h_ferie_nuit", "h_supp_25", "h_supp_50", "h_compl_10"];
+        const hourTypes = [
+          "h_jour",
+          "h_dimanche",
+          "h_ferie",
+          "h_nuit",
+          "h_dimanche_nuit",
+          "h_ferie_nuit",
+          "h_supp_25",
+          "h_supp_50",
+          "h_compl_10",
+        ];
         let totalHours = 0;
-        hourTypes.forEach(type => {
-          const value = parseFloat((variableForm as Record<string, string>)[type]) || 0;
+        hourTypes.forEach((type) => {
+          const value =
+            parseFloat((variableForm as Record<string, string>)[type]) || 0;
           totalHours += value;
         });
 
         // Calculer l'indemnité d'habillage
         const clothingAllowance = calculateClothingAllowance(
-          variableForm.employeeId, 
-          totalHours, 
-          employeesWithAllowance
+          variableForm.employeeId,
+          totalHours,
+          employeesWithAllowance,
         );
 
         if (employee?.hasClothingAllowance && clothingAllowance > 0) {
@@ -529,14 +545,19 @@ export default function PayrollVariablesPage() {
           "nbre_deplacement",
           "autres_indemnites",
         ];
-        
+
         const toCreate = types
           .map((type) => {
             let amount = 0;
-            if (type === "indemnite_habillage" && employee?.hasClothingAllowance && clothingAllowance > 0) {
+            if (
+              type === "indemnite_habillage" &&
+              employee?.hasClothingAllowance &&
+              clothingAllowance > 0
+            ) {
               amount = clothingAllowance;
             } else {
-              amount = parseFloat((variableForm as Record<string, string>)[type]) || 0;
+              amount =
+                parseFloat((variableForm as Record<string, string>)[type]) || 0;
             }
             return { type, amount };
           })
@@ -551,16 +572,20 @@ export default function PayrollVariablesPage() {
               type,
               amount,
               currency: "EUR",
-              description: type === "indemnite_habillage" && employee?.hasClothingAllowance && clothingAllowance > 0
-                ? `Indemnité d'habillage - ${totalHours}h à ${CLOTHING_ALLOWANCE_RATE}€/h`
-                : variableForm.description || "",
+              description:
+                type === "indemnite_habillage" &&
+                employee?.hasClothingAllowance &&
+                clothingAllowance > 0
+                  ? `Indemnité d'habillage - ${totalHours}h à ${CLOTHING_ALLOWANCE_RATE}€/h`
+                  : variableForm.description || "",
               status: "pending",
-            })
-          )
+            }),
+          ),
         );
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Erreur inconnue";
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
       alert(`Échec de l'enregistrement : ${message}`);
       return;
     }
@@ -712,9 +737,7 @@ export default function PayrollVariablesPage() {
       sortable: true,
       sortValue: (r) => r.total,
       render: (r) => (
-        <span className="font-medium">
-          {r.total.toLocaleString("fr-FR")} €
-        </span>
+        <span className="font-medium">{r.total.toLocaleString("fr-FR")} €</span>
       ),
     },
     {
@@ -722,13 +745,13 @@ export default function PayrollVariablesPage() {
       label: "Actions",
       render: (row: EmployeePivot) => {
         const employeeVariables = filteredVariables.filter(
-          (v) => v.employeeId === row.employeeId
+          (v) => v.employeeId === row.employeeId,
         );
-        
+
         if (employeeVariables.length === 0) return null;
-        
+
         const firstVariable = employeeVariables[0];
-        
+
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -757,8 +780,12 @@ export default function PayrollVariablesPage() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  if (confirm(`Supprimer toutes les variables de ${row.employeeName} ?`)) {
-                    employeeVariables.forEach(v => {
+                  if (
+                    confirm(
+                      `Supprimer toutes les variables de ${row.employeeName} ?`,
+                    )
+                  ) {
+                    employeeVariables.forEach((v) => {
                       deleteVariableMutation.mutate(v.id);
                     });
                   }
@@ -908,7 +935,7 @@ export default function PayrollVariablesPage() {
   ];
 
   const totalClothingAllowance = variables
-    .filter(v => v.type === "indemnite_habillage")
+    .filter((v) => v.type === "indemnite_habillage")
     .reduce((sum, v) => sum + v.amount, 0);
 
   return (
@@ -993,8 +1020,9 @@ export default function PayrollVariablesPage() {
                 Indemnité d'habillage calculée automatiquement
               </h4>
               <p className="text-sm text-blue-700 dark:text-blue-300">
-                {autoCalculatedAllowance.amount.toFixed(2)}€ pour {autoCalculatedAllowance.hours}h travaillées
-                (taux: {CLOTHING_ALLOWANCE_RATE}€/h)
+                {autoCalculatedAllowance.amount.toFixed(2)}€ pour{" "}
+                {autoCalculatedAllowance.hours}h travaillées (taux:{" "}
+                {CLOTHING_ALLOWANCE_RATE}€/h)
               </p>
             </div>
           </div>
@@ -1075,7 +1103,10 @@ export default function PayrollVariablesPage() {
               });
             }
             if (groupBy === "type") {
-              return variableTypeLabels[value as PayrollVariableType] || value as string;
+              return (
+                variableTypeLabels[value as PayrollVariableType] ||
+                (value as string)
+              );
             }
             return value as string;
           }}
@@ -1161,7 +1192,8 @@ export default function PayrollVariablesPage() {
                       Indemnité d'habillage automatique
                     </p>
                     <p className="text-purple-700 dark:text-purple-300">
-                      Calculée automatiquement sur la base des heures travaillées
+                      Calculée automatiquement sur la base des heures
+                      travaillées
                     </p>
                   </div>
                 </div>
@@ -1337,7 +1369,7 @@ export default function PayrollVariablesPage() {
                     {filteredEmployees.length > 0 ? (
                       filteredEmployees.map((employee) => {
                         const empWithAllowance = employeesWithAllowance.find(
-                          e => e.id === employee.id
+                          (e) => e.id === employee.id,
                         );
                         return (
                           <button
@@ -1504,7 +1536,10 @@ export default function PayrollVariablesPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {Object.entries(variableTypeLabels)
-                  .filter(([type]) => !type.startsWith("h_") && type !== "indemnite_habillage")
+                  .filter(
+                    ([type]) =>
+                      !type.startsWith("h_") && type !== "indemnite_habillage",
+                  )
                   .map(([type, label]) => {
                     const isHours = type.startsWith("h_");
                     const isCount = type.startsWith("nbre_");
@@ -1526,28 +1561,52 @@ export default function PayrollVariablesPage() {
                               ...prev,
                               [type]: value,
                             }));
-                            
+
                             // Recalcul automatique de l'indemnité d'habillage
                             const employee = employeesWithAllowance.find(
-                              e => e.employeeNumber === variableForm.employeeId
+                              (e) =>
+                                e.employeeNumber === variableForm.employeeId,
                             );
                             if (employee?.hasClothingAllowance) {
-                              const hourTypes = ["h_jour", "h_dimanche", "h_ferie", "h_nuit", "h_dimanche_nuit", "h_ferie_nuit", "h_supp_25", "h_supp_50", "h_compl_10"];
+                              const hourTypes = [
+                                "h_jour",
+                                "h_dimanche",
+                                "h_ferie",
+                                "h_nuit",
+                                "h_dimanche_nuit",
+                                "h_ferie_nuit",
+                                "h_supp_25",
+                                "h_supp_50",
+                                "h_compl_10",
+                              ];
                               let totalHours = 0;
-                              hourTypes.forEach(hType => {
-                                const val = parseFloat((variableForm as Record<string, string>)[hType]) || 0;
+                              hourTypes.forEach((hType) => {
+                                const val =
+                                  parseFloat(
+                                    (variableForm as Record<string, string>)[
+                                      hType
+                                    ],
+                                  ) || 0;
                                 totalHours += val;
                               });
                               // Mettre à jour totalHours avec la nouvelle valeur
                               if (type.startsWith("h_")) {
-                                const newTotal = hourTypes.reduce((sum, hType) => {
-                                  const val = parseFloat((variableForm as Record<string, string>)[hType]) || 0;
-                                  return sum + val;
-                                }, 0);
+                                const newTotal = hourTypes.reduce(
+                                  (sum, hType) => {
+                                    const val =
+                                      parseFloat(
+                                        (
+                                          variableForm as Record<string, string>
+                                        )[hType],
+                                      ) || 0;
+                                    return sum + val;
+                                  },
+                                  0,
+                                );
                                 const allowance = calculateClothingAllowance(
                                   variableForm.employeeId,
                                   newTotal,
-                                  employeesWithAllowance
+                                  employeesWithAllowance,
                                 );
                                 if (allowance > 0) {
                                   setVariableForm((prev) => ({
@@ -1574,7 +1633,10 @@ export default function PayrollVariablesPage() {
               <div className="bg-muted/30 p-4 rounded-lg border border-dashed">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="indemnite_habillage" className="flex items-center gap-2">
+                    <Label
+                      htmlFor="indemnite_habillage"
+                      className="flex items-center gap-2"
+                    >
                       <Shirt className="h-4 w-4 text-purple-600" />
                       Indemnité d'habillage
                       <Badge variant="outline" className="text-xs">
@@ -1590,7 +1652,10 @@ export default function PayrollVariablesPage() {
                       id="indemnite_habillage"
                       type="number"
                       step="0.01"
-                      value={(variableForm as Record<string, string>).indemnite_habillage || "0"}
+                      value={
+                        (variableForm as Record<string, string>)
+                          .indemnite_habillage || "0"
+                      }
                       disabled
                       className="bg-background"
                     />
@@ -1598,7 +1663,8 @@ export default function PayrollVariablesPage() {
                 </div>
                 {showAutoAllowanceInfo && (
                   <p className="text-xs text-purple-600 mt-2">
-                    Taux appliqué: {CLOTHING_ALLOWANCE_RATE}€ par heure travaillée
+                    Taux appliqué: {CLOTHING_ALLOWANCE_RATE}€ par heure
+                    travaillée
                   </p>
                 )}
               </div>

@@ -75,6 +75,8 @@ export interface Employee {
   civilStatus: string | null;
   children: number | null;
   socialSecurityNumber: string | null;
+  /** Numéro de carte professionnelle CNAPS. */
+  cartePro: string | null;
 
   employeeNumber: string | null;
   hireDate: string | null;
@@ -109,6 +111,7 @@ export interface CreateEmployeePayload {
   civilStatus?: "single" | "married" | "divorced" | "widowed" | "civil-union";
   children?: number;
   socialSecurityNumber?: string;
+  cartePro?: string;
   employeeNumber: string;
   hireDate?: string;
   position: string;

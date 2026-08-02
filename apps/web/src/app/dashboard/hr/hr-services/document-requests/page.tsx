@@ -490,7 +490,11 @@ export default function DocumentRequestsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredRequests} />
+          <DataTable
+            onRowClick={handleView}
+            columns={columns}
+            data={filteredRequests}
+          />
         </CardContent>
       </Card>
 

@@ -34,7 +34,9 @@ import {
   useUpdateOrganization,
   useCreateRepresentative,
   useUploadOrganizationDocument,
+  useDeleteOrganizationDocument,
 } from "@/hooks/organization";
+import { DocumentActionsMenu } from "@/components/ui/row-actions-menu";
 import { getSignedUrl, uploadFile } from "@safyr/api-client";
 import {
   UpdateOrganizationDto,
@@ -117,6 +119,8 @@ function EntrepriseContent({
         authorizationNumber: value.authorizationNumber,
         email: value.email,
         phone: value.phone,
+        phone2: value.phone2,
+        numTVA: value.numTVA,
         siret: value.siret,
         ape: value.ape,
         address: value.address,
@@ -173,8 +177,11 @@ function EntrepriseContent({
 
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
+  const [uploadSuccessId, setUploadSuccessId] = useState<string | null>(null);
+  const [documentError, setDocumentError] = useState<string | null>(null);
 
   const uploadMutation = useUploadOrganizationDocument();
+  const deleteDocumentMutation = useDeleteOrganizationDocument();
 
   const handleUpload = async (requirementId: string) => {
     const input = document.createElement("input");
@@ -191,6 +198,18 @@ function EntrepriseContent({
         uploadMutation.mutate(
           { file, requirementId },
           {
+            onSuccess: () => {
+              // Confirmation visible : sans elle, l'utilisateur ne sait pas
+              // si le document a bien été enregistré.
+              setUploadSuccessId(requirementId);
+              window.setTimeout(
+                () =>
+                  setUploadSuccessId((current) =>
+                    current === requirementId ? null : current,
+                  ),
+                4000,
+              );
+            },
             onError: (error: unknown) => {
               const message =
                 error instanceof ApiError
@@ -212,8 +231,39 @@ function EntrepriseContent({
   };
 
   const handleDownload = async (key: string) => {
-    const url = await getSignedUrl(key);
-    window.open(url, "_blank");
+    try {
+      const url = await getSignedUrl(key);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "";
+      link.rel = "noopener";
+      link.click();
+    } catch {
+      setDocumentError("Échec du téléchargement du document.");
+    }
+  };
+
+  /** Ouvre le document dans un nouvel onglet (consultation). */
+  const handleView = async (key: string) => {
+    try {
+      const url = await getSignedUrl(key);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      setDocumentError("Impossible d'ouvrir le document.");
+    }
+  };
+
+  const handleDeleteDocument = (requirementId: string) => {
+    setDocumentError(null);
+    deleteDocumentMutation.mutate(requirementId, {
+      onError: (error: unknown) => {
+        setDocumentError(
+          error instanceof ApiError
+            ? error.message
+            : "Échec de la suppression du document.",
+        );
+      },
+    });
   };
 
   // ── Logo ──────────────────────────────────────────────────────────
@@ -437,8 +487,8 @@ function EntrepriseContent({
                     }}
                   />
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Recherchez par nom ou SIREN pour pré-remplir nom, SIRET, code
-                    APE et adresse.
+                    Recherchez par nom ou SIREN pour pré-remplir nom, SIRET,
+                    code APE et adresse.
                   </p>
                 </div>
               )}
@@ -526,6 +576,31 @@ function EntrepriseContent({
                       editing={isEditing}
                     >
                       <PhoneField placeholder="01 23 45 67 89" />
+                    </FormFieldRow>
+                  )}
+                </form.Field>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form.Field name="phone2">
+                  {(field) => (
+                    <FormFieldRow
+                      field={field}
+                      label="Téléphone (2e numéro)"
+                      editing={isEditing}
+                    >
+                      <PhoneField placeholder="06 12 34 56 78" />
+                    </FormFieldRow>
+                  )}
+                </form.Field>
+                <form.Field name="numTVA">
+                  {(field) => (
+                    <FormFieldRow
+                      field={field}
+                      label="Numéro TVA"
+                      editing={isEditing}
+                    >
+                      <Input placeholder="FR40303265045" />
                     </FormFieldRow>
                   )}
                 </form.Field>
@@ -763,7 +838,9 @@ function EntrepriseContent({
                             <p className="text-base font-medium">{a.label}</p>
                             <p className="text-sm text-muted-foreground">
                               {a.message}
-                              {a.date ? ` — échéance ${formatDate(a.date)}` : ""}
+                              {a.date
+                                ? ` — échéance ${formatDate(a.date)}`
+                                : ""}
                             </p>
                           </div>
                         </div>
@@ -800,18 +877,24 @@ function EntrepriseContent({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {[
                     { name: "URSSAF", url: "https://urssaf.fr" },
                     { name: "Impôts", url: "https://impots.gouv.fr" },
                     { name: "Infogreffe", url: "https://infogreffe.fr" },
+                    {
+                      name: "CNAPS",
+                      url: "https://teleservices-cnaps.interieur.gouv.fr/teleservices/ihm/#/home",
+                    },
                   ].map((link) => (
                     <Button
                       key={link.name}
                       variant="outline"
                       size="sm"
-                      className="flex-1 h-9 text-sm"
-                      onClick={() => window.open(link.url, "_blank")}
+                      className="h-9 flex-1 text-sm"
+                      onClick={() =>
+                        window.open(link.url, "_blank", "noopener,noreferrer")
+                      }
                     >
                       {link.name}
                       <ExternalLink className="h-3 w-3 ml-1" />
@@ -831,6 +914,14 @@ function EntrepriseContent({
                 </div>
               </CardHeader>
               <CardContent>
+                {documentError && (
+                  <p
+                    role="alert"
+                    className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                  >
+                    {documentError}
+                  </p>
+                )}
                 <div className="space-y-2">
                   {compliance.map((item) => {
                     const meta =
@@ -877,37 +968,42 @@ function EntrepriseContent({
                               </div>
                             </div>
                           </div>
-                          <div className="flex gap-1">
-                            {item.document && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() =>
-                                  handleDownload(item.document!.storageKey)
-                                }
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
+                          <div className="flex items-center gap-1">
+                            {uploadingId === item.requirement.id && (
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                             )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => handleUpload(item.requirement.id)}
+                            <DocumentActionsMenu
                               disabled={uploadingId === item.requirement.id}
-                            >
-                              {uploadingId === item.requirement.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Upload className="h-4 w-4" />
-                              )}
-                            </Button>
+                              onView={
+                                item.document
+                                  ? () => handleView(item.document!.storageKey)
+                                  : undefined
+                              }
+                              onUpload={() => handleUpload(item.requirement.id)}
+                              onDownload={
+                                item.document
+                                  ? () =>
+                                      handleDownload(item.document!.storageKey)
+                                  : undefined
+                              }
+                              onDelete={
+                                item.document
+                                  ? () =>
+                                      handleDeleteDocument(item.requirement.id)
+                                  : undefined
+                              }
+                            />
                           </div>
                         </div>
                         {uploadErrors[item.requirement.id] && (
                           <p className="text-sm text-destructive mt-2">
                             {uploadErrors[item.requirement.id]}
+                          </p>
+                        )}
+                        {uploadSuccessId === item.requirement.id && (
+                          <p className="mt-2 flex items-center gap-1.5 text-sm text-green-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Document téléversé avec succès.
                           </p>
                         )}
                       </div>
