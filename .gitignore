@@ -114,5 +114,11 @@ tsconfig.tsbuildinfo
 # Stray/edge env files (e.g. ".env serveur.env")
 *.env
 
+# Supabase CLI : cache local et lien de projet (aucune valeur en dépôt).
+# Supabase n'est utilisé ici que pour le stockage de fichiers — la base de
+# données est Neon —, donc pas de config.toml ni de migrations à versionner.
+supabase/.temp/
+supabase/.branches/
+
 # TS incremental build cache (must not be committed — stale cache suppresses tsc emit on CI/Vercel)
 *.tsbuildinfo
