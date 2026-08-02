@@ -71,7 +71,11 @@
       "PowerShell($env:PATH=\"$env:APPDATA\\\\npm;$env:PATH\"; bun run --filter=@safyr/web typecheck 2>&1 | Select-String -Pattern \"error TS\" | ForEach-Object { $_.ToString\\(\\).Trim\\(\\).Substring\\(0,[Math]::Min\\(140,$_.ToString\\(\\).Trim\\(\\).Length\\)\\) })",
       "PowerShell($env:PATH=\"$env:APPDATA\\\\npm;$env:PATH\"; bun run --filter=@safyr/web format 2>&1 | Select-Object -Last 2; bun run --filter=@safyr/web typecheck 2>&1 | Select-String -Pattern \"error TS\" | ForEach-Object { $_.ToString\\(\\).Trim\\(\\).Substring\\(0,[Math]::Min\\(120,$_.ToString\\(\\).Trim\\(\\).Length\\)\\) })",
       "PowerShell($env:PATH=\"$env:APPDATA\\\\npm;$env:PATH\"; bun run --filter=@safyr/web build 2>&1 | Select-String -Pattern \"Compiled successfully|Failed to compile|Error:|Exited with code\" | Select-Object -Last 6)",
-      "Bash(awk '$1+$2>0')"
+      "Bash(awk '$1+$2>0')",
+      "PowerShell($urls = @{ \"web\" = \"https://safyr.vercel.app\"; \"api\" = \"https://safyr-api-three.vercel.app/api/health\" }; foreach \\($k in $urls.Keys\\) { try { $r = Invoke-WebRequest -Uri $urls[$k] -Method Get -TimeoutSec 20 -ErrorAction Stop; \"{0,-4} {1} -> {2}\" -f $k, $urls[$k], $r.StatusCode } catch { \"{0,-4} {1} -> {2}\" -f $k, $urls[$k], $_.Exception.Message } })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"https://safyr-api-three.vercel.app/health\" -TimeoutSec 30 -ErrorAction Stop; \"STATUS: $\\($r.StatusCode\\)\"; $r.Content } catch { \"ERREUR: $\\($_.Exception.Message\\)\" })",
+      "PowerShell($f = \"C:\\\\Users\\\\Hp\\\\Safyr\\\\apps\\\\web\\\\.next\\\\static\\\\css\\\\5d43eb9b5ce44e57.css\"; $c = Get-Content $f -Raw; \"--- occurrences de row-hover ---\"; [regex]::Matches\\($c, '[^{}]{0,80}row-hover[^{}]{0,60}'\\) | ForEach-Object { $_.Value } | Select-Object -First 8)",
+      "Bash(node \"C:/Users/Hp/AppData/Local/Temp/claude/c--Users-Hp-Safyr/ab68d1d3-fb90-48af-930a-b6dd41ce4a02/scratchpad/wire2.mjs\")"
     ]
   }
 }

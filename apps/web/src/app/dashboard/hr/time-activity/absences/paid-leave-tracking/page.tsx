@@ -432,6 +432,7 @@ export default function PaidLeaveTrackingPage() {
         <CardContent>
           <DataTable
             data={leaveData}
+            onRowClick={handleViewDetails}
             columns={columns}
             searchKeys={["employeeName", "position"]}
             getSearchValue={(data) => `${data.employeeName} ${data.position}`}

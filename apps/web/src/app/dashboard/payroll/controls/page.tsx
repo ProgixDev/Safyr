@@ -655,6 +655,7 @@ export default function PayrollControlsPage() {
           </CardHeader>
           <CardContent>
             <DataTable
+              onRowClick={handleViewDetails}
               data={enrichedAnomalies}
               columns={anomalyColumns}
               filters={anomalyFilters}

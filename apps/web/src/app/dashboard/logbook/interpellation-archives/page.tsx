@@ -918,6 +918,10 @@ export default function InterpellationArchivesPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            onRowClick={(record) => {
+              setViewingRecord(record);
+              setIsViewModalOpen(true);
+            }}
             data={filteredRecords}
             columns={columns}
             searchKey="description"

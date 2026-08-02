@@ -25,7 +25,7 @@
 
   /* Survol des lignes de tableau : bleu clair, identique à la page
      "documents" du formulaire Mon entreprise / Client. */
-  --row-hover: oklch(0.945 0.032 220);
+  --row-hover: oklch(0.93 0.05 220);
 
   /* Utility Colors */
   --success: oklch(0.7 0.15 145);
@@ -264,8 +264,9 @@ body {
   --accent: oklch(0.3 0.06 195);
   --accent-foreground: oklch(0.8 0.12 195);
 
-  /* Survol des lignes de tableau : bleu clair sur fond navy. */
-  --row-hover: oklch(0.3 0.055 220);
+  /* Survol des lignes de tableau : bleu clair nettement perceptible sur le
+     fond navy (card = 0.22, background = 0.18) — il doit « s'éclairer ». */
+  --row-hover: oklch(0.38 0.085 215);
 
   /* Coral/red for alerts */
   --destructive: oklch(0.65 0.2 25);

@@ -385,7 +385,14 @@ export default function EventsListPage() {
       </div>
 
       {/* Table */}
-      <DataTable columns={columns} data={filteredEvents} />
+      <DataTable
+        onRowClick={(event) => {
+          setViewingEvent(event);
+          setIsViewModalOpen(true);
+        }}
+        columns={columns}
+        data={filteredEvents}
+      />
 
       {/* New Event Modal */}
       <Modal

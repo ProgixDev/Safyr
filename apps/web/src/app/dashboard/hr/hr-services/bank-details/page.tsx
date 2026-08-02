@@ -549,6 +549,10 @@ export default function PersonalInfoChangePage() {
               <DataTable
                 columns={createColumns("bank_details")}
                 data={bankDetailsRequests}
+                onRowClick={(req: PersonalInfoChangeRequest) => {
+                  setViewingRequest(req);
+                  setIsViewModalOpen(true);
+                }}
               />
             </CardContent>
           </Card>
@@ -596,6 +600,10 @@ export default function PersonalInfoChangePage() {
               <DataTable
                 columns={createColumns("address")}
                 data={addressRequests}
+                onRowClick={(req: PersonalInfoChangeRequest) => {
+                  setViewingRequest(req);
+                  setIsViewModalOpen(true);
+                }}
               />
             </CardContent>
           </Card>
@@ -610,6 +618,10 @@ export default function PersonalInfoChangePage() {
               <DataTable
                 columns={createColumns("civil_status")}
                 data={civilStatusRequests}
+                onRowClick={(req: PersonalInfoChangeRequest) => {
+                  setViewingRequest(req);
+                  setIsViewModalOpen(true);
+                }}
               />
               {civilStatusRequests.length === 0 && (
                 <div className="py-8 text-center text-muted-foreground">

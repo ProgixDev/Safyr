@@ -481,7 +481,14 @@ export default function SignatureTypePage() {
               </CardHeader>
               <CardContent>
                 {workflows.length > 0 ? (
-                  <DataTable columns={createColumns()} data={workflows} />
+                  <DataTable
+                    onRowClick={(w) => {
+                      setViewingRequest(w);
+                      setIsViewModalOpen(true);
+                    }}
+                    columns={createColumns()}
+                    data={workflows}
+                  />
                 ) : (
                   <div className="py-12 text-center text-muted-foreground">
                     Aucun workflow de signature pour cette catégorie

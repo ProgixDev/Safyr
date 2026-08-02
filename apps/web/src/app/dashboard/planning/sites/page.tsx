@@ -427,7 +427,11 @@ export default function SitesPage() {
         </Button>
       </div>
 
-      <DataTable<Site> columns={siteColumns} data={sites} />
+      <DataTable<Site>
+        onRowClick={handleViewSite}
+        columns={siteColumns}
+        data={sites}
+      />
 
       {/* Create Site Modal */}
       <Modal
