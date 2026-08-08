@@ -484,11 +484,12 @@ function EntrepriseContent({
                       if (c.siret) form.setFieldValue("siret", c.siret);
                       if (c.ape) form.setFieldValue("ape", c.ape);
                       if (c.address) form.setFieldValue("address", c.address);
+                      if (c.tva) form.setFieldValue("numTVA", c.tva);
                     }}
                   />
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Recherchez par nom ou SIREN pour pré-remplir nom, SIRET,
-                    code APE et adresse.
+                    Recherchez par nom, SIREN, SIRET ou numéro de TVA pour
+                    pré-remplir nom, SIRET, code APE, adresse et n° de TVA.
                   </p>
                 </div>
               )}

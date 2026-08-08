@@ -17,6 +17,10 @@ interface Props {
  * Recherche d'une société dans l'annuaire des entreprises (gratuit, sans clé)
  * via la route proxy /api/company-search. Sélectionner un résultat appelle
  * onSelect avec les données normalisées (nom, SIREN, SIRET, adresse, APE, TVA…).
+ *
+ * La saisie accepte le nom, le SIREN, le SIRET **ou le numéro de TVA
+ * intracommunautaire** : la route extrait le SIREN de la TVA, ce qui permet de
+ * retrouver directement le SIRET à partir du seul numéro de TVA.
  */
 export function CompanySearch({ onSelect, placeholder }: Props) {
   const [q, setQ] = useState("");
@@ -55,7 +59,9 @@ export function CompanySearch({ onSelect, placeholder }: Props) {
               void search();
             }
           }}
-          placeholder={placeholder ?? "Rechercher une société (nom ou SIREN)…"}
+          placeholder={
+            placeholder ?? "Nom, SIREN, SIRET ou n° TVA (ex. FR43513228239)…"
+          }
         />
         <Button
           type="button"
@@ -90,7 +96,8 @@ export function CompanySearch({ onSelect, placeholder }: Props) {
                   <span>
                     <span className="block text-sm font-medium">{c.name}</span>
                     <span className="block text-xs text-muted-foreground">
-                      SIREN {c.siren}
+                      SIRET {c.siret || c.siren}
+                      {c.tva ? ` · TVA ${c.tva}` : ""}
                       {c.postalCode || c.city
                         ? ` · ${c.postalCode} ${c.city}`
                         : ""}

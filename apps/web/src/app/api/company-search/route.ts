@@ -24,6 +24,33 @@ function computeTva(siren: string): string {
   return `FR${String(key).padStart(2, "0")}${siren}`;
 }
 
+/**
+ * Normalise la saisie avant d'interroger l'annuaire.
+ *
+ * L'API gouv ne comprend que le nom ou le SIREN/SIRET : un numéro de TVA
+ * intracommunautaire ne ramène aucun résultat. Or le SIREN est contenu dans la
+ * TVA française (FR + clé sur 2 caractères + les 9 chiffres du SIREN) — on
+ * l'extrait pour que saisir la TVA donne directement le SIRET de l'entreprise.
+ *
+ * Gère aussi les espaces/points de saisie et le SIRET complet (14 chiffres),
+ * dont on ne garde que le SIREN (l'annuaire indexe l'établissement siège).
+ */
+function normalizeQuery(raw: string): string {
+  const compact = raw.replace(/[\s.\-]/g, "").toUpperCase();
+
+  // TVA intracommunautaire française : FR + clé (2 caractères) + SIREN (9).
+  const tva = /^FR[0-9A-Z]{2}(\d{9})$/.exec(compact);
+  if (tva) return tva[1];
+
+  // SIRET complet : les 9 premiers chiffres sont le SIREN.
+  if (/^\d{14}$/.test(compact)) return compact.slice(0, 9);
+
+  // SIREN seul : on le passe tel quel.
+  if (/^\d{9}$/.test(compact)) return compact;
+
+  return raw;
+}
+
 interface GouvSiege {
   siret?: string;
   adresse?: string;
@@ -45,7 +72,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const url = `${GOUV_API}?q=${encodeURIComponent(q)}&per_page=8`;
+    const url = `${GOUV_API}?q=${encodeURIComponent(normalizeQuery(q))}&per_page=8`;
     const res = await fetch(url, {
       headers: { Accept: "application/json" },
       // Cache court : l'annuaire bouge peu.

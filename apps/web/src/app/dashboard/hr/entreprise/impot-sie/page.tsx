@@ -26,22 +26,24 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import {
   Upload,
   Download,
-  ExternalLink,
   Building,
   Mail,
   Plus,
-  Edit3,
   Receipt,
   CreditCard,
   Eye,
   FileText,
 } from "lucide-react";
-import { IMPOTS_PRO_URL, openExternal } from "@/lib/external-links";
-import { DocumentActionsMenu } from "@/components/ui/row-actions-menu";
+import {
+  DocumentActionsMenu,
+  RowActionsMenu,
+} from "@/components/ui/row-actions-menu";
 
-// Téléchargement (mock) d'un document : génère un fichier placeholder.
+const ACCEPTED_FILES = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx";
+
+// Téléchargement d'un document : génère un fichier placeholder.
 // À remplacer par le vrai fichier servi par le backend une fois branché.
-function downloadMock(filename: string) {
+function downloadDocument(filename: string) {
   const blob = new Blob(
     [
       `Document : ${filename}\n(Placeholder — le vrai fichier sera servi par le backend une fois branché.)`,
@@ -56,22 +58,74 @@ function downloadMock(filename: string) {
   URL.revokeObjectURL(url);
 }
 
-// Upload (mock) : ouvre un sélecteur de fichier et confirme la sélection.
-// Le stockage réel sera branché côté backend (module storage déjà en place).
-function uploadMock(label = "Document fiscal") {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx";
-  input.onchange = () => {
-    const file = input.files?.[0];
-    if (file) {
-      alert(
-        `Fichier « ${file.name} » sélectionné pour « ${label} ».\n` +
-          "Il sera envoyé vers Safyr une fois le stockage branché.",
-      );
-    }
-  };
-  input.click();
+/**
+ * Ouvre le sélecteur de fichier et résout avec le fichier choisi (ou null si
+ * l'utilisateur annule). Le téléversement se contentait auparavant d'une
+ * `alert()` sans rien enregistrer : le document n'apparaissait jamais dans le
+ * tableau, d'où la remarque « téléverser ne marche pas ».
+ */
+function pickFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ACCEPTED_FILES;
+    input.onchange = () => resolve(input.files?.[0] ?? null);
+    input.oncancel = () => resolve(null);
+    input.click();
+  });
+}
+
+/** Cellule document : télécharger si présent, téléverser sinon. */
+function DocumentCell({
+  filename,
+  onUpload,
+  onView,
+}: {
+  filename: string | null;
+  onUpload: () => void;
+  onView?: () => void;
+}) {
+  if (!filename) {
+    return (
+      <Button variant="outline" size="sm" onClick={onUpload}>
+        <Upload className="h-3 w-3 mr-1" />
+        Téléverser
+      </Button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => downloadDocument(filename)}
+        title={filename}
+      >
+        <Download className="h-3 w-3 mr-1" />
+        Télécharger
+      </Button>
+      {onView && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          onClick={onView}
+          title={`Voir ${filename}`}
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0"
+        onClick={onUpload}
+        title="Remplacer le document"
+      >
+        <Upload className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
 }
 
 interface TVADocument {
@@ -247,20 +301,20 @@ export default function ImpotSIEPage() {
   };
 
   /** Attache (ou remplace) le document scanné du courrier. */
-  const handleUploadCourrier = (courrier: Courrier) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".pdf,.png,.jpg,.jpeg,.doc,.docx";
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      setCourriers((prev) =>
-        prev.map((c) =>
-          c.id === courrier.id ? { ...c, document: file.name } : c,
-        ),
-      );
-    };
-    input.click();
+  const handleUploadCourrier = async (courrier: Courrier) => {
+    const file = await pickFile();
+    if (!file) return;
+    setCourriers((prev) =>
+      prev.map((c) =>
+        c.id === courrier.id ? { ...c, document: file.name } : c,
+      ),
+    );
+    setViewedCourrier((current) =>
+      current?.id === courrier.id
+        ? { ...current, document: file.name }
+        : current,
+    );
+    confirmUpload(`le courrier « ${courrier.objet} »`, file.name);
   };
 
   const handleDeleteCourrier = (courrier: Courrier) => {
@@ -268,6 +322,228 @@ export default function ImpotSIEPage() {
     setViewedCourrier((current) =>
       current?.id === courrier.id ? null : current,
     );
+  };
+
+  // ── Téléversement : confirmation visible après chaque dépôt ──────────────
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+
+  const confirmUpload = (label: string, filename: string) => {
+    setUploadNotice(`« ${filename} » enregistré pour ${label}.`);
+  };
+
+  // ── Dossiers TVA : téléversement, consultation, modification ────────────
+  type TvaDocField =
+    | "grandLivre"
+    | "declaration"
+    | "arDeclaration"
+    | "paiement";
+
+  const TVA_DOC_LABELS: Record<TvaDocField, string> = {
+    grandLivre: "Grand Livre TVA",
+    declaration: "Déclaration TVA",
+    arDeclaration: "AR Déclaration",
+    paiement: "Paiement TVA",
+  };
+
+  /** Recalcule le statut d'un dossier TVA d'après les documents déposés. */
+  const withTvaStatut = (dossier: TVADocument): TVADocument => {
+    const docs = [
+      dossier.grandLivre,
+      dossier.declaration,
+      dossier.arDeclaration,
+      dossier.paiement,
+    ];
+    const presents = docs.filter(Boolean).length;
+    return {
+      ...dossier,
+      statut:
+        presents === docs.length
+          ? "complet"
+          : presents === 0
+            ? "manquant"
+            : "partiel",
+    };
+  };
+
+  /**
+   * Attache un document à un dossier TVA. Le tableau affiche les 12 mois même
+   * quand aucun dossier n'existe encore : dans ce cas le dossier est créé à la
+   * volée, sinon le téléversement serait perdu.
+   */
+  const handleUploadTva = async (dossier: TVADocument, field: TvaDocField) => {
+    const file = await pickFile();
+    if (!file) return;
+
+    setTvaDossiers((prev) => {
+      const existe = prev.some(
+        (d) => d.mois === dossier.mois && d.annee === dossier.annee,
+      );
+      const base = existe ? prev : [...prev, dossier];
+      return base.map((d) =>
+        d.mois === dossier.mois && d.annee === dossier.annee
+          ? withTvaStatut({ ...d, [field]: file.name })
+          : d,
+      );
+    });
+    // La modale de consultation travaille sur une copie : on la rafraîchit
+    // pour que le document apparaisse immédiatement quand elle est ouverte.
+    setViewedTva((current) =>
+      current &&
+      current.mois === dossier.mois &&
+      current.annee === dossier.annee
+        ? withTvaStatut({ ...current, [field]: file.name })
+        : current,
+    );
+    confirmUpload(
+      `${TVA_DOC_LABELS[field]} — ${dossier.mois} ${dossier.annee}`,
+      file.name,
+    );
+  };
+
+  const [viewedTva, setViewedTva] = useState<TVADocument | null>(null);
+  const [editedTva, setEditedTva] = useState<TVADocument | null>(null);
+
+  const handleSaveTva = () => {
+    if (!editedTva) return;
+    setTvaDossiers((prev) => {
+      const existe = prev.some(
+        (d) => d.mois === editedTva.mois && d.annee === editedTva.annee,
+      );
+      const base = existe ? prev : [...prev, editedTva];
+      return base.map((d) =>
+        d.mois === editedTva.mois && d.annee === editedTva.annee
+          ? editedTva
+          : d,
+      );
+    });
+    setEditedTva(null);
+  };
+
+  // ── CFE : téléversement, consultation, modification, suppression ────────
+  type CfeDocField = "declaration" | "avis" | "paiement";
+
+  const CFE_DOC_LABELS: Record<CfeDocField, string> = {
+    declaration: "Déclaration CFE",
+    avis: "Avis CFE",
+    paiement: "Justificatif de paiement",
+  };
+
+  const withCfeStatut = (dossier: CFEDocument): CFEDocument => {
+    const docs = [dossier.declaration, dossier.avis, dossier.paiement];
+    const presents = docs.filter(Boolean).length;
+    return {
+      ...dossier,
+      statut:
+        presents === docs.length
+          ? "complet"
+          : presents === 0
+            ? "manquant"
+            : "partiel",
+    };
+  };
+
+  const handleUploadCfe = async (dossier: CFEDocument, field: CfeDocField) => {
+    const file = await pickFile();
+    if (!file) return;
+    setCfeDossiers((prev) =>
+      prev.map((d) =>
+        d.id === dossier.id ? withCfeStatut({ ...d, [field]: file.name }) : d,
+      ),
+    );
+    setViewedCfe((current) =>
+      current?.id === dossier.id
+        ? withCfeStatut({ ...current, [field]: file.name })
+        : current,
+    );
+    confirmUpload(`${CFE_DOC_LABELS[field]} ${dossier.annee}`, file.name);
+  };
+
+  const [viewedCfe, setViewedCfe] = useState<CFEDocument | null>(null);
+  const [editedCfe, setEditedCfe] = useState<CFEDocument | null>(null);
+  const [cfeToDelete, setCfeToDelete] = useState<CFEDocument | null>(null);
+
+  const handleSaveCfe = () => {
+    if (!editedCfe) return;
+    setCfeDossiers((prev) =>
+      prev.map((d) => (d.id === editedCfe.id ? editedCfe : d)),
+    );
+    setEditedCfe(null);
+  };
+
+  const handleDeleteCfe = () => {
+    if (!cfeToDelete) return;
+    setCfeDossiers((prev) => prev.filter((d) => d.id !== cfeToDelete.id));
+    setViewedCfe((current) =>
+      current?.id === cfeToDelete.id ? null : current,
+    );
+    setCfeToDelete(null);
+  };
+
+  // ── Prélèvement à la source : mêmes actions ─────────────────────────────
+  type PrelevementDocField = "declaration" | "bordereau";
+
+  const PRELEVEMENT_DOC_LABELS: Record<PrelevementDocField, string> = {
+    declaration: "Déclaration",
+    bordereau: "Bordereau de versement",
+  };
+
+  const handleUploadPrelevement = async (
+    prelevement: PrelevementDocument,
+    field: PrelevementDocField,
+  ) => {
+    const file = await pickFile();
+    if (!file) return;
+    setPrelevements((prev) =>
+      prev.map((p) =>
+        p.id === prelevement.id
+          ? {
+              ...p,
+              [field]: file.name,
+              statut:
+                field === "declaration" && p.bordereau
+                  ? "declare"
+                  : field === "bordereau" && p.declaration
+                    ? "declare"
+                    : p.statut,
+            }
+          : p,
+      ),
+    );
+    setViewedPrelevement((current) =>
+      current?.id === prelevement.id
+        ? { ...current, [field]: file.name }
+        : current,
+    );
+    confirmUpload(
+      `${PRELEVEMENT_DOC_LABELS[field]} — ${prelevement.periode}`,
+      file.name,
+    );
+  };
+
+  const [viewedPrelevement, setViewedPrelevement] =
+    useState<PrelevementDocument | null>(null);
+  const [editedPrelevement, setEditedPrelevement] =
+    useState<PrelevementDocument | null>(null);
+  const [prelevementToDelete, setPrelevementToDelete] =
+    useState<PrelevementDocument | null>(null);
+
+  const handleSavePrelevement = () => {
+    if (!editedPrelevement) return;
+    setPrelevements((prev) =>
+      prev.map((p) => (p.id === editedPrelevement.id ? editedPrelevement : p)),
+    );
+    setEditedPrelevement(null);
+  };
+
+  const handleDeletePrelevement = () => {
+    if (!prelevementToDelete) return;
+    setPrelevements((prev) =>
+      prev.filter((p) => p.id !== prelevementToDelete.id),
+    );
+    setViewedPrelevement((current) =>
+      current?.id === prelevementToDelete.id ? null : current,
+    );
+    setPrelevementToDelete(null);
   };
 
   const getStatutColor = (statut: string) => {
@@ -419,100 +695,19 @@ export default function ImpotSIEPage() {
       render: (dossier) =>
         new Date(dossier.dateEcheance).toLocaleDateString("fr-FR"),
     },
-    {
-      key: "grandLivre",
-      label: "Grand Livre TVA",
+    ...(
+      ["grandLivre", "declaration", "arDeclaration", "paiement"] as const
+    ).map<ColumnDef<TVADocument>>((field) => ({
+      key: field,
+      label: TVA_DOC_LABELS[field],
       render: (dossier) => (
-        <div className="flex gap-2">
-          {dossier.grandLivre ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => downloadMock("Document")}
-              >
-                <Download className="h-3 w-3 mr-1" />
-                Télécharger
-              </Button>
-            </>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => uploadMock()}>
-              <Upload className="h-3 w-3 mr-1" />
-              Uploader
-            </Button>
-          )}
-        </div>
+        <DocumentCell
+          filename={dossier[field]}
+          onUpload={() => void handleUploadTva(dossier, field)}
+          onView={() => handleViewDocument(dossier, field)}
+        />
       ),
-    },
-    {
-      key: "declaration",
-      label: "Déclaration TVA",
-      render: (dossier) => (
-        <div className="flex gap-2">
-          {dossier.declaration ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => downloadMock("Document")}
-            >
-              <Download className="h-3 w-3 mr-1" />
-              Télécharger
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => uploadMock()}>
-              <Upload className="h-3 w-3 mr-1" />
-              Uploader
-            </Button>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "arDeclaration",
-      label: "AR Déclaration",
-      render: (dossier) => (
-        <div className="flex gap-2">
-          {dossier.arDeclaration ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => downloadMock("Document")}
-            >
-              <Download className="h-3 w-3 mr-1" />
-              Télécharger
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => uploadMock()}>
-              <Upload className="h-3 w-3 mr-1" />
-              Uploader
-            </Button>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "paiement",
-      label: "Paiement TVA",
-      render: (dossier) => (
-        <div className="flex gap-2">
-          {dossier.paiement ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => downloadMock("Document")}
-            >
-              <Download className="h-3 w-3 mr-1" />
-              Télécharger
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => uploadMock()}>
-              <Upload className="h-3 w-3 mr-1" />
-              Uploader
-            </Button>
-          )}
-        </div>
-      ),
-    },
+    })),
     {
       key: "statut",
       label: "Statut",
@@ -549,108 +744,25 @@ export default function ImpotSIEPage() {
         </Select>
       ),
     },
-    {
-      key: "documents",
-      label: "Documents",
-      render: (dossier) => (
-        <div className="flex gap-1">
-          {dossier.grandLivre && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => handleViewDocument(dossier, "grandLivre")}
-              title="Voir Grand Livre"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {dossier.declaration && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => handleViewDocument(dossier, "declaration")}
-              title="Voir Déclaration"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {dossier.arDeclaration && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => handleViewDocument(dossier, "arDeclaration")}
-              title="Voir AR"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {dossier.paiement && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => handleViewDocument(dossier, "paiement")}
-              title="Voir Paiement"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {!dossier.grandLivre &&
-            !dossier.declaration &&
-            !dossier.arDeclaration &&
-            !dossier.paiement && (
-              <span className="text-xs text-muted-foreground">
-                Aucun document
-              </span>
-            )}
-        </div>
-      ),
-    },
   ];
 
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<TVADocument | null>(
-    null,
+  const tvaActions = (dossier: TVADocument) => (
+    <RowActionsMenu
+      onView={() => setViewedTva(dossier)}
+      onEdit={() => setEditedTva(dossier)}
+    />
   );
-  const [editingStatut, setEditingStatut] = useState<string>("");
-  const [selectedDocumentType, setSelectedDocumentType] = useState<
-    string | null
-  >(null);
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
   const [previewDocument, setPreviewDocument] = useState<{
     name: string;
     content: string;
     type: string;
   } | null>(null);
-  // Fonction pour ouvrir le modal de visualisation
 
-  const handleViewDocument = (dossier: TVADocument, type?: string) => {
-    let filename = "";
-    let label = "";
-
-    switch (type) {
-      case "grandLivre":
-        filename = dossier.grandLivre || "";
-        label = "Grand Livre TVA";
-        break;
-      case "declaration":
-        filename = dossier.declaration || "";
-        label = "Déclaration TVA";
-        break;
-      case "arDeclaration":
-        filename = dossier.arDeclaration || "";
-        label = "AR Déclaration";
-        break;
-      case "paiement":
-        filename = dossier.paiement || "";
-        label = "Paiement TVA";
-        break;
-      default:
-        return;
-    }
+  /** Ouvre l'aperçu d'un document TVA déjà déposé. */
+  const handleViewDocument = (dossier: TVADocument, type: TvaDocField) => {
+    const filename = dossier[type];
+    const label = TVA_DOC_LABELS[type];
 
     if (!filename) return;
 
@@ -672,16 +784,6 @@ export default function ImpotSIEPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {/* Lien unique vers l'espace professionnel, accessible en haut de
-              chaque onglet (remplace les anciens cadres "Liens rapides"). */}
-          <Button
-            variant="outline"
-            className="flex items-center gap-2"
-            onClick={() => openExternal(IMPOTS_PRO_URL)}
-          >
-            <ExternalLink className="h-4 w-4" />
-            Connexion à l&apos;espace professionnel | impots.gouv.fr
-          </Button>
           <Select value={selectedYear} onValueChange={setSelectedYear}>
             <SelectTrigger className="w-32">
               <SelectValue />
@@ -703,6 +805,23 @@ export default function ImpotSIEPage() {
           </Button>
         </div>
       </div>
+
+      {/* Confirmation visible du dernier téléversement */}
+      {uploadNotice && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-4 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm"
+        >
+          <span>{uploadNotice}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setUploadNotice(null)}
+          >
+            Fermer
+          </Button>
+        </div>
+      )}
 
       {/* Vue d'ensemble */}
       <InfoCardContainer>
@@ -808,6 +927,8 @@ export default function ImpotSIEPage() {
                 columns={tvaColumns}
                 searchKey="mois"
                 searchPlaceholder="Rechercher un mois..."
+                actions={tvaActions}
+                onRowClick={(dossier) => setViewedTva(dossier)}
               />
             </CardContent>
           </Card>
@@ -838,60 +959,18 @@ export default function ImpotSIEPage() {
                     render: (dossier) =>
                       `${dossier.montant.toLocaleString()} €`,
                   },
-                  {
-                    key: "avis",
-                    label: "Avis CFE",
+                  ...(["declaration", "avis", "paiement"] as const).map<
+                    ColumnDef<CFEDocument>
+                  >((field) => ({
+                    key: field,
+                    label: CFE_DOC_LABELS[field],
                     render: (dossier) => (
-                      <div className="flex gap-2">
-                        {dossier.avis ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadMock("Document")}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Télécharger
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => uploadMock()}
-                          >
-                            <Upload className="h-3 w-3 mr-1" />
-                            Uploader
-                          </Button>
-                        )}
-                      </div>
+                      <DocumentCell
+                        filename={dossier[field]}
+                        onUpload={() => void handleUploadCfe(dossier, field)}
+                      />
                     ),
-                  },
-                  {
-                    key: "paiement",
-                    label: "Justificatif de paiement",
-                    render: (dossier) => (
-                      <div className="flex gap-2">
-                        {dossier.paiement ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadMock("Document")}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Télécharger
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => uploadMock()}
-                          >
-                            <Upload className="h-3 w-3 mr-1" />
-                            Uploader
-                          </Button>
-                        )}
-                      </div>
-                    ),
-                  },
+                  })),
                   {
                     key: "statut",
                     label: "Statut",
@@ -904,6 +983,14 @@ export default function ImpotSIEPage() {
                 ]}
                 searchKey="annee"
                 searchPlaceholder="Rechercher une année..."
+                actions={(dossier) => (
+                  <RowActionsMenu
+                    onView={() => setViewedCfe(dossier)}
+                    onEdit={() => setEditedCfe(dossier)}
+                    onDelete={() => setCfeToDelete(dossier)}
+                  />
+                )}
+                onRowClick={(dossier) => setViewedCfe(dossier)}
               />
             </CardContent>
           </Card>
@@ -938,60 +1025,20 @@ export default function ImpotSIEPage() {
                     render: (prelevement) =>
                       `${prelevement.montant.toLocaleString()} €`,
                   },
-                  {
-                    key: "declaration",
-                    label: "Déclaration",
+                  ...(["declaration", "bordereau"] as const).map<
+                    ColumnDef<PrelevementDocument>
+                  >((field) => ({
+                    key: field,
+                    label: PRELEVEMENT_DOC_LABELS[field],
                     render: (prelevement) => (
-                      <div className="flex gap-2">
-                        {prelevement.declaration ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadMock("Document")}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Télécharger
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => uploadMock()}
-                          >
-                            <Upload className="h-3 w-3 mr-1" />
-                            Uploader
-                          </Button>
-                        )}
-                      </div>
+                      <DocumentCell
+                        filename={prelevement[field]}
+                        onUpload={() =>
+                          void handleUploadPrelevement(prelevement, field)
+                        }
+                      />
                     ),
-                  },
-                  {
-                    key: "bordereau",
-                    label: "Bordereau de versement",
-                    render: (prelevement) => (
-                      <div className="flex gap-2">
-                        {prelevement.bordereau ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadMock("Document")}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Télécharger
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => uploadMock()}
-                          >
-                            <Upload className="h-3 w-3 mr-1" />
-                            Uploader
-                          </Button>
-                        )}
-                      </div>
-                    ),
-                  },
+                  })),
                   {
                     key: "statut",
                     label: "Statut",
@@ -1004,6 +1051,14 @@ export default function ImpotSIEPage() {
                 ]}
                 searchKey="periode"
                 searchPlaceholder="Rechercher une période..."
+                actions={(prelevement) => (
+                  <RowActionsMenu
+                    onView={() => setViewedPrelevement(prelevement)}
+                    onEdit={() => setEditedPrelevement(prelevement)}
+                    onDelete={() => setPrelevementToDelete(prelevement)}
+                  />
+                )}
+                onRowClick={(prelevement) => setViewedPrelevement(prelevement)}
               />
 
               <Button
@@ -1086,10 +1141,10 @@ export default function ImpotSIEPage() {
                     render: (courrier) => (
                       <DocumentActionsMenu
                         onView={() => handleViewCourrier(courrier)}
-                        onUpload={() => handleUploadCourrier(courrier)}
+                        onUpload={() => void handleUploadCourrier(courrier)}
                         onDownload={
                           courrier.document
-                            ? () => downloadMock(courrier.document!)
+                            ? () => downloadDocument(courrier.document!)
                             : undefined
                         }
                         onDelete={() => handleDeleteCourrier(courrier)}
@@ -1101,17 +1156,6 @@ export default function ImpotSIEPage() {
                 searchPlaceholder="Rechercher un courrier..."
                 onRowClick={handleViewCourrier}
               />
-
-              <Button
-                className="w-full mt-4"
-                onClick={() => {
-                  setNewDocumentType("courrier");
-                  setIsNewDocumentModalOpen(true);
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nouveau courrier
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1134,7 +1178,7 @@ export default function ImpotSIEPage() {
                 secondary: {
                   label: "Télécharger",
                   variant: "outline" as const,
-                  onClick: () => downloadMock(viewedCourrier.document!),
+                  onClick: () => downloadDocument(viewedCourrier.document!),
                 },
               }
             : {}),
@@ -1182,6 +1226,425 @@ export default function ImpotSIEPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Dossier TVA — consultation */}
+      <Modal
+        open={!!viewedTva}
+        onOpenChange={(open) => !open && setViewedTva(null)}
+        type="details"
+        title={
+          viewedTva
+            ? `Dossier TVA — ${viewedTva.mois} ${viewedTva.annee}`
+            : "Dossier TVA"
+        }
+        size="md"
+        actions={{
+          primary: { label: "Fermer", onClick: () => setViewedTva(null) },
+          secondary: {
+            label: "Modifier",
+            variant: "outline" as const,
+            onClick: () => {
+              setEditedTva(viewedTva);
+              setViewedTva(null);
+            },
+          },
+        }}
+      >
+        {viewedTva && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Échéance</Label>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(viewedTva.dateEcheance).toLocaleDateString("fr-FR")}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Statut</Label>
+                <p className="text-sm text-muted-foreground">
+                  {getStatutText(viewedTva.statut)}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {(Object.keys(TVA_DOC_LABELS) as TvaDocField[]).map((field) => (
+                <div
+                  key={field}
+                  className="flex items-center justify-between gap-4 rounded border px-3 py-2"
+                >
+                  <span className="text-sm">{TVA_DOC_LABELS[field]}</span>
+                  <DocumentCell
+                    filename={viewedTva[field]}
+                    onUpload={() => void handleUploadTva(viewedTva, field)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Dossier TVA — modification */}
+      <Modal
+        open={!!editedTva}
+        onOpenChange={(open) => !open && setEditedTva(null)}
+        type="form"
+        size="md"
+        title={
+          editedTva
+            ? `Modifier le dossier TVA — ${editedTva.mois} ${editedTva.annee}`
+            : "Modifier le dossier TVA"
+        }
+        actions={{
+          primary: { label: "Enregistrer", onClick: handleSaveTva },
+          secondary: {
+            label: "Annuler",
+            variant: "outline" as const,
+            onClick: () => setEditedTva(null),
+          },
+        }}
+      >
+        {editedTva && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="tva-echeance">Date d&apos;échéance</Label>
+              <Input
+                id="tva-echeance"
+                type="date"
+                value={editedTva.dateEcheance}
+                onChange={(e) =>
+                  setEditedTva({ ...editedTva, dateEcheance: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="tva-statut">Statut</Label>
+              <Select
+                value={editedTva.statut}
+                onValueChange={(value: "complet" | "partiel" | "manquant") =>
+                  setEditedTva({ ...editedTva, statut: value })
+                }
+              >
+                <SelectTrigger id="tva-statut">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="complet">Complet</SelectItem>
+                  <SelectItem value="partiel">Partiel</SelectItem>
+                  <SelectItem value="manquant">Manquant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* CFE — consultation */}
+      <Modal
+        open={!!viewedCfe}
+        onOpenChange={(open) => !open && setViewedCfe(null)}
+        type="details"
+        size="md"
+        title={viewedCfe ? `Dossier CFE ${viewedCfe.annee}` : "Dossier CFE"}
+        actions={{
+          primary: { label: "Fermer", onClick: () => setViewedCfe(null) },
+          secondary: {
+            label: "Modifier",
+            variant: "outline" as const,
+            onClick: () => {
+              setEditedCfe(viewedCfe);
+              setViewedCfe(null);
+            },
+          },
+        }}
+      >
+        {viewedCfe && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Montant</Label>
+                <p className="text-sm text-muted-foreground">
+                  {viewedCfe.montant.toLocaleString()} €
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Statut</Label>
+                <p className="text-sm text-muted-foreground">
+                  {getStatutText(viewedCfe.statut)}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {(Object.keys(CFE_DOC_LABELS) as CfeDocField[]).map((field) => (
+                <div
+                  key={field}
+                  className="flex items-center justify-between gap-4 rounded border px-3 py-2"
+                >
+                  <span className="text-sm">{CFE_DOC_LABELS[field]}</span>
+                  <DocumentCell
+                    filename={viewedCfe[field]}
+                    onUpload={() => void handleUploadCfe(viewedCfe, field)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* CFE — modification */}
+      <Modal
+        open={!!editedCfe}
+        onOpenChange={(open) => !open && setEditedCfe(null)}
+        type="form"
+        size="md"
+        title="Modifier le dossier CFE"
+        actions={{
+          primary: { label: "Enregistrer", onClick: handleSaveCfe },
+          secondary: {
+            label: "Annuler",
+            variant: "outline" as const,
+            onClick: () => setEditedCfe(null),
+          },
+        }}
+      >
+        {editedCfe && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="cfe-annee">Année</Label>
+              <Select
+                value={editedCfe.annee}
+                onValueChange={(value) =>
+                  setEditedCfe({ ...editedCfe, annee: value })
+                }
+              >
+                <SelectTrigger id="cfe-annee">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {annees.map((annee) => (
+                    <SelectItem key={annee} value={annee}>
+                      {annee}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="cfe-montant">Montant (€)</Label>
+              <Input
+                id="cfe-montant"
+                type="number"
+                value={editedCfe.montant}
+                onChange={(e) =>
+                  setEditedCfe({
+                    ...editedCfe,
+                    montant: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="cfe-statut">Statut</Label>
+              <Select
+                value={editedCfe.statut}
+                onValueChange={(value: "complet" | "partiel" | "manquant") =>
+                  setEditedCfe({ ...editedCfe, statut: value })
+                }
+              >
+                <SelectTrigger id="cfe-statut">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="complet">Complet</SelectItem>
+                  <SelectItem value="partiel">Partiel</SelectItem>
+                  <SelectItem value="manquant">Manquant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* CFE — suppression */}
+      <Modal
+        open={!!cfeToDelete}
+        onOpenChange={(open) => !open && setCfeToDelete(null)}
+        type="confirmation"
+        title="Supprimer le dossier CFE"
+        actions={{
+          primary: { label: "Supprimer", onClick: handleDeleteCfe },
+          secondary: {
+            label: "Annuler",
+            variant: "outline" as const,
+            onClick: () => setCfeToDelete(null),
+          },
+        }}
+      >
+        <p>
+          Êtes-vous sûr de vouloir supprimer le dossier CFE{" "}
+          <span className="font-semibold">{cfeToDelete?.annee}</span> ainsi que
+          ses documents ? Cette action est irréversible.
+        </p>
+      </Modal>
+
+      {/* Prélèvement à la source — consultation */}
+      <Modal
+        open={!!viewedPrelevement}
+        onOpenChange={(open) => !open && setViewedPrelevement(null)}
+        type="details"
+        size="md"
+        title={
+          viewedPrelevement
+            ? `Prélèvement à la source — ${viewedPrelevement.periode}`
+            : "Prélèvement à la source"
+        }
+        actions={{
+          primary: {
+            label: "Fermer",
+            onClick: () => setViewedPrelevement(null),
+          },
+          secondary: {
+            label: "Modifier",
+            variant: "outline" as const,
+            onClick: () => {
+              setEditedPrelevement(viewedPrelevement);
+              setViewedPrelevement(null);
+            },
+          },
+        }}
+      >
+        {viewedPrelevement && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Montant</Label>
+                <p className="text-sm text-muted-foreground">
+                  {viewedPrelevement.montant.toLocaleString()} €
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Statut</Label>
+                <p className="text-sm text-muted-foreground">
+                  {getStatutText(viewedPrelevement.statut)}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {(
+                Object.keys(PRELEVEMENT_DOC_LABELS) as PrelevementDocField[]
+              ).map((field) => (
+                <div
+                  key={field}
+                  className="flex items-center justify-between gap-4 rounded border px-3 py-2"
+                >
+                  <span className="text-sm">
+                    {PRELEVEMENT_DOC_LABELS[field]}
+                  </span>
+                  <DocumentCell
+                    filename={viewedPrelevement[field]}
+                    onUpload={() =>
+                      void handleUploadPrelevement(viewedPrelevement, field)
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Prélèvement à la source — modification */}
+      <Modal
+        open={!!editedPrelevement}
+        onOpenChange={(open) => !open && setEditedPrelevement(null)}
+        type="form"
+        size="md"
+        title="Modifier la déclaration"
+        actions={{
+          primary: { label: "Enregistrer", onClick: handleSavePrelevement },
+          secondary: {
+            label: "Annuler",
+            variant: "outline" as const,
+            onClick: () => setEditedPrelevement(null),
+          },
+        }}
+      >
+        {editedPrelevement && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="pas-periode">Période</Label>
+              <Input
+                id="pas-periode"
+                value={editedPrelevement.periode}
+                onChange={(e) =>
+                  setEditedPrelevement({
+                    ...editedPrelevement,
+                    periode: e.target.value,
+                  })
+                }
+                placeholder="Ex : Janvier 2024"
+              />
+            </div>
+            <div>
+              <Label htmlFor="pas-montant">Montant (€)</Label>
+              <Input
+                id="pas-montant"
+                type="number"
+                value={editedPrelevement.montant}
+                onChange={(e) =>
+                  setEditedPrelevement({
+                    ...editedPrelevement,
+                    montant: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="pas-statut">Statut</Label>
+              <Select
+                value={editedPrelevement.statut}
+                onValueChange={(
+                  value: "declare" | "en_attente" | "en_retard",
+                ) =>
+                  setEditedPrelevement({ ...editedPrelevement, statut: value })
+                }
+              >
+                <SelectTrigger id="pas-statut">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="declare">Déclaré</SelectItem>
+                  <SelectItem value="en_attente">En attente</SelectItem>
+                  <SelectItem value="en_retard">En retard</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Prélèvement à la source — suppression */}
+      <Modal
+        open={!!prelevementToDelete}
+        onOpenChange={(open) => !open && setPrelevementToDelete(null)}
+        type="confirmation"
+        title="Supprimer la déclaration"
+        actions={{
+          primary: { label: "Supprimer", onClick: handleDeletePrelevement },
+          secondary: {
+            label: "Annuler",
+            variant: "outline" as const,
+            onClick: () => setPrelevementToDelete(null),
+          },
+        }}
+      >
+        <p>
+          Êtes-vous sûr de vouloir supprimer la déclaration{" "}
+          <span className="font-semibold">{prelevementToDelete?.periode}</span>{" "}
+          ? Cette action est irréversible.
+        </p>
       </Modal>
 
       {/* Modal nouveau document */}
@@ -1403,7 +1866,7 @@ export default function ImpotSIEPage() {
             primary: {
               label: "Télécharger",
               onClick: () => {
-                downloadMock(previewDocument.name);
+                downloadDocument(previewDocument.name);
               },
             },
             secondary: {

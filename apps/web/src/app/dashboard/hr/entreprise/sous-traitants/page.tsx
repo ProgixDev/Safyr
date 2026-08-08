@@ -208,8 +208,40 @@ export default function SousTraitantsPage() {
 
   const handleSaveNewSousTraitant = async () => {
     setFormError(null);
+
+    const champsManquants = [
+      !newSousTraitant.name.trim() && "le nom de l'entreprise",
+      !newSousTraitant.siret.trim() && "le SIRET",
+      !newSousTraitant.dirigeant.nom.trim() && "le nom du dirigeant",
+      !newSousTraitant.dirigeant.prenom.trim() && "le prénom du dirigeant",
+    ].filter((v): v is string => typeof v === "string");
+
+    if (champsManquants.length > 0) {
+      setFormError(
+        `Champs obligatoires manquants : ${champsManquants.join(", ")}.`,
+      );
+      return;
+    }
+
+    // Le back-end refuse les chaînes vides sur les champs optionnels : on ne
+    // transmet que ce qui est réellement renseigné (dirigeant compris, sinon
+    // un dirigeant entièrement vide est enregistré).
+    const { dirigeant, statut, ...rest } = newSousTraitant;
+    const dirigeantRenseigne = Object.fromEntries(
+      Object.entries(dirigeant).filter(([, value]) => value.trim() !== ""),
+    );
+    const payload = {
+      ...(Object.fromEntries(
+        Object.entries(rest).filter(([, value]) => value.trim() !== ""),
+      ) as Omit<SousTraitant, "id" | "dirigeant" | "statut">),
+      statut,
+      ...(Object.keys(dirigeantRenseigne).length > 0
+        ? { dirigeant: dirigeantRenseigne }
+        : {}),
+    };
+
     try {
-      await createSubcontractorMutation.mutateAsync(newSousTraitant);
+      await createSubcontractorMutation.mutateAsync(payload);
       setIsNewSousTraitantModalOpen(false);
     } catch (error) {
       const message =
@@ -371,13 +403,14 @@ export default function SousTraitantsPage() {
         icon={<Plus className="h-5 w-5" />}
         actions={{
           primary: {
-            label: "Créer",
+            // Bouton toujours cliquable : un bouton grisé sans explication
+            // donnait l'impression que « rien ne se passe ». Les champs
+            // manquants sont désormais listés dans le message d'erreur.
+            label: createSubcontractorMutation.isPending
+              ? "Enregistrement…"
+              : "Créer",
             onClick: handleSaveNewSousTraitant,
-            disabled:
-              !newSousTraitant.name ||
-              !newSousTraitant.siret ||
-              !newSousTraitant.dirigeant.nom ||
-              !newSousTraitant.dirigeant.prenom,
+            disabled: createSubcontractorMutation.isPending,
           },
           secondary: {
             label: "Annuler",

@@ -10,6 +10,7 @@ import { AppModule } from "./app.module";
 import { loadEnv } from "./config/env";
 import { AppExceptionFilter } from "./shared/filters/app-exception.filter";
 import { EnvelopeInterceptor } from "./shared/interceptors/envelope.interceptor";
+import { CORS_OPTIONS, buildCorsOriginMatcher } from "./shared/cors";
 
 async function bootstrap(): Promise<void> {
   const env = loadEnv();
@@ -25,16 +26,8 @@ async function bootstrap(): Promise<void> {
 
   const { default: fastifyCors } = await import("@fastify/cors");
   await app.register(fastifyCors as never, {
-    origin: env.ALLOWED_ORIGINS,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "Organization-Id",
-      "X-Requested-With",
-      "Accept",
-    ],
+    ...CORS_OPTIONS,
+    origin: buildCorsOriginMatcher(env.ALLOWED_ORIGINS),
     exposedHeaders: ["set-cookie"],
   });
 

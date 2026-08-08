@@ -125,9 +125,17 @@ Resend expose un SMTP standard :
 
 5. Retour sur **safyr-api** → Settings → Environment Variables → modifier `ALLOWED_ORIGINS` :
    ```
-   https://safyr-web.vercel.app
+   https://safyr.vercel.app,https://safyr-*.vercel.app
    ```
    Puis **Redeploy** le backend pour appliquer le CORS.
+
+   ⚠️ **Toutes** les URL sur lesquelles le web est joignable doivent y figurer.
+   Une origine absente n'empêche pas l'affichage des listes (les `GET` simples
+   passent) mais bloque le pré-vol des `POST`/`PATCH`/`DELETE` : l'application
+   semble alors fonctionner « en lecture seule », rien ne s'enregistre.
+   Le `*` couvre un seul segment de domaine — il accepte les URL de
+   prévisualisation (`safyr-web-xxxx.vercel.app`) sans ouvrir l'API à tout
+   `*.vercel.app`.
 
 ---
 

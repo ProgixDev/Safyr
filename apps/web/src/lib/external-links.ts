@@ -13,9 +13,6 @@
 export const CNAPS_TELESERVICES_URL =
   "https://teleservices-cnaps.interieur.gouv.fr/teleservices/ihm/#/home";
 
-/** Espace professionnel impots.gouv.fr (TVA, CFE, prélèvement à la source). */
-export const IMPOTS_PRO_URL = "https://cfspro.impots.gouv.fr/mire/accueil.do";
-
 export const URSSAF_URL = "https://www.urssaf.fr";
 export const INFOGREFFE_URL = "https://www.infogreffe.fr";
 
