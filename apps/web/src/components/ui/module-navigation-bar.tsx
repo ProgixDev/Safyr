@@ -19,10 +19,13 @@ import { useUiStore } from "@/lib/stores/uiStore";
 export interface NavItem {
   label: string;
   /**
-   * Libellé court affiché en dessous de 1536 px. Mesuré au navigateur : à
-   * 1440 px les neuf menus RH réclamaient 1 328 px pour 1 328 px disponibles,
-   * donc « Business » retombait sur une seconde ligne. Raccourcir les trois
-   * libellés les plus longs dégage ~280 px et tient jusqu'à 1280 px.
+   * Libellé court affiché en dessous de 1700 px.
+   *
+   * Mesuré dans le navigateur sur le build de production : avec les libellés
+   * complets les neuf menus RH réclament 1 508 px, ce qui ne rentre qu'à
+   * partir de ~1 700 px de fenêtre (la barre latérale en consomme 80). Les
+   * libellés courts ramènent le besoin à 1 033 px, et tiennent donc sur une
+   * seule ligne jusqu'à 1 150 px.
    */
   shortLabel?: string;
   href?: string;
@@ -66,13 +69,13 @@ const NAV_ITEM_BASE =
  */
 const NAV_ICON = "h-3.5 w-3.5 shrink-0 2xl:h-4 2xl:w-4";
 
-/** Libellé court en dessous de 1536 px, libellé complet au-delà. */
+/** Libellé court en dessous de 1700 px, libellé complet au-delà. */
 function NavLabel({ item }: { item: NavItem }) {
   if (!item.shortLabel) return <span>{item.label}</span>;
   return (
     <>
-      <span className="2xl:hidden">{item.shortLabel}</span>
-      <span className="hidden 2xl:inline">{item.label}</span>
+      <span className="min-[1700px]:hidden">{item.shortLabel}</span>
+      <span className="hidden min-[1700px]:inline">{item.label}</span>
     </>
   );
 }
@@ -153,8 +156,10 @@ export function ModuleNavigationBar({
                 )}
               >
                 <ModuleIcon className={NAV_ICON} />
-                <span className="2xl:hidden">Accueil</span>
-                <span className="hidden 2xl:inline">Tableau de bord</span>
+                <span className="min-[1700px]:hidden">Accueil</span>
+                <span className="hidden min-[1700px]:inline">
+                  Tableau de bord
+                </span>
               </Link>
 
               <div className="h-5 w-px shrink-0 bg-border" />
