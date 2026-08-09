@@ -198,7 +198,7 @@ const typeIcons: Record<string, React.ElementType> = {
  */
 const FOLDERS = [
   { key: "to_send", label: "À envoyer", icon: Send },
-  { key: "waiting", label: "En attente de signature", icon: Clock },
+  { key: "waiting", label: "En attente", icon: Clock },
   { key: "signed", label: "Signés", icon: CheckCircle },
   { key: "problem", label: "Refusés / expirés", icon: XCircle },
   { key: "all", label: "Tous", icon: FileText },
