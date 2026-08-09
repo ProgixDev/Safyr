@@ -194,18 +194,6 @@ body {
   font-weight: 400;
 }
 
-/* Barre de navigation des modules : tous les menus tiennent sur une seule
-   ligne. Si l'écran est trop étroit, on défile horizontalement plutôt que
-   de passer à la ligne — la barre de défilement reste invisible. */
-.module-nav-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.module-nav-scroll::-webkit-scrollbar {
-  display: none;
-}
-
 /* Font display utility */
 .font-display {
   font-family: var(--font-space-grotesk), system-ui, sans-serif;

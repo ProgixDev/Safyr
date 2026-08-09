@@ -39,12 +39,25 @@ export interface ModuleNavigationBarProps {
 
 /**
  * Style commun des entrées de la barre de module.
- * `shrink-0` + `whitespace-nowrap` garantissent que tous les menus restent
- * sur une seule ligne ; le padding et la taille de police s'adaptent à la
- * largeur de l'écran pour éviter le retour à la ligne.
+ *
+ * La barre défilait horizontalement quand les menus ne tenaient pas : il
+ * fallait faire glisser de gauche à droite pour les voir tous. Elle est
+ * désormais compacte et passe à la ligne — tous les menus restent visibles
+ * d'un seul coup d'œil, quelle que soit la largeur de l'écran.
+ *
+ * `whitespace-nowrap` empêche de couper un libellé en deux ; le padding, la
+ * police et les icônes se resserrent sur les écrans étroits pour tenir sur une
+ * seule ligne le plus longtemps possible.
  */
 const NAV_ITEM_BASE =
-  "flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium whitespace-nowrap transition-all lg:gap-2 lg:px-2.5 lg:text-sm xl:px-3";
+  "flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium whitespace-nowrap transition-all sm:text-xs lg:gap-1.5 lg:px-2 xl:px-2.5 2xl:px-3 2xl:text-sm";
+
+/**
+ * Icônes de la barre : réduites jusqu'au très grand écran. Le passage à
+ * `text-sm` n'intervient qu'en 2xl (≥ 1536 px) — le faire dès 1280 px suffisait
+ * à faire déborder les neuf menus RH sur une seconde ligne.
+ */
+const NAV_ICON = "h-3.5 w-3.5 shrink-0 2xl:h-4 2xl:w-4";
 
 const NAV_ITEM_ACTIVE = "bg-primary text-primary-foreground shadow-sm";
 const NAV_ITEM_IDLE = "text-foreground hover:bg-accent hover:text-foreground";
@@ -82,19 +95,19 @@ export function ModuleNavigationBar({
   return (
     <div className="border-t bg-muted/30">
       {showNav && (
-        <nav className="module-nav-scroll flex flex-nowrap items-center gap-x-1 overflow-x-auto px-3 py-2 lg:gap-x-2 xl:gap-x-3 xl:px-6">
+        <nav className="flex flex-wrap items-center gap-x-1 gap-y-1 px-2 py-1.5 lg:gap-x-1.5 xl:gap-x-2 xl:px-4">
           {!shouldExpand ? (
             <>
               {/* Active Menu Item Name */}
-              <div className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-primary">
+              <div className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-primary 2xl:text-sm">
                 {isDashboardActive ? (
                   <>
-                    <ModuleIcon className="h-4 w-4" />
+                    <ModuleIcon className={NAV_ICON} />
                     <span>Tableau de bord</span>
                   </>
                 ) : activeItem ? (
                   <>
-                    <activeItem.icon className="h-4 w-4" />
+                    <activeItem.icon className={NAV_ICON} />
                     <span>{activeItem.label}</span>
                   </>
                 ) : null}
@@ -104,10 +117,10 @@ export function ModuleNavigationBar({
               <Button
                 variant="outline"
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex h-7 items-center gap-1.5 px-2 text-xs"
                 onClick={() => setIsModalOpen(true)}
               >
-                <Grid3x3 className="h-4 w-4" />
+                <Grid3x3 className={NAV_ICON} />
                 <span>Menu</span>
               </Button>
             </>
@@ -121,11 +134,11 @@ export function ModuleNavigationBar({
                   isDashboardActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE,
                 )}
               >
-                <ModuleIcon className="h-4 w-4" />
+                <ModuleIcon className={NAV_ICON} />
                 <span>Tableau de bord</span>
               </Link>
 
-              <div className="h-6 w-px shrink-0 bg-border" />
+              <div className="h-5 w-px shrink-0 bg-border" />
 
               {/* All Navigation Items */}
               {navItems.map((item) => {
@@ -138,7 +151,7 @@ export function ModuleNavigationBar({
                       key={item.label}
                       className={cn(NAV_ITEM_BASE, NAV_ITEM_DISABLED)}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className={NAV_ICON} />
                       <span>{item.label}</span>
                     </div>
                   );
@@ -160,9 +173,9 @@ export function ModuleNavigationBar({
                             isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE,
                           )}
                         >
-                          <Icon className="h-4 w-4" />
+                          <Icon className={NAV_ICON} />
                           <span>{item.label}</span>
-                          <ChevronDown className="h-3 w-3" />
+                          <ChevronDown className="h-3 w-3 shrink-0 opacity-70" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
@@ -233,7 +246,7 @@ export function ModuleNavigationBar({
                         isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE,
                       )}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className={NAV_ICON} />
                       <span>{item.label}</span>
                     </Link>
                   );
@@ -396,8 +409,8 @@ export function ModuleNavigationBar({
           {/* Active Item's Children (Sub-items) */}
           {!shouldExpand && activeItem?.children && (
             <>
-              <div className="h-6 w-px shrink-0 bg-border" />
-              <div className="flex items-center gap-1 flex-1 overflow-x-auto">
+              <div className="h-5 w-px shrink-0 bg-border" />
+              <div className="flex flex-1 flex-wrap items-center gap-1">
                 {activeItem.children.map((child, index) => {
                   const prevSection =
                     index > 0
