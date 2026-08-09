@@ -24,19 +24,9 @@ import {
   CheckCircle,
   Download,
   Upload,
-  Eye,
-  Pencil,
   Trash2,
-  MoreVertical,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 
 /**
  * Pièces attendues d'un dossier de financement : devis du prestataire,
@@ -451,33 +441,11 @@ export default function AKTOOPCOPage() {
         searchPlaceholder="Rechercher un dossier..."
         onRowClick={handleRowClick}
         actions={(dossier) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleRowClick(dossier)}>
-                <Eye className="mr-2 h-4 w-4 text-green-600" />
-                Voir
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleEdit(dossier)}>
-                <Pencil className="mr-2 h-4 w-4 text-orange-500" />
-                Modifier
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleDelete(dossier.id)}
-                className="text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Supprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RowActionsMenu
+            onView={() => handleRowClick(dossier)}
+            onEdit={() => handleEdit(dossier)}
+            onDelete={() => handleDelete(dossier.id)}
+          />
         )}
       />
 
