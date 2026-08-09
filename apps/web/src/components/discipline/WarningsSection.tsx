@@ -14,22 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Plus,
-  Eye,
-  Pencil,
-  Trash2,
-  CheckCircle,
-  MoreVertical,
-} from "lucide-react";
+import { Plus, CheckCircle } from "lucide-react";
 import { Warning } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
@@ -234,45 +222,23 @@ export function WarningsSection() {
       key: "actions",
       label: "Actions",
       render: (warning: Warning) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => handleView(warning)}
-              className="gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              Voir
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleEdit(warning)}
-              className="gap-2"
-            >
-              <Pencil className="h-4 w-4" />
-              Modifier
-            </DropdownMenuItem>
-            {warning.status === "active" && (
-              <DropdownMenuItem
-                onClick={() => handleStatusChange(warning.id, "lifted")}
-                className="gap-2"
-              >
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                Lever l&apos;avertissement
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              onClick={() => handleDelete(warning.id)}
-              className="gap-2 text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-              Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <RowActionsMenu
+          onView={() => handleView(warning)}
+          onEdit={() => handleEdit(warning)}
+          extraItems={
+            warning.status === "active"
+              ? [
+                  {
+                    label: "Lever l'avertissement",
+                    icon: CheckCircle,
+                    tone: "validate",
+                    onClick: () => handleStatusChange(warning.id, "lifted"),
+                  },
+                ]
+              : []
+          }
+          onDelete={() => handleDelete(warning.id)}
+        />
       ),
     },
   ];

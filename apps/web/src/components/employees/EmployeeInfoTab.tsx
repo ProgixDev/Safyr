@@ -17,11 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IbanInput } from "@/components/ui/IbanInput";
-import { Edit, Loader2, Save, X } from "lucide-react";
+import { Edit, Loader2, Save, Trash2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/types";
-import { useUpdateEmployee } from "@/hooks/employees";
+import { useUpdateEmployee, useEmployeePhotoUrl } from "@/hooks/employees";
 import { useShifts } from "@/hooks/shifts";
+import { uploadFile } from "@safyr/api-client";
 import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { ApiError, type UpdateEmployeePayload } from "@safyr/api-client";
 
@@ -200,6 +201,119 @@ function EmployeeClientsCard({ employeeId }: { employeeId: string }) {
   );
 }
 
+/**
+ * Photo du salarié : téléversement dans le bucket privé puis enregistrement de
+ * la clé sur le dossier. Elle alimente l'avatar de la fiche et le badge.
+ */
+function EmployeePhotoCard({ employee }: Props) {
+  const updateMutation = useUpdateEmployee(employee.id);
+  const photoUrl = useEmployeePhotoUrl(employee.photo);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const choisirPhoto = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const { key } = await uploadFile(file);
+        await updateMutation.mutateAsync({ photo: key });
+      } catch (e) {
+        setError(
+          `Échec du téléversement : ${
+            e instanceof Error ? e.message : "Erreur inconnue"
+          }`,
+        );
+      } finally {
+        setBusy(false);
+      }
+    };
+    input.click();
+  };
+
+  const retirerPhoto = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await updateMutation.mutateAsync({ photo: "" });
+    } catch (e) {
+      setError(
+        `Échec de la suppression : ${
+          e instanceof Error ? e.message : "Erreur inconnue"
+        }`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xl">Photo du salarié</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="h-24 w-24 overflow-hidden rounded-lg border bg-muted">
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoUrl}
+                alt={`${employee.firstName} ${employee.lastName}`}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-muted-foreground">
+                {employee.firstName[0]}
+                {employee.lastName[0]}
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={choisirPhoto}
+                disabled={busy}
+                className="gap-2"
+              >
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 text-blue-500" />
+                )}
+                {employee.photo ? "Changer la photo" : "Ajouter une photo"}
+              </Button>
+              {employee.photo && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => void retirerPhoto()}
+                  disabled={busy}
+                  className="gap-2"
+                >
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                  Retirer
+                </Button>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Elle apparaît sur la fiche et sur le badge du salarié.
+            </p>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function EmployeeInfoTab({ employee }: Props) {
   const updateMutation = useUpdateEmployee(employee.id);
   const [isEditing, setIsEditing] = useState(false);
@@ -333,6 +447,8 @@ export function EmployeeInfoTab({ employee }: Props) {
       {formError && (
         <p className="text-right text-sm text-destructive">{formError}</p>
       )}
+
+      <EmployeePhotoCard employee={employee} />
 
       {/* Informations personnelles */}
       <Card>

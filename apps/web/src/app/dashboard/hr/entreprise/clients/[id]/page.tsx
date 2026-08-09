@@ -39,6 +39,11 @@ import {
   MoreVertical,
   Receipt,
 } from "lucide-react";
+import { useClient, useUpdateClient, useDeleteClient } from "@/hooks/clients";
+import type {
+  Client as ApiClient,
+  UpdateClientPayload,
+} from "@safyr/api-client";
 
 interface DirigeantInfo {
   nom: string;
@@ -105,90 +110,6 @@ interface Document {
 const requiredDocuments = [
   { type: "contrat_cadre", name: "Contrat cadre", category: "contrat" },
   { type: "kbis_client", name: "Kbis du client", category: "juridique" },
-];
-
-const mockClients: Client[] = [
-  {
-    id: "1",
-    name: "Société ABC Industries",
-    address: "123 Rue de l'Industrie",
-    city: "Paris",
-    postalCode: "75001",
-    country: "France",
-    contactPerson: "Jean Dupont",
-    phone: "01 23 45 67 89",
-    email: "contact@abcindustries.fr",
-    siret: "12345678901234",
-    numTVA: "FR12345678901",
-    sector: "Industrie",
-    dirigeant: {
-      nom: "Dupont",
-      prenom: "Jean",
-      dateNaissance: "1975-05-15",
-      lieuNaissance: "Paris, France",
-      nationalite: "Française",
-      adresse: "15 Avenue Victor Hugo, 75016 Paris",
-      email: "jean.dupont@abcindustries.fr",
-      telephone: "06 12 34 56 78",
-      fonction: "PDG",
-      dateNomination: "2010-03-01",
-      numeroSecuriteSociale: "1 75 05 75 123 456 78",
-    },
-  },
-  {
-    id: "2",
-    name: "Entreprise XYZ Services",
-    address: "456 Avenue des Services",
-    city: "Lyon",
-    postalCode: "69000",
-    country: "France",
-    contactPerson: "Marie Martin",
-    phone: "04 56 78 90 12",
-    email: "contact@xyzservices.fr",
-    siret: "56789012345678",
-    numTVA: "FR98765432109",
-    sector: "Services",
-    dirigeant: {
-      nom: "Martin",
-      prenom: "Marie",
-      dateNaissance: "1980-08-22",
-      lieuNaissance: "Lyon, France",
-      nationalite: "Française",
-      adresse: "78 Cours Gambetta, 69003 Lyon",
-      email: "marie.martin@xyzservices.fr",
-      telephone: "06 98 76 54 32",
-      fonction: "Directrice Générale",
-      dateNomination: "2015-06-15",
-      numeroSecuriteSociale: "2 80 08 69 234 567 89",
-    },
-  },
-  {
-    id: "3",
-    name: "Groupe DEF Solutions",
-    address: "789 Boulevard des Solutions",
-    city: "Marseille",
-    postalCode: "13000",
-    country: "France",
-    contactPerson: "Pierre Durand",
-    phone: "04 91 23 45 67",
-    email: "contact@defsolutions.fr",
-    siret: "90123456789012",
-    numTVA: "FR11223344556",
-    sector: "Technologie",
-    dirigeant: {
-      nom: "Durand",
-      prenom: "Pierre",
-      dateNaissance: "1972-11-30",
-      lieuNaissance: "Marseille, France",
-      nationalite: "Française",
-      adresse: "23 Rue Paradis, 13001 Marseille",
-      email: "pierre.durand@defsolutions.fr",
-      telephone: "06 45 67 89 01",
-      fonction: "Président",
-      dateNomination: "2012-09-01",
-      numeroSecuriteSociale: "1 72 11 13 345 678 90",
-    },
-  },
 ];
 
 const mockContracts: ClientContract[] = [
@@ -346,6 +267,56 @@ const DIRIGEANT_FIELDS: {
   { key: "telephone", label: "Téléphone" },
 ];
 
+/** Convertit le client renvoyé par l'API en copie éditable du formulaire. */
+function toEditableClient(apiClient: ApiClient): Client {
+  return {
+    id: apiClient.id,
+    name: apiClient.name,
+    address: apiClient.address ?? "",
+    city: apiClient.city ?? "",
+    postalCode: apiClient.postalCode ?? "",
+    country: apiClient.country ?? "",
+    contactPerson: apiClient.contactPerson ?? "",
+    phone: apiClient.phone ?? "",
+    email: apiClient.email ?? "",
+    siret: apiClient.siret ?? "",
+    numTVA: apiClient.numTVA ?? "",
+    sector: apiClient.sector ?? "",
+    dirigeant: apiClient.dirigeant
+      ? { ...EMPTY_DIRIGEANT, ...apiClient.dirigeant }
+      : undefined,
+  };
+}
+
+/** Ne transmet que les champs renseignés — le back-end refuse les chaînes vides. */
+function toUpdatePayload(client: Client): UpdateClientPayload {
+  const { id: _id, dirigeant, ...champs } = client;
+  const payload = Object.fromEntries(
+    Object.entries(champs).filter(([, v]) => (v ?? "").trim() !== ""),
+  ) as UpdateClientPayload;
+  if (dirigeant) {
+    const renseigne = Object.fromEntries(
+      Object.entries(dirigeant).filter(([, v]) => (v ?? "").trim() !== ""),
+    );
+    if (Object.keys(renseigne).length > 0) payload.dirigeant = renseigne;
+  }
+  return payload;
+}
+
+const EMPTY_DIRIGEANT: DirigeantInfo = {
+  nom: "",
+  prenom: "",
+  dateNaissance: "",
+  lieuNaissance: "",
+  nationalite: "",
+  adresse: "",
+  email: "",
+  telephone: "",
+  fonction: "",
+  dateNomination: "",
+  numeroSecuriteSociale: "",
+};
+
 export default function ClientDetailPage({
   params,
 }: {
@@ -355,9 +326,24 @@ export default function ClientDetailPage({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [client, setClient] = useState<Client | null>(
-    mockClients.find((c) => c.id === id) || null,
-  );
+  // La fiche lisait une liste de démonstration : un client réellement créé
+  // (identifiant généré par la base) n'y figurait jamais, d'où le « Client non
+  // trouvé » juste après sa création. Elle lit désormais l'API.
+  const { data: apiClient, isLoading } = useClient(id);
+  const updateClientMutation = useUpdateClient(id);
+  const deleteClientMutation = useDeleteClient();
+
+  const [client, setClient] = useState<Client | null>(null);
+  const [loadedId, setLoadedId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Synchronisation pendant le rendu (recommandation React) plutôt que dans un
+  // effet : la copie éditable suit le client renvoyé par l'API.
+  if (apiClient && loadedId !== apiClient.id) {
+    setLoadedId(apiClient.id);
+    setClient(toEditableClient(apiClient));
+  }
+
   const [contracts, setContracts] = useState<ClientContract[]>(
     mockContracts.filter((c) => c.clientId === id),
   );
@@ -380,6 +366,18 @@ export default function ClientDetailPage({
     name: "",
     description: "",
   });
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Chargement…</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!client) {
     return (
@@ -424,9 +422,19 @@ export default function ClientDetailPage({
     }
   };
 
-  const handleSave = () => {
-    console.log("Saving:", client);
-    setIsEditing(false);
+  const handleSave = async () => {
+    if (!client) return;
+    setSaveError(null);
+    try {
+      await updateClientMutation.mutateAsync(toUpdatePayload(client));
+      setIsEditing(false);
+    } catch (error) {
+      setSaveError(
+        `Échec de l'enregistrement : ${
+          error instanceof Error ? error.message : "Erreur inconnue"
+        }`,
+      );
+    }
   };
 
   const handlePreview = (doc: Document) => {
@@ -454,16 +462,24 @@ export default function ClientDetailPage({
   };
 
   const handleCancel = () => {
-    const original = mockClients.find((c) => c.id === id);
-    if (original) {
-      setClient(original);
+    if (apiClient) {
+      setClient(toEditableClient(apiClient));
     }
+    setSaveError(null);
     setIsEditing(false);
   };
 
-  const handleDelete = () => {
-    console.log("Deleting:", id);
-    router.push("/dashboard/hr/entreprise/clients");
+  const handleDelete = async () => {
+    try {
+      await deleteClientMutation.mutateAsync(id);
+      router.push("/dashboard/hr/entreprise/clients");
+    } catch (error) {
+      alert(
+        `Échec de la suppression : ${
+          error instanceof Error ? error.message : "Erreur inconnue"
+        }`,
+      );
+    }
   };
 
   const handleBulkDownload = () => {
@@ -649,6 +665,14 @@ export default function ClientDetailPage({
 
   return (
     <div className="space-y-6">
+      {saveError && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {saveError}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -669,9 +693,14 @@ export default function ClientDetailPage({
                 <X className="h-4 w-4 mr-2" />
                 Annuler
               </Button>
-              <Button onClick={handleSave}>
+              <Button
+                onClick={() => void handleSave()}
+                disabled={updateClientMutation.isPending}
+              >
                 <Save className="h-4 w-4 mr-2" />
-                Enregistrer
+                {updateClientMutation.isPending
+                  ? "Enregistrement…"
+                  : "Enregistrer"}
               </Button>
             </>
           ) : (
@@ -1028,7 +1057,7 @@ export default function ClientDetailPage({
         actions={{
           primary: {
             label: "Supprimer",
-            onClick: handleDelete,
+            onClick: () => void handleDelete(),
             variant: "destructive" as const,
           },
           secondary: {

@@ -12,20 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
-  Eye,
-  Pencil,
   Trash2,
-  MoreVertical,
   FileText,
   Target,
   TrendingUp,
@@ -548,38 +540,17 @@ export default function InterviewsPage() {
       key: "actions",
       label: "Actions",
       render: (item: CombinedItem) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleView(item)}>
-              <Eye className="mr-2 h-4 w-4 text-green-600" />
-              Voir
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleEdit(item)}>
-              <Pencil className="mr-2 h-4 w-4 text-orange-500" />
-              Modifier
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                handleDelete(
-                  item.originalId,
-                  item.itemType,
-                  item.itemType === "interview"
-                    ? item.interviewType
-                    : undefined,
-                )
-              }
-              className="text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <RowActionsMenu
+          onView={() => handleView(item)}
+          onEdit={() => handleEdit(item)}
+          onDelete={() =>
+            handleDelete(
+              item.originalId,
+              item.itemType,
+              item.itemType === "interview" ? item.interviewType : undefined,
+            )
+          }
+        />
       ),
     },
   ];

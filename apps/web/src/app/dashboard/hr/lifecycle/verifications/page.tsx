@@ -6,25 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CheckCircle,
   XCircle,
-  Eye,
-  Pencil,
   Trash2,
   Download,
   FileText,
   Shield,
   GraduationCap,
-  MoreVertical,
 } from "lucide-react";
 import { RegulatoryVerification } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
@@ -334,58 +326,35 @@ export default function VerificationsPage() {
             <Shield className="h-4 w-4" />
             DRACAR
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => handleView(verif)}
-                className="gap-2"
-              >
-                <Eye className="h-4 w-4" />
-                Voir
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleEdit(verif)}
-                className="gap-2"
-              >
-                <Pencil className="h-4 w-4" />
-                Modifier
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openDracar()} className="gap-2">
-                <Shield className="h-4 w-4 text-blue-600" />
-                Vérifier sur DRACAR
-              </DropdownMenuItem>
-              {verif.status === "pending" && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => handleVerify(verif.id)}
-                    className="gap-2"
-                  >
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    Marquer conforme
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleReject(verif.id)}
-                    className="gap-2 text-destructive"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Marquer non conforme
-                  </DropdownMenuItem>
-                </>
-              )}
-              <DropdownMenuItem
-                onClick={() => handleDelete(verif.id)}
-                className="gap-2 text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-                Supprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RowActionsMenu
+            onView={() => handleView(verif)}
+            onEdit={() => handleEdit(verif)}
+            extraItems={[
+              {
+                label: "Vérifier sur DRACAR",
+                icon: Shield,
+                tone: "history",
+                onClick: () => openDracar(),
+              },
+              ...(verif.status === "pending"
+                ? [
+                    {
+                      label: "Marquer conforme",
+                      icon: CheckCircle,
+                      tone: "validate" as const,
+                      onClick: () => handleVerify(verif.id),
+                    },
+                    {
+                      label: "Marquer non conforme",
+                      icon: XCircle,
+                      tone: "delete" as const,
+                      onClick: () => handleReject(verif.id),
+                    },
+                  ]
+                : []),
+            ]}
+            onDelete={() => handleDelete(verif.id)}
+          />
         </div>
       ),
     },

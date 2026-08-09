@@ -138,6 +138,11 @@ export type UpdateEmployeePayload = Partial<
 > & {
   address?: Partial<CreateEmployeePayload["address"]>;
   bankDetails?: Partial<CreateEmployeePayload["bankDetails"]>;
+  /**
+   * Photo du salarié : clé de stockage renvoyée par l'upload.
+   * Chaîne vide pour retirer la photo.
+   */
+  photo?: string;
 };
 
 export interface CreateCertificationPayload {

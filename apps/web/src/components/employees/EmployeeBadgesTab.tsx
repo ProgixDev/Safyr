@@ -10,6 +10,7 @@ import QRCode from "qrcode";
 import Image from "next/image";
 import { useOrganization } from "@/hooks/organization";
 import { useSignedUrl } from "@/hooks/storage";
+import { useEmployeePhotoUrl } from "@/hooks/employees";
 
 interface EmployeeBadgesTabProps {
   employee: Employee;
@@ -25,6 +26,8 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
   // sur la fiche Entreprise se répercute ici, sans rien coder en dur.
   const { data: organization } = useOrganization();
   const { data: logoUrl } = useSignedUrl(organization?.logo);
+  // La photo est stockée en clé de bucket privé : on la résout en URL signée.
+  const photoUrl = useEmployeePhotoUrl(employee.photo);
 
   const companyName = organization?.name ?? "—";
   const companyAddress = organization?.address ?? "";
@@ -87,9 +90,9 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
       doc.setFontSize(5);
       doc.text(companyAddress, 4, 25, { maxWidth: 45 });
 
-      if (employee.photo) {
+      if (photoUrl) {
         try {
-          doc.addImage(employee.photo, 62, 4, 20, 20, undefined, "FAST");
+          doc.addImage(photoUrl, 62, 4, 20, 20, undefined, "FAST");
         } catch {
           // Photo distante non convertible : badge genere sans photo.
         }
@@ -223,9 +226,9 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
                     {/* Photo - Square */}
                     <div className="shrink-0">
                       <div className="h-24 w-24 border border-gray-300 overflow-hidden">
-                        {employee.photo ? (
+                        {photoUrl ? (
                           <Image
-                            src={employee.photo}
+                            src={photoUrl}
                             alt={employee.firstName}
                             width={96}
                             height={96}

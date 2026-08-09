@@ -263,6 +263,11 @@ export const UpdateEmployeeSchema = z.object({
   role: MemberRoleSchema.optional(),
   dressingAllowance: z.boolean().optional(),
   qualifications: z.array(z.string().trim().min(1).max(60)).optional(),
+  /**
+   * Photo du salarié : clé de stockage renvoyée par l'upload (module storage).
+   * Une chaîne vide efface la photo.
+   */
+  photo: z.string().trim().max(500).optional(),
   address: AddressPartialSchema.optional(),
   bankDetails: BankDetailsPartialSchema.optional(),
 });

@@ -37,6 +37,15 @@ import {
   CreditCard,
   Euro,
 } from "lucide-react";
+import {
+  useSubcontractor,
+  useUpdateSubcontractor,
+  useDeleteSubcontractor,
+} from "@/hooks/clients";
+import type {
+  Subcontractor as ApiSubcontractor,
+  UpdateSubcontractorPayload,
+} from "@safyr/api-client";
 
 interface DirigeantInfo {
   nom: string;
@@ -114,88 +123,6 @@ const optionalDocuments = [
   { type: "pv_ag", name: "PV Assemblée Générale", category: "juridique" },
 ];
 
-// Mock data - in production this would come from an API
-const mockSousTraitants: SousTraitant[] = [
-  {
-    id: "1",
-    name: "Gardiennage Plus",
-    siret: "12345678901234",
-    address: "456 Avenue de la Garde, 69001 Lyon",
-    dirigeant: {
-      nom: "Martin",
-      prenom: "Marie",
-      dateNaissance: "1985-03-20",
-      lieuNaissance: "Lyon, France",
-      nationalite: "Française",
-      adresse: "12 Rue de la Paix, 69002 Lyon",
-      email: "marie.martin@gardiennage-plus.fr",
-      telephone: "06 11 22 33 44",
-      fonction: "Gérante",
-      dateNomination: "2020-06-01",
-      numeroSecuriteSociale: "2 85 03 69 123 456 78",
-    },
-    email: "contact@gardiennage-plus.fr",
-    telephone: "04 78 12 34 56",
-    capitalSocial: "25000",
-    numeroAutorisation: "AUT-654321-CNAPS",
-    dateDebut: "2023-01-15",
-    statut: "actif",
-    prochainRenouvellement: "2025-06-15",
-  },
-  {
-    id: "2",
-    name: "SecuriTech Solutions",
-    siret: "98765432109876",
-    address: "789 Rue de la Sécurité, 13001 Marseille",
-    dirigeant: {
-      nom: "Dubois",
-      prenom: "Pierre",
-      dateNaissance: "1978-11-15",
-      lieuNaissance: "Marseille, France",
-      nationalite: "Française",
-      adresse: "98 Avenue du Prado, 13008 Marseille",
-      email: "pierre.dubois@securitech.fr",
-      telephone: "06 55 66 77 88",
-      fonction: "Président",
-      dateNomination: "2019-03-15",
-      numeroSecuriteSociale: "1 78 11 13 234 567 89",
-    },
-    email: "info@securitech.fr",
-    telephone: "04 91 23 45 67",
-    capitalSocial: "75000",
-    numeroAutorisation: "AUT-987654-CNAPS",
-    dateDebut: "2022-08-20",
-    statut: "actif",
-    prochainRenouvellement: "2025-03-20",
-  },
-  {
-    id: "3",
-    name: "Protection Services",
-    siret: "11223344556677",
-    address: "321 Boulevard Sécurité, 33000 Bordeaux",
-    dirigeant: {
-      nom: "Bernard",
-      prenom: "Sophie",
-      dateNaissance: "1982-07-10",
-      lieuNaissance: "Bordeaux, France",
-      nationalite: "Française",
-      adresse: "45 Cours de l'Intendance, 33000 Bordeaux",
-      email: "sophie.bernard@protection-services.fr",
-      telephone: "06 99 88 77 66",
-      fonction: "Directrice Générale",
-      dateNomination: "2021-01-10",
-      numeroSecuriteSociale: "2 82 07 33 345 678 90",
-    },
-    email: "contact@protection-services.fr",
-    telephone: "05 56 78 90 12",
-    capitalSocial: "50000",
-    numeroAutorisation: "AUT-112233-CNAPS",
-    dateDebut: "2023-03-10",
-    statut: "suspendu",
-    prochainRenouvellement: "2025-01-10",
-  },
-];
-
 const mockDocuments: Document[] = [
   {
     id: "1",
@@ -229,6 +156,52 @@ const mockDocuments: Document[] = [
   },
 ];
 
+const EMPTY_DIRIGEANT: DirigeantInfo = {
+  nom: "",
+  prenom: "",
+  dateNaissance: "",
+  lieuNaissance: "",
+  nationalite: "",
+  adresse: "",
+  email: "",
+  telephone: "",
+  fonction: "",
+  dateNomination: "",
+  numeroSecuriteSociale: "",
+};
+
+/** Convertit le sous-traitant de l'API en copie éditable du formulaire. */
+function toEditable(api: ApiSubcontractor): SousTraitant {
+  return {
+    id: api.id,
+    name: api.name,
+    siret: api.siret ?? "",
+    address: api.address ?? "",
+    dirigeant: { ...EMPTY_DIRIGEANT, ...(api.dirigeant ?? {}) },
+    email: api.email ?? "",
+    telephone: api.telephone ?? "",
+    capitalSocial: api.capitalSocial ?? "",
+    numeroAutorisation: api.numeroAutorisation ?? "",
+    dateDebut: api.dateDebut ?? "",
+    statut: api.statut,
+    prochainRenouvellement: api.prochainRenouvellement ?? "",
+  };
+}
+
+/** Ne transmet que les champs renseignés — le back-end refuse les chaînes vides. */
+function toUpdatePayload(st: SousTraitant): UpdateSubcontractorPayload {
+  const { id: _id, dirigeant, statut, ...champs } = st;
+  const payload = Object.fromEntries(
+    Object.entries(champs).filter(([, v]) => (v ?? "").trim() !== ""),
+  ) as UpdateSubcontractorPayload;
+  payload.statut = statut;
+  const renseigne = Object.fromEntries(
+    Object.entries(dirigeant).filter(([, v]) => (v ?? "").trim() !== ""),
+  );
+  if (Object.keys(renseigne).length > 0) payload.dirigeant = renseigne;
+  return payload;
+}
+
 export default function SousTraitantDetailPage({
   params,
 }: {
@@ -238,9 +211,21 @@ export default function SousTraitantDetailPage({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [sousTraitant, setSousTraitant] = useState<SousTraitant | null>(
-    mockSousTraitants.find((st) => st.id === id) || null,
-  );
+  // La fiche lisait des données de démonstration : un sous-traitant réellement
+  // créé n'y figurait pas, d'où le « Sous-traitant non trouvé ».
+  const { data: apiSousTraitant, isLoading } = useSubcontractor(id);
+  const updateMutation = useUpdateSubcontractor(id);
+  const deleteMutation = useDeleteSubcontractor();
+
+  const [sousTraitant, setSousTraitant] = useState<SousTraitant | null>(null);
+  const [loadedId, setLoadedId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  if (apiSousTraitant && loadedId !== apiSousTraitant.id) {
+    setLoadedId(apiSousTraitant.id);
+    setSousTraitant(toEditable(apiSousTraitant));
+  }
+
   const [documents] = useState<Document[]>(
     mockDocuments.filter((doc) => doc.sousTraitantId === id),
   );
@@ -249,6 +234,18 @@ export default function SousTraitantDetailPage({
   );
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Chargement…</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!sousTraitant) {
     return (
@@ -293,25 +290,40 @@ export default function SousTraitantDetailPage({
     }
   };
 
-  const handleSave = () => {
-    // In production, save to API
-    console.log("Saving:", sousTraitant);
-    setIsEditing(false);
+  const handleSave = async () => {
+    if (!sousTraitant) return;
+    setSaveError(null);
+    try {
+      await updateMutation.mutateAsync(toUpdatePayload(sousTraitant));
+      setIsEditing(false);
+    } catch (error) {
+      setSaveError(
+        `Échec de l'enregistrement : ${
+          error instanceof Error ? error.message : "Erreur inconnue"
+        }`,
+      );
+    }
   };
 
   const handleCancel = () => {
-    // Reset changes
-    const original = mockSousTraitants.find((st) => st.id === id);
-    if (original) {
-      setSousTraitant(original);
+    if (apiSousTraitant) {
+      setSousTraitant(toEditable(apiSousTraitant));
     }
+    setSaveError(null);
     setIsEditing(false);
   };
 
-  const handleDelete = () => {
-    // In production, delete via API
-    console.log("Deleting:", id);
-    router.push("/dashboard/hr/entreprise/sous-traitants");
+  const handleDelete = async () => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      router.push("/dashboard/hr/entreprise/sous-traitants");
+    } catch (error) {
+      alert(
+        `Échec de la suppression : ${
+          error instanceof Error ? error.message : "Erreur inconnue"
+        }`,
+      );
+    }
   };
 
   const handleDocumentUpload = (type: string) => {
@@ -387,6 +399,14 @@ export default function SousTraitantDetailPage({
 
   return (
     <div className="space-y-6">
+      {saveError && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {saveError}
+        </p>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -410,7 +430,10 @@ export default function SousTraitantDetailPage({
                 <X className="h-4 w-4 mr-2" />
                 Annuler
               </Button>
-              <Button onClick={handleSave}>
+              <Button
+                onClick={() => void handleSave()}
+                disabled={updateMutation.isPending}
+              >
                 <Save className="h-4 w-4 mr-2" />
                 Sauvegarder
               </Button>
@@ -998,7 +1021,7 @@ export default function SousTraitantDetailPage({
         actions={{
           primary: {
             label: "Supprimer",
-            onClick: handleDelete,
+            onClick: () => void handleDelete(),
             variant: "destructive",
           },
           secondary: {

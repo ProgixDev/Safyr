@@ -219,7 +219,9 @@ export class EmployeesService {
   async update(orgId: string, memberId: string, dto: UpdateEmployeeDto) {
     await this.ensureMember(orgId, memberId);
 
-    const { address, bankDetails, dateOfBirth, hireDate, ...rest } = dto;
+    // `photo` n'est pas une colonne de Member : la photo du salarié est
+    // stockée sur l'utilisateur lié (User.image), comme l'avatar.
+    const { address, bankDetails, dateOfBirth, hireDate, photo, ...rest } = dto;
 
     const data: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(rest)) {
@@ -255,6 +257,19 @@ export class EmployeesService {
 
     return this.prisma.$transaction(async (tx) => {
       await tx.member.update({ where: { id: memberId }, data });
+
+      if (photo !== undefined) {
+        const member = await tx.member.findUnique({
+          where: { id: memberId },
+          select: { userId: true },
+        });
+        if (member?.userId) {
+          await tx.user.update({
+            where: { id: member.userId },
+            data: { image: photo === "" ? null : photo },
+          });
+        }
+      }
 
       if (address) {
         await tx.memberAddress.upsert({

@@ -23,7 +23,7 @@ import {
   Gift,
   FileSignature,
 } from "lucide-react";
-import { useEmployee } from "@/hooks/employees";
+import { useEmployee, useEmployeePhotoUrl } from "@/hooks/employees";
 import { toUiEmployee } from "@/lib/employee-adapter";
 import {
   EmployeeInfoTab,
@@ -53,6 +53,7 @@ export default function EmployeeDetailPage({
   );
   const { data: apiEmployee, isLoading } = useEmployee(id);
   const employee = apiEmployee ? toUiEmployee(apiEmployee) : null;
+  const photoUrl = useEmployeePhotoUrl(employee?.photo);
   const { openEmailModal } = useSendEmail();
 
   if (isLoading) {
@@ -146,7 +147,7 @@ export default function EmployeeDetailPage({
           <CardContent className="pt-6">
             <div className="flex items-start gap-6 flex-wrap">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={employee.photo} alt={employee.firstName} />
+                <AvatarImage src={photoUrl} alt={employee.firstName} />
                 <AvatarFallback className="text-2xl">
                   {employee.firstName[0]}
                   {employee.lastName[0]}

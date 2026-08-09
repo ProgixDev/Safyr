@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -364,6 +359,7 @@ const documentTypeIcons = {
 };
 
 export default function OnboardingPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [onboardingPaths, setOnboardingPaths] =
     useState<OnboardingPath[]>(mockOnboardingPaths);
@@ -812,43 +808,26 @@ export default function OnboardingPage() {
       key: "actions",
       label: "Actions",
       render: (path: OnboardingPath) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => handleView(path)}
-              className="gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              Voir
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => loadEmployeeDocuments(path.employeeId)}
-              className="gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              Voir documents
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleEdit(path)}
-              className="gap-2"
-            >
-              <Pencil className="h-4 w-4" />
-              Modifier
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleDelete(path.id)}
-              className="gap-2 text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-              Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <RowActionsMenu
+          onView={() => handleView(path)}
+          onEdit={() => handleEdit(path)}
+          extraItems={[
+            {
+              label: "Voir documents",
+              icon: FileText,
+              tone: "upload",
+              onClick: () => loadEmployeeDocuments(path.employeeId),
+            },
+            {
+              label: "Dossier salarié",
+              icon: UserCheck,
+              tone: "view",
+              onClick: () =>
+                router.push(`/dashboard/hr/collaborators/${path.employeeId}`),
+            },
+          ]}
+          onDelete={() => handleDelete(path.id)}
+        />
       ),
     },
   ];

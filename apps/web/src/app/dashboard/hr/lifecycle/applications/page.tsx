@@ -14,25 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Plus,
-  Eye,
-  Pencil,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  FileText,
-  MoreVertical,
-  Wand2,
-} from "lucide-react";
+import { Plus, CheckCircle, XCircle, FileText, Wand2 } from "lucide-react";
 import { JobApplication } from "@/lib/types";
 import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { candidateFromEmail } from "@/lib/candidate-from-email";
@@ -300,48 +285,29 @@ export default function ApplicationsPage() {
       key: "actions",
       label: "Actions",
       render: (app: JobApplication) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleView(app)} className="gap-2">
-              <Eye className="h-4 w-4" />
-              Voir
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleEdit(app)} className="gap-2">
-              <Pencil className="h-4 w-4" />
-              Modifier
-            </DropdownMenuItem>
-            {app.status === "pending" && (
-              <>
-                <DropdownMenuItem
-                  onClick={() => handleStatusChange(app.id, "reviewed")}
-                  className="gap-2"
-                >
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  Marquer examinée
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleStatusChange(app.id, "rejected")}
-                  className="gap-2 text-destructive"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Rejeter
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuItem
-              onClick={() => handleDelete(app.id)}
-              className="gap-2 text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-              Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <RowActionsMenu
+          onView={() => handleView(app)}
+          onEdit={() => handleEdit(app)}
+          extraItems={
+            app.status === "pending"
+              ? [
+                  {
+                    label: "Marquer examinée",
+                    icon: CheckCircle,
+                    tone: "validate",
+                    onClick: () => handleStatusChange(app.id, "reviewed"),
+                  },
+                  {
+                    label: "Rejeter",
+                    icon: XCircle,
+                    tone: "delete",
+                    onClick: () => handleStatusChange(app.id, "rejected"),
+                  },
+                ]
+              : []
+          }
+          onDelete={() => handleDelete(app.id)}
+        />
       ),
     },
   ];

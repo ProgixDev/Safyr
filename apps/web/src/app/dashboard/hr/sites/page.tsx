@@ -2,30 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Plus,
-  Building2,
-  MapPin,
-  Users,
-  Briefcase,
-  MoreVertical,
-  Eye,
-  Edit3,
-  Trash2,
-} from "lucide-react";
+import { Plus, Building2, MapPin, Users, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Modal } from "@/components/ui/modal";
 import { useSites, useDeleteSite } from "@/hooks/sites";
 import { SiteCreateDialog } from "@/components/sites/SiteCreateDialog";
@@ -170,35 +153,11 @@ export default function SitesPage() {
             }
             searchPlaceholder="Rechercher par site, client, ville…"
             actions={(s) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => router.push(`/dashboard/hr/sites/${s.id}`)}
-                  >
-                    <Eye className="mr-2 h-4 w-4 text-green-600" />
-                    Voir
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setToEdit(s)}>
-                    <Edit3 className="mr-2 h-4 w-4 text-orange-500" />
-                    Modifier
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setToDelete(s)}
-                    className="text-red-600"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Supprimer
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <RowActionsMenu
+                onView={() => router.push(`/dashboard/hr/sites/${s.id}`)}
+                onEdit={() => setToEdit(s)}
+                onDelete={() => setToDelete(s)}
+              />
             )}
             onRowClick={(s) => router.push(`/dashboard/hr/sites/${s.id}`)}
             getRowId={(s) => s.id}
