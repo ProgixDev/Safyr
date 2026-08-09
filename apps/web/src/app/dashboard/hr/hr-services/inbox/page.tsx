@@ -1,18 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { cn } from "@/lib/utils";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  GitBranch,
+  Inbox,
   FileText,
   Award,
   CreditCard,
@@ -20,14 +16,15 @@ import {
   Heart,
   Clock,
   CheckCircle,
-  AlertCircle,
-  TrendingUp,
+  XCircle,
+  Search,
   Download,
   Settings,
+  UserRound,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { DataTable, ColumnDef } from "@/components/ui/DataTable";
-import { HRRequest, HRRequestStatus, WorkflowStats } from "@/lib/types";
+import { HRRequest, HRRequestStatus } from "@/lib/types";
 
 const mockRequests: HRRequest[] = [
   {
@@ -101,23 +98,12 @@ const statusLabels: Record<HRRequestStatus, string> = {
   cancelled: "Annulée",
 };
 
-const statusColors: Record<
-  HRRequestStatus,
-  "default" | "secondary" | "destructive"
-> = {
-  pending: "default",
-  in_progress: "secondary",
-  validated: "secondary",
-  refused: "destructive",
-  cancelled: "default",
-};
-
 const requestTypeLabels: Record<string, string> = {
-  certificate: "Certificat",
-  document: "Document",
-  bank_details: "Coordonnées bancaires",
-  address: "Adresse",
-  civil_status: "Statut civil",
+  certificate: "Demande d'attestation",
+  document: "Demande de document",
+  bank_details: "Changement de coordonnées bancaires",
+  address: "Changement d'adresse",
+  civil_status: "Changement de situation familiale",
 };
 
 const requestTypeIcons: Record<string, React.ElementType> = {
@@ -128,427 +114,450 @@ const requestTypeIcons: Record<string, React.ElementType> = {
   civil_status: Heart,
 };
 
-const priorityLabels = {
+/** Priorité : un point coloré vaut mieux qu'un badge de plus dans la liste. */
+const priorityDot: Record<string, string> = {
+  low: "bg-muted-foreground/40",
+  normal: "bg-sky-500",
+  high: "bg-orange-500",
+  urgent: "bg-red-600",
+};
+
+const priorityLabels: Record<string, string> = {
   low: "Basse",
   normal: "Normale",
   high: "Haute",
   urgent: "Urgente",
 };
 
-const priorityColors: Record<string, "default" | "secondary" | "destructive"> =
-  {
-    low: "secondary",
-    normal: "default",
-    high: "default",
-    urgent: "destructive",
-  };
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /**
- * Statistiques dérivées des demandes réelles.
- *
- * Elles étaient auparavant figées dans un objet constant : le « temps de
- * traitement moyen » affichait 18,5 h et la « plus ancienne demande en
- * attente » pointait vers une date absente de la liste — les deux tuiles ne
- * reflétaient donc jamais les demandes affichées juste en dessous.
+ * Dossiers de la boîte de réception. Ils remplacent les tuiles de statistiques
+ * de l'ancienne page : le client ne savait pas à quoi correspondaient les
+ * chiffres. Ici le compteur est le nombre de demandes du dossier, comme dans
+ * une messagerie.
  */
-function computeStats(requests: HRRequest[], now: number): WorkflowStats {
-  const countByStatus = (status: HRRequestStatus) =>
-    requests.filter((r) => r.status === status).length;
-  const countByType = (type: string) =>
-    requests.filter((r) => r.type === type).length;
+const FOLDERS = [
+  { key: "todo", label: "À traiter", icon: Inbox },
+  { key: "in_progress", label: "En cours", icon: Loader2 },
+  { key: "validated", label: "Validées", icon: CheckCircle },
+  { key: "refused", label: "Refusées", icon: XCircle },
+  { key: "all", label: "Toutes", icon: FileText },
+] as const;
 
-  // Temps de traitement : écart soumission → traitement, sur les demandes
-  // effectivement traitées (validées ou refusées).
-  const processed = requests.filter((r) => r.processedAt);
-  const averageProcessingTime = processed.length
-    ? processed.reduce(
-        (sum, r) =>
-          sum +
-          (r.processedAt!.getTime() - r.submittedAt.getTime()) /
-            (60 * 60 * 1000),
-        0,
-      ) / processed.length
-    : 0;
+type FolderKey = (typeof FOLDERS)[number]["key"];
 
-  // Plus ancienne demande encore ouverte (en attente ou en cours).
-  const stillOpen = requests.filter(
-    (r) => r.status === "pending" || r.status === "in_progress",
-  );
-  const oldestPendingRequest = stillOpen.length
-    ? new Date(Math.min(...stillOpen.map((r) => r.submittedAt.getTime())))
-    : undefined;
-
-  return {
-    totalRequests: requests.length,
-    pendingRequests: countByStatus("pending"),
-    inProgressRequests: countByStatus("in_progress"),
-    validatedRequests: countByStatus("validated"),
-    refusedRequests: countByStatus("refused"),
-    cancelledRequests: countByStatus("cancelled"),
-    certificateRequests: countByType("certificate"),
-    documentRequests: countByType("document"),
-    personalInfoChangeRequests: requests.filter((r) =>
-      ["bank_details", "address", "civil_status"].includes(r.type),
-    ).length,
-    averageProcessingTime,
-    requestsByPriority: {
-      low: requests.filter((r) => r.priority === "low").length,
-      normal: requests.filter((r) => r.priority === "normal").length,
-      high: requests.filter((r) => r.priority === "high").length,
-      urgent: requests.filter((r) => r.priority === "urgent").length,
-    },
-    requestsThisWeek: requests.filter(
-      (r) => now - r.submittedAt.getTime() <= 7 * DAY_MS,
-    ).length,
-    requestsThisMonth: requests.filter(
-      (r) => now - r.submittedAt.getTime() <= 30 * DAY_MS,
-    ).length,
-    oldestPendingRequest,
-  };
+function matchesFolder(request: HRRequest, folder: FolderKey): boolean {
+  switch (folder) {
+    case "todo":
+      return request.status === "pending";
+    case "in_progress":
+      return request.status === "in_progress";
+    case "validated":
+      return request.status === "validated";
+    case "refused":
+      return request.status === "refused" || request.status === "cancelled";
+    case "all":
+      return true;
+  }
 }
 
-export default function WorkflowsRequestsPage() {
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterType, setFilterType] = useState<string>("all");
+/** Date lisible façon messagerie : heure aujourd'hui, sinon jour court. */
+function formatWhen(date: Date, now: number): string {
+  const jours = Math.floor((now - date.getTime()) / 86_400_000);
+  if (jours <= 0)
+    return date.toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  if (jours === 1) return "Hier";
+  if (jours < 7) return `Il y a ${jours} jours`;
+  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+}
 
-  const stats = useMemo(
-    () => computeStats(mockRequests, new Date().getTime()),
-    [],
-  );
-  const processedCount = mockRequests.filter((r) => r.processedAt).length;
-  const oldestPendingDays = stats.oldestPendingRequest
-    ? Math.floor(
-        (new Date().getTime() - stats.oldestPendingRequest.getTime()) / DAY_MS,
-      )
-    : null;
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
-  // Apply filters
-  let filteredRequests = mockRequests;
+/** Contenu du volet de lecture, partagé entre la colonne de droite et la modale. */
+function RequestDetail({
+  request,
+  onStatusChange,
+}: {
+  request: HRRequest;
+  onStatusChange: (id: string, status: HRRequestStatus) => void;
+}) {
+  const Icon = requestTypeIcons[request.type];
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+          {initials(request.employeeName)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold leading-tight">
+            {requestTypeLabels[request.type]}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            <Link
+              href={`/dashboard/hr/collaborators/${request.employeeId}`}
+              className="font-medium text-foreground hover:underline"
+            >
+              {request.employeeName}
+            </Link>{" "}
+            · {request.employeeNumber} · {request.department}
+          </p>
+        </div>
+      </div>
 
-  if (filterStatus !== "all") {
-    filteredRequests = filteredRequests.filter(
-      (r) => r.status === filterStatus,
-    );
-  }
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge variant="outline" className="gap-1.5">
+          <Icon className="h-3.5 w-3.5" />
+          {statusLabels[request.status]}
+        </Badge>
+        <Badge variant="outline" className="gap-1.5">
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              priorityDot[request.priority],
+            )}
+          />
+          Priorité {priorityLabels[request.priority].toLowerCase()}
+        </Badge>
+      </div>
 
-  if (filterType !== "all") {
-    filteredRequests = filteredRequests.filter((r) => r.type === filterType);
-  }
-
-  const handleExportPDF = () => {
-    alert("Export PDF des demandes RH en cours...");
-  };
-
-  const columns: ColumnDef<HRRequest>[] = [
-    {
-      key: "id",
-      label: "N° Demande",
-      render: (request: HRRequest) => (
-        <div className="font-medium">#{request.id}</div>
-      ),
-    },
-    {
-      key: "type",
-      label: "Type",
-      render: (request: HRRequest) => {
-        const Icon = requestTypeIcons[request.type];
-        return (
-          <div className="flex items-center gap-2">
-            <Icon className="h-4 w-4 text-muted-foreground" />
-            <span>{requestTypeLabels[request.type]}</span>
-          </div>
-        );
-      },
-    },
-    {
-      key: "employeeName",
-      label: "Employé",
-      render: (request: HRRequest) => (
-        <Link
-          href={`/dashboard/hr/collaborators/${request.employeeId}`}
-          className="hover:underline"
-        >
-          <div className="font-medium">{request.employeeName}</div>
-          <div className="text-sm text-muted-foreground">
-            {request.employeeNumber} • {request.department}
-          </div>
-        </Link>
-      ),
-    },
-    {
-      key: "submittedAt",
-      label: "Date de soumission",
-      render: (request: HRRequest) => (
-        <div className="text-sm">
-          {request.submittedAt.toLocaleDateString("fr-FR")}
-          <div className="text-xs text-muted-foreground">
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-muted-foreground">Reçue le</dt>
+          <dd className="font-medium">
+            {request.submittedAt.toLocaleDateString("fr-FR")} à{" "}
             {request.submittedAt.toLocaleTimeString("fr-FR", {
               hour: "2-digit",
               minute: "2-digit",
             })}
-          </div>
+          </dd>
         </div>
+        <div>
+          <dt className="text-muted-foreground">Prise en charge par</dt>
+          <dd className="font-medium">
+            {request.assignedToName ?? "Personne pour l'instant"}
+          </dd>
+        </div>
+        {request.processedAt && (
+          <div>
+            <dt className="text-muted-foreground">Traitée le</dt>
+            <dd className="font-medium">
+              {request.processedAt.toLocaleDateString("fr-FR")}
+              {request.processedByName ? ` par ${request.processedByName}` : ""}
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      <div className="flex flex-wrap gap-2 border-t pt-4">
+        {request.status === "pending" && (
+          <Button
+            variant="outline"
+            onClick={() => onStatusChange(request.id, "in_progress")}
+            className="gap-2"
+          >
+            <Clock className="h-4 w-4 text-orange-500" />
+            Prendre en charge
+          </Button>
+        )}
+        {request.status !== "validated" && (
+          <Button
+            onClick={() => onStatusChange(request.id, "validated")}
+            className="gap-2"
+          >
+            <CheckCircle className="h-4 w-4" />
+            Valider
+          </Button>
+        )}
+        {request.status !== "refused" && (
+          <Button
+            variant="outline"
+            onClick={() => onStatusChange(request.id, "refused")}
+            className="gap-2"
+          >
+            <XCircle className="h-4 w-4 text-red-600" />
+            Refuser
+          </Button>
+        )}
+        <Button variant="ghost" asChild className="gap-2">
+          <Link href={`/dashboard/hr/collaborators/${request.employeeId}`}>
+            <UserRound className="h-4 w-4 text-green-600" />
+            Dossier salarié
+          </Link>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default function HRInboxPage() {
+  const [requests, setRequests] = useState<HRRequest[]>(mockRequests);
+  const [folder, setFolder] = useState<FolderKey>("todo");
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const now = useMemo(() => new Date().getTime(), []);
+
+  const counts = useMemo(
+    () =>
+      Object.fromEntries(
+        FOLDERS.map((f) => [
+          f.key,
+          requests.filter((r) => matchesFolder(r, f.key)).length,
+        ]),
+      ) as Record<FolderKey, number>,
+    [requests],
+  );
+
+  const visible = useMemo(() => {
+    const terme = search.trim().toLowerCase();
+    return requests
+      .filter((r) => matchesFolder(r, folder))
+      .filter((r) =>
+        terme
+          ? `${r.employeeName} ${r.employeeNumber} ${r.department} ${
+              requestTypeLabels[r.type]
+            }`
+              .toLowerCase()
+              .includes(terme)
+          : true,
+      )
+      .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
+  }, [requests, folder, search]);
+
+  const selected = visible.find((r) => r.id === selectedId) ?? null;
+
+  const handleStatusChange = (id: string, status: HRRequestStatus) => {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              status,
+              assignedToName:
+                status === "in_progress"
+                  ? (r.assignedToName ?? "Vous")
+                  : r.assignedToName,
+              processedAt:
+                status === "validated" || status === "refused"
+                  ? new Date()
+                  : r.processedAt,
+              updatedAt: new Date(),
+            }
+          : r,
       ),
-    },
-    {
-      key: "priority",
-      label: "Priorité",
-      render: (request: HRRequest) => (
-        <Badge variant={priorityColors[request.priority]}>
-          {priorityLabels[request.priority]}
-        </Badge>
-      ),
-    },
-    {
-      key: "status",
-      label: "Statut",
-      render: (request: HRRequest) => (
-        <Badge variant={statusColors[request.status]}>
-          {statusLabels[request.status]}
-        </Badge>
-      ),
-    },
-    {
-      key: "assignedTo",
-      label: "Assigné à",
-      render: (request: HRRequest) =>
-        request.assignedToName || (
-          <span className="text-muted-foreground">-</span>
-        ),
-    },
-  ];
+    );
+    setMobileOpen(false);
+  };
+
+  const openRequest = (request: HRRequest) => {
+    setSelectedId(request.id);
+    setMobileOpen(true);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Demandes RH</h1>
+          <h1 className="text-3xl font-bold">Boîte de réception RH</h1>
           <p className="text-muted-foreground">
-            Gestion centralisée des demandes et workflows RH
+            Les demandes de vos salariés, comme des messages : à traiter, en
+            cours, puis classées.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleExportPDF} variant="outline">
+          <Button
+            variant="outline"
+            onClick={() => alert("Export PDF des demandes RH en cours...")}
+          >
             <Download className="mr-2 h-4 w-4" />
             Exporter
           </Button>
-          <Link href="/dashboard/hr/hr-services/automation">
-            <Button variant="outline">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/hr/hr-services/automation">
               <Settings className="mr-2 h-4 w-4" />
               Automatisation
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
-            <GitBranch className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalRequests}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.requestsThisWeek} cette semaine
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 lg:grid-cols-[210px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)_380px]">
+        {/* Dossiers */}
+        <nav className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
+          {FOLDERS.map((f) => {
+            const Icon = f.icon;
+            const actif = folder === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => {
+                  setFolder(f.key);
+                  setSelectedId(null);
+                }}
+                className={cn(
+                  "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors lg:w-full",
+                  actif
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-accent",
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="flex-1 text-left">{f.label}</span>
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-semibold",
+                    actif ? "bg-primary-foreground/20" : "bg-muted",
+                  )}
+                >
+                  {counts[f.key]}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En attente</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingRequests}</div>
-            <p className="text-xs text-muted-foreground">
-              À traiter rapidement
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En cours</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.inProgressRequests}</div>
-            <p className="text-xs text-muted-foreground">En traitement</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Validées</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.validatedRequests}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.requestsThisMonth} ce mois-ci
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Access Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/dashboard/hr/hr-services/document-requests/certificate">
-          <Card className="cursor-pointer transition-colors hover:bg-accent">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Demandes de certificats
-              </CardTitle>
-              <Award className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.certificateRequests}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Certificats de travail, salaire, emploi...
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/hr/hr-services/document-requests">
-          <Card className="cursor-pointer transition-colors hover:bg-accent">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Demandes de documents
-              </CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.documentRequests}</div>
-              <p className="text-xs text-muted-foreground">
-                Bulletins, contrats, attestations...
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/hr/hr-services/bank-details">
-          <Card className="cursor-pointer transition-colors hover:bg-accent">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Changements d&apos;informations
-              </CardTitle>
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.personalInfoChangeRequests}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Coordonnées bancaires, adresse, statut civil...
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
-      {/* Performance Metrics */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Temps de traitement moyen
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {processedCount > 0 ? (
-              <>
-                <div className="flex items-baseline gap-2">
-                  <div className="text-3xl font-bold">
-                    {stats.averageProcessingTime.toFixed(1)} h
-                  </div>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Sur {processedCount} demande{processedCount > 1 ? "s" : ""}{" "}
-                  traitée{processedCount > 1 ? "s" : ""}
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Aucune demande traitée pour le moment
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Plus ancienne demande en attente
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {oldestPendingDays !== null ? (
-              <>
-                <div className="text-3xl font-bold">
-                  {oldestPendingDays} jour{oldestPendingDays > 1 ? "s" : ""}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Depuis le{" "}
-                  {stats.oldestPendingRequest?.toLocaleDateString("fr-FR")}
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Aucune demande en attente
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Requests Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Demandes récentes</CardTitle>
-            <div className="flex gap-2">
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="pending">En attente</SelectItem>
-                  <SelectItem value="in_progress">En cours</SelectItem>
-                  <SelectItem value="validated">Validées</SelectItem>
-                  <SelectItem value="refused">Refusées</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les types</SelectItem>
-                  <SelectItem value="certificate">Certificats</SelectItem>
-                  <SelectItem value="document">Documents</SelectItem>
-                  <SelectItem value="bank_details">Banque</SelectItem>
-                  <SelectItem value="address">Adresse</SelectItem>
-                  <SelectItem value="civil_status">Statut civil</SelectItem>
-                </SelectContent>
-              </Select>
+        {/* Liste des demandes */}
+        <Card className="overflow-hidden py-0">
+          <div className="border-b p-3">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher un salarié, un service, un type de demande…"
+                className="pl-8"
+              />
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <DataTable columns={columns} data={filteredRequests} />
-        </CardContent>
-      </Card>
+
+          {visible.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 p-12 text-center text-muted-foreground">
+              <Inbox className="h-8 w-8" />
+              <p className="text-sm">
+                Aucune demande dans ce dossier
+                {search ? " pour cette recherche" : ""}.
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y">
+              {visible.map((r) => {
+                const Icon = requestTypeIcons[r.type];
+                const aTraiter = r.status === "pending";
+                return (
+                  <li key={r.id}>
+                    <button
+                      onClick={() => openRequest(r)}
+                      className={cn(
+                        "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent",
+                        selectedId === r.id && "bg-accent",
+                      )}
+                    >
+                      {/* Pastille de priorité, comme la pastille "non lu" */}
+                      <span
+                        className={cn(
+                          "mt-2 h-2 w-2 shrink-0 rounded-full",
+                          aTraiter
+                            ? priorityDot[r.priority]
+                            : "bg-transparent border border-muted-foreground/30",
+                        )}
+                        title={`Priorité ${priorityLabels[r.priority].toLowerCase()}`}
+                      />
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                        {initials(r.employeeName)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline justify-between gap-3">
+                          <span
+                            className={cn(
+                              "truncate",
+                              aTraiter ? "font-semibold" : "font-medium",
+                            )}
+                          >
+                            {r.employeeName}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {formatWhen(r.submittedAt, now)}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Icon className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">
+                            {requestTypeLabels[r.type]}
+                          </span>
+                        </span>
+                        <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span>{r.department}</span>
+                          {r.assignedToName && (
+                            <span>· suivi par {r.assignedToName}</span>
+                          )}
+                          {!aTraiter && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {statusLabels[r.status]}
+                            </Badge>
+                          )}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+
+        {/* Volet de lecture (grand écran) */}
+        <Card className="hidden xl:block">
+          <CardContent className="pt-6">
+            {selected ? (
+              <RequestDetail
+                request={selected}
+                onStatusChange={handleStatusChange}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+                <Inbox className="h-8 w-8" />
+                <p className="text-sm">
+                  Sélectionnez une demande pour en voir le détail.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Volet de lecture (petits écrans) */}
+      <div className="xl:hidden">
+        <Modal
+          open={mobileOpen && !!selected}
+          onOpenChange={(open) => !open && setMobileOpen(false)}
+          type="details"
+          size="md"
+          title="Détail de la demande"
+          icon={null}
+          actions={{
+            primary: { label: "Fermer", onClick: () => setMobileOpen(false) },
+          }}
+        >
+          {selected ? (
+            <RequestDetail
+              request={selected}
+              onStatusChange={handleStatusChange}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Aucune demande.</p>
+          )}
+        </Modal>
+      </div>
     </div>
   );
 }
