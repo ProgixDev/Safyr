@@ -2,30 +2,22 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { EmployeeCreateDialog } from "@/components/employees/EmployeeCreateDialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import {
   Plus,
   AlertCircle,
   Users,
   UserCheck,
   FileWarning,
-  MoreVertical,
-  Eye,
-  Pencil,
+  FolderOpen,
+  Route,
   Trash2,
   User as UserIcon,
   Mail,
@@ -45,13 +37,6 @@ import { toUiEmployee } from "@/lib/employee-adapter";
 import { useMutationState } from "@tanstack/react-query";
 import type { CreateEmployeePayload } from "@safyr/api-client";
 import { Loader2 } from "lucide-react";
-
-const STATUS_VARIANTS = {
-  active: { variant: "default" as const, label: "Actif" },
-  inactive: { variant: "secondary" as const, label: "Inactif" },
-  suspended: { variant: "destructive" as const, label: "Suspendu" },
-  terminated: { variant: "outline" as const, label: "Terminé" },
-};
 
 const selectPendingCreate = (m: { state: { variables: unknown } }) =>
   m.state.variables as CreateEmployeePayload;
@@ -90,11 +75,6 @@ export default function EmployeesPage() {
   );
   const { openEmailModal } = useSendEmail();
   const [isNewEmployeeModalOpen, setIsNewEmployeeModalOpen] = useState(false);
-
-  const getStatusBadge = (status: Employee["status"]) => {
-    const config = STATUS_VARIANTS[status];
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
 
   const handleDelete = (employee: Employee) => {
     setEmployeeToDelete(employee);
@@ -191,16 +171,7 @@ export default function EmployeesPage() {
       label: "Poste",
       sortable: true,
       render: (employee) => (
-        <div>
-          <div className="font-medium">{employee.position}</div>
-          <div className="text-sm text-muted-foreground capitalize">
-            {employee.role === "owner"
-              ? "Propriétaire"
-              : employee.role === "agent"
-                ? "Agent"
-                : "—"}
-          </div>
-        </div>
+        <div className="font-medium">{employee.position}</div>
       ),
     },
     {
@@ -220,12 +191,6 @@ export default function EmployeesPage() {
           </div>
         </div>
       ),
-    },
-    {
-      key: "status",
-      label: "Statut",
-      sortable: true,
-      render: (employee) => getStatusBadge(employee.status),
     },
     {
       key: "hireDate",
@@ -366,61 +331,39 @@ export default function EmployeesPage() {
             ? "opacity-60 pointer-events-none"
             : ""
         }
-        filters={[
-          {
-            key: "status",
-            label: "Statut",
-            options: [
-              { value: "all", label: "Tous" },
-              { value: "active", label: "Actif" },
-              { value: "inactive", label: "Inactif" },
-              { value: "suspended", label: "Suspendu" },
-              { value: "terminated", label: "Terminé" },
-            ],
-          },
-          {
-            key: "role",
-            label: "Rôle",
-            options: [
-              { value: "all", label: "Tous" },
-              { value: "owner", label: "Propriétaire" },
-              { value: "agent", label: "Agent" },
-            ],
-          },
-        ]}
         actions={(employee) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => handleViewProfile(employee)}
-                className="flex items-center gap-2"
-              >
-                <Eye className="h-4 w-4" />
-                Voir le profil
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link
-                  href={`/dashboard/hr/collaborators/${employee.id}?edit=true`}
-                  className="flex items-center gap-2"
-                >
-                  <Pencil className="h-4 w-4" />
-                  Modifier
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleDelete(employee)}
-                className="gap-2 text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-                Supprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          // Menu d'actions standard du logiciel : icônes colorées identiques
+          // partout (voir = vert, modifier = orange, supprimer = rouge).
+          <RowActionsMenu
+            viewLabel="Voir le profil"
+            onView={() => handleViewProfile(employee)}
+            onEdit={() =>
+              router.push(
+                `/dashboard/hr/collaborators/${employee.id}?edit=true`,
+              )
+            }
+            extraItems={[
+              {
+                label: "Documents",
+                icon: FolderOpen,
+                tone: "upload",
+                onClick: () =>
+                  router.push(
+                    `/dashboard/hr/collaborators/${employee.id}?tab=documents`,
+                  ),
+              },
+              {
+                label: "Parcours d'intégration",
+                icon: Route,
+                tone: "history",
+                onClick: () =>
+                  router.push(
+                    `/dashboard/hr/lifecycle/onboarding?employee=${employee.id}`,
+                  ),
+              },
+            ]}
+            onDelete={() => handleDelete(employee)}
+          />
         )}
       />
 

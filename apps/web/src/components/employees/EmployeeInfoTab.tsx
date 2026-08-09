@@ -21,6 +21,7 @@ import { Edit, Loader2, Save, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/types";
 import { useUpdateEmployee } from "@/hooks/employees";
+import { useShifts } from "@/hooks/shifts";
 import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { ApiError, type UpdateEmployeePayload } from "@safyr/api-client";
 
@@ -105,6 +106,97 @@ function SelectRow({
         </SelectContent>
       </Select>
     </div>
+  );
+}
+
+/**
+ * Clients et sites sur lesquels le salarié est affecté, déduits de ses
+ * vacations planifiées (une vacation porte un poste, rattaché à un site,
+ * lui-même rattaché à un client).
+ */
+function EmployeeClientsCard({ employeeId }: { employeeId: string }) {
+  const { data: shifts = [], isLoading } = useShifts({ memberId: employeeId });
+
+  const affectations = useMemo(() => {
+    const maintenant = new Date().getTime();
+    const parClient = new Map<
+      string,
+      {
+        client: string;
+        sites: Set<string>;
+        prochaine?: Date;
+        vacations: number;
+      }
+    >();
+
+    for (const shift of shifts) {
+      const site = shift.post?.site;
+      if (!site) continue;
+      const client = site.clientName?.trim() || "Client non renseigné";
+      const entree = parClient.get(client) ?? {
+        client,
+        sites: new Set<string>(),
+        vacations: 0,
+      };
+      entree.sites.add(site.name);
+      entree.vacations += 1;
+      const debut = new Date(shift.startAt);
+      if (debut.getTime() >= maintenant) {
+        if (!entree.prochaine || debut < entree.prochaine) {
+          entree.prochaine = debut;
+        }
+      }
+      parClient.set(client, entree);
+    }
+
+    return [...parClient.values()].sort((a, b) =>
+      a.client.localeCompare(b.client, "fr"),
+    );
+  }, [shifts]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xl">
+          Clients et sites d&apos;affectation
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Chargement…</p>
+        ) : affectations.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aucune affectation planifiée pour ce salarié.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {affectations.map((a) => (
+              <li
+                key={a.client}
+                className="rounded-lg border p-3 flex flex-wrap items-start justify-between gap-3"
+              >
+                <div>
+                  <p className="font-medium">{a.client}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {[...a.sites].join(" · ")}
+                  </p>
+                </div>
+                <div className="text-right text-sm text-muted-foreground">
+                  <p>
+                    {a.vacations} vacation{a.vacations > 1 ? "s" : ""}
+                  </p>
+                  <p>
+                    {a.prochaine
+                      ? `Prochaine le ${a.prochaine.toLocaleDateString("fr-FR")}`
+                      : "Aucune vacation à venir"}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -520,6 +612,8 @@ export function EmployeeInfoTab({ employee }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      <EmployeeClientsCard employeeId={employee.id} />
 
       {isEditing && <div className="border-t pt-4">{EditButtons}</div>}
     </div>

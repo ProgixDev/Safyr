@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,29 +28,6 @@ import {
 import Link from "next/link";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { HRRequest, HRRequestStatus, WorkflowStats } from "@/lib/types";
-
-// Mock data
-const mockStats: WorkflowStats = {
-  totalRequests: 156,
-  pendingRequests: 23,
-  inProgressRequests: 12,
-  validatedRequests: 108,
-  refusedRequests: 10,
-  cancelledRequests: 3,
-  certificateRequests: 64,
-  documentRequests: 52,
-  personalInfoChangeRequests: 40,
-  averageProcessingTime: 18.5,
-  requestsByPriority: {
-    low: 45,
-    normal: 89,
-    high: 18,
-    urgent: 4,
-  },
-  requestsThisWeek: 18,
-  requestsThisMonth: 67,
-  oldestPendingRequest: new Date("2024-12-10"),
-};
 
 const mockRequests: HRRequest[] = [
   {
@@ -166,9 +143,86 @@ const priorityColors: Record<string, "default" | "secondary" | "destructive"> =
     urgent: "destructive",
   };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Statistiques dérivées des demandes réelles.
+ *
+ * Elles étaient auparavant figées dans un objet constant : le « temps de
+ * traitement moyen » affichait 18,5 h et la « plus ancienne demande en
+ * attente » pointait vers une date absente de la liste — les deux tuiles ne
+ * reflétaient donc jamais les demandes affichées juste en dessous.
+ */
+function computeStats(requests: HRRequest[], now: number): WorkflowStats {
+  const countByStatus = (status: HRRequestStatus) =>
+    requests.filter((r) => r.status === status).length;
+  const countByType = (type: string) =>
+    requests.filter((r) => r.type === type).length;
+
+  // Temps de traitement : écart soumission → traitement, sur les demandes
+  // effectivement traitées (validées ou refusées).
+  const processed = requests.filter((r) => r.processedAt);
+  const averageProcessingTime = processed.length
+    ? processed.reduce(
+        (sum, r) =>
+          sum +
+          (r.processedAt!.getTime() - r.submittedAt.getTime()) /
+            (60 * 60 * 1000),
+        0,
+      ) / processed.length
+    : 0;
+
+  // Plus ancienne demande encore ouverte (en attente ou en cours).
+  const stillOpen = requests.filter(
+    (r) => r.status === "pending" || r.status === "in_progress",
+  );
+  const oldestPendingRequest = stillOpen.length
+    ? new Date(Math.min(...stillOpen.map((r) => r.submittedAt.getTime())))
+    : undefined;
+
+  return {
+    totalRequests: requests.length,
+    pendingRequests: countByStatus("pending"),
+    inProgressRequests: countByStatus("in_progress"),
+    validatedRequests: countByStatus("validated"),
+    refusedRequests: countByStatus("refused"),
+    cancelledRequests: countByStatus("cancelled"),
+    certificateRequests: countByType("certificate"),
+    documentRequests: countByType("document"),
+    personalInfoChangeRequests: requests.filter((r) =>
+      ["bank_details", "address", "civil_status"].includes(r.type),
+    ).length,
+    averageProcessingTime,
+    requestsByPriority: {
+      low: requests.filter((r) => r.priority === "low").length,
+      normal: requests.filter((r) => r.priority === "normal").length,
+      high: requests.filter((r) => r.priority === "high").length,
+      urgent: requests.filter((r) => r.priority === "urgent").length,
+    },
+    requestsThisWeek: requests.filter(
+      (r) => now - r.submittedAt.getTime() <= 7 * DAY_MS,
+    ).length,
+    requestsThisMonth: requests.filter(
+      (r) => now - r.submittedAt.getTime() <= 30 * DAY_MS,
+    ).length,
+    oldestPendingRequest,
+  };
+}
+
 export default function WorkflowsRequestsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
+
+  const stats = useMemo(
+    () => computeStats(mockRequests, new Date().getTime()),
+    [],
+  );
+  const processedCount = mockRequests.filter((r) => r.processedAt).length;
+  const oldestPendingDays = stats.oldestPendingRequest
+    ? Math.floor(
+        (new Date().getTime() - stats.oldestPendingRequest.getTime()) / DAY_MS,
+      )
+    : null;
 
   // Apply filters
   let filteredRequests = mockRequests;
@@ -297,9 +351,9 @@ export default function WorkflowsRequestsPage() {
             <GitBranch className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockStats.totalRequests}</div>
+            <div className="text-2xl font-bold">{stats.totalRequests}</div>
             <p className="text-xs text-muted-foreground">
-              {mockStats.requestsThisWeek} cette semaine
+              {stats.requestsThisWeek} cette semaine
             </p>
           </CardContent>
         </Card>
@@ -310,9 +364,7 @@ export default function WorkflowsRequestsPage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {mockStats.pendingRequests}
-            </div>
+            <div className="text-2xl font-bold">{stats.pendingRequests}</div>
             <p className="text-xs text-muted-foreground">
               À traiter rapidement
             </p>
@@ -325,9 +377,7 @@ export default function WorkflowsRequestsPage() {
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {mockStats.inProgressRequests}
-            </div>
+            <div className="text-2xl font-bold">{stats.inProgressRequests}</div>
             <p className="text-xs text-muted-foreground">En traitement</p>
           </CardContent>
         </Card>
@@ -338,11 +388,9 @@ export default function WorkflowsRequestsPage() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {mockStats.validatedRequests}
-            </div>
+            <div className="text-2xl font-bold">{stats.validatedRequests}</div>
             <p className="text-xs text-muted-foreground">
-              {mockStats.requestsThisMonth} ce mois-ci
+              {stats.requestsThisMonth} ce mois-ci
             </p>
           </CardContent>
         </Card>
@@ -360,7 +408,7 @@ export default function WorkflowsRequestsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockStats.certificateRequests}
+                {stats.certificateRequests}
               </div>
               <p className="text-xs text-muted-foreground">
                 Certificats de travail, salaire, emploi...
@@ -378,9 +426,7 @@ export default function WorkflowsRequestsPage() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {mockStats.documentRequests}
-              </div>
+              <div className="text-2xl font-bold">{stats.documentRequests}</div>
               <p className="text-xs text-muted-foreground">
                 Bulletins, contrats, attestations...
               </p>
@@ -398,7 +444,7 @@ export default function WorkflowsRequestsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockStats.personalInfoChangeRequests}
+                {stats.personalInfoChangeRequests}
               </div>
               <p className="text-xs text-muted-foreground">
                 Coordonnées bancaires, adresse, statut civil...
@@ -417,13 +463,24 @@ export default function WorkflowsRequestsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline gap-2">
-              <div className="text-3xl font-bold">
-                {mockStats.averageProcessingTime}h
-              </div>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              <span className="text-sm text-green-600">-15% ce mois</span>
-            </div>
+            {processedCount > 0 ? (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-3xl font-bold">
+                    {stats.averageProcessingTime.toFixed(1)} h
+                  </div>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Sur {processedCount} demande{processedCount > 1 ? "s" : ""}{" "}
+                  traitée{processedCount > 1 ? "s" : ""}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Aucune demande traitée pour le moment
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -434,20 +491,21 @@ export default function WorkflowsRequestsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
-              {mockStats.oldestPendingRequest
-                ? Math.floor(
-                    (new Date().getTime() -
-                      mockStats.oldestPendingRequest.getTime()) /
-                      (1000 * 60 * 60 * 24),
-                  )
-                : 0}{" "}
-              jours
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Depuis le{" "}
-              {mockStats.oldestPendingRequest?.toLocaleDateString("fr-FR")}
-            </p>
+            {oldestPendingDays !== null ? (
+              <>
+                <div className="text-3xl font-bold">
+                  {oldestPendingDays} jour{oldestPendingDays > 1 ? "s" : ""}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Depuis le{" "}
+                  {stats.oldestPendingRequest?.toLocaleDateString("fr-FR")}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Aucune demande en attente
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

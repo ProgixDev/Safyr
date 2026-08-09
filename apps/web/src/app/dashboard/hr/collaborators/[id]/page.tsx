@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,17 +13,16 @@ import {
   Phone,
   MapPin,
   Calendar,
-  Building,
   FileText,
   Package,
   Users,
   Send,
+  Route,
   Gavel,
   DollarSign,
   Gift,
   FileSignature,
 } from "lucide-react";
-import type { Employee } from "@/lib/types";
 import { useEmployee } from "@/hooks/employees";
 import { toUiEmployee } from "@/lib/employee-adapter";
 import {
@@ -45,7 +45,12 @@ export default function EmployeeDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = React.use(params);
-  const [activeTab, setActiveTab] = useState("info");
+  const searchParams = useSearchParams();
+  // ?tab=documents permet d'arriver directement sur un onglet depuis le menu
+  // d'actions de la liste des dossiers salariés.
+  const [activeTab, setActiveTab] = useState(
+    () => searchParams.get("tab") ?? "info",
+  );
   const { data: apiEmployee, isLoading } = useEmployee(id);
   const employee = apiEmployee ? toUiEmployee(apiEmployee) : null;
   const { openEmailModal } = useSendEmail();
@@ -88,34 +93,6 @@ export default function EmployeeDetailPage({
     { id: "geolocation" as const, label: "Géolocalisation", icon: MapPin },
   ];
 
-  const getStatusBadge = (status: Employee["status"]) => {
-    const variants = {
-      active: {
-        variant: "default" as const,
-        label: "Actif",
-        color: "bg-green-500",
-      },
-      inactive: {
-        variant: "secondary" as const,
-        label: "Inactif",
-        color: "bg-gray-500",
-      },
-      suspended: {
-        variant: "destructive" as const,
-        label: "Suspendu",
-        color: "bg-red-500",
-      },
-      terminated: {
-        variant: "outline" as const,
-        label: "Terminé",
-        color: "bg-gray-400",
-      },
-    };
-    return variants[status];
-  };
-
-  const statusConfig = getStatusBadge(employee.status);
-
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
       <TabsList>
@@ -146,6 +123,14 @@ export default function EmployeeDetailPage({
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" asChild>
+              <Link
+                href={`/dashboard/hr/lifecycle/onboarding?employee=${employee.id}`}
+              >
+                <Route className="mr-2 h-4 w-4" />
+                Parcours d&apos;intégration
+              </Link>
+            </Button>
             <Button
               variant="outline"
               onClick={() => openEmailModal([employee])}
@@ -170,16 +155,6 @@ export default function EmployeeDetailPage({
 
               <div className="flex-1 grid gap-4 md:grid-cols-2 lg:grid-cols-3 min-w-0">
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`w-2 h-2 rounded-full ${statusConfig.color}`}
-                  />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Statut</p>
-                    <p className="font-medium">{statusConfig.label}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">Email</p>
@@ -192,16 +167,6 @@ export default function EmployeeDetailPage({
                   <div>
                     <p className="text-sm text-muted-foreground">Téléphone</p>
                     <p className="font-medium">{employee.phone}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Rôle</p>
-                    <p className="font-medium capitalize">
-                      {apiEmployee?.role ?? "—"}
-                    </p>
                   </div>
                 </div>
 

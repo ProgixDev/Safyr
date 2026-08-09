@@ -1060,17 +1060,6 @@ export default function ImpotSIEPage() {
                 )}
                 onRowClick={(prelevement) => setViewedPrelevement(prelevement)}
               />
-
-              <Button
-                className="w-full mt-4"
-                onClick={() => {
-                  setNewDocumentType("prelevement");
-                  setIsNewDocumentModalOpen(true);
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nouvelle déclaration
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>

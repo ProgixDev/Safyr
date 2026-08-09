@@ -20,6 +20,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Download,
   FileText,
   Shield,
   GraduationCap,
@@ -97,6 +98,24 @@ function openDracar() {
   openExternal(CNAPS_TELESERVICES_URL);
 }
 
+// Téléchargement d'un document attaché. Placeholder tant que le stockage
+// n'est pas branché sur ce module (le nom réel du fichier est conservé).
+function downloadDocument(path: string) {
+  const filename = path.split("/").pop() || path;
+  const blob = new Blob(
+    [
+      `Document : ${filename}\n(Placeholder — le vrai fichier sera servi par le backend une fois branché.)`,
+    ],
+    { type: "text/plain" },
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".txt") ? filename : `${filename}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function VerificationsPage() {
   const [verifications, setVerifications] =
     useState<RegulatoryVerification[]>(mockVerifications);
@@ -111,7 +130,6 @@ export default function VerificationsPage() {
     cnapsNumber: "",
     diplomaFiles: [] as string[],
   });
-  const [diplomaFiles, setDiplomaFiles] = useState<File[]>([]);
 
   const handleCreate = () => {
     setEditingVerification(null);
@@ -120,7 +138,6 @@ export default function VerificationsPage() {
       cnapsNumber: "",
       diplomaFiles: [],
     });
-    setDiplomaFiles([]);
     setIsCreateModalOpen(true);
   };
 
@@ -131,7 +148,6 @@ export default function VerificationsPage() {
       cnapsNumber: verification.cnapsNumber || "",
       diplomaFiles: verification.diplomaFiles,
     });
-    setDiplomaFiles([]);
     setIsCreateModalOpen(true);
   };
 
@@ -152,12 +168,10 @@ export default function VerificationsPage() {
     const verificationData = {
       applicationId: formData.applicationId,
       cnapsNumber: formData.cnapsNumber || undefined,
-      diplomaFiles:
-        diplomaFiles.length > 0
-          ? diplomaFiles.map(
-              (_, index) => `/files/diploma_${Date.now()}_${index}.pdf`,
-            )
-          : formData.diplomaFiles,
+      // On conserve le nom réel des fichiers déposés : le formulaire
+      // fabriquait auparavant des chemins fictifs (/files/diploma_<ts>.pdf),
+      // qui écrasaient les documents existants et donnaient des liens morts.
+      diplomaFiles: formData.diplomaFiles,
     };
 
     if (editingVerification) {
@@ -225,12 +239,24 @@ export default function VerificationsPage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  /** Ajoute les fichiers choisis à la liste (sans écraser les précédents). */
   const handleFileChange = (files: FileList | null) => {
-    if (files) {
-      setDiplomaFiles(Array.from(files));
-    } else {
-      setDiplomaFiles([]);
-    }
+    if (!files || files.length === 0) return;
+    const noms = Array.from(files).map((f) => f.name);
+    setFormData((prev) => ({
+      ...prev,
+      diplomaFiles: [
+        ...prev.diplomaFiles,
+        ...noms.filter((n) => !prev.diplomaFiles.includes(n)),
+      ],
+    }));
+  };
+
+  const handleRemoveFile = (nom: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      diplomaFiles: prev.diplomaFiles.filter((f) => f !== nom),
+    }));
   };
 
   const isFormValid = formData.applicationId.trim() !== "";
@@ -452,30 +478,62 @@ export default function VerificationsPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="diplomaFiles">Fichiers de diplômes</Label>
-            <div className="space-y-2">
-              <Input
-                id="diplomaFiles"
-                type="file"
-                accept=".pdf,.doc,.docx"
-                multiple
-                onChange={(e) => handleFileChange(e.target.files)}
-                className="flex-1"
-              />
-              {diplomaFiles.length > 0 && (
-                <div className="text-sm text-muted-foreground">
-                  {diplomaFiles.length} fichier(s) sélectionné(s):{" "}
-                  {diplomaFiles.map((f) => f.name).join(", ")}
-                </div>
-              )}
-              {formData.diplomaFiles.length > 0 && (
-                <div className="text-sm text-muted-foreground">
-                  {formData.diplomaFiles.length} fichier(s) existant(s)
-                </div>
-              )}
-            </div>
+            <Label htmlFor="diplomaFiles">
+              Documents (diplômes, carte pro…)
+            </Label>
+            <Input
+              id="diplomaFiles"
+              type="file"
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+              multiple
+              onChange={(e) => {
+                handleFileChange(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            {formData.diplomaFiles.length > 0 ? (
+              <ul className="space-y-2">
+                {formData.diplomaFiles.map((nom) => (
+                  <li
+                    key={nom}
+                    className="flex items-center justify-between gap-3 rounded border px-3 py-2"
+                  >
+                    <span className="flex items-center gap-2 text-sm">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      {nom}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => downloadDocument(nom)}
+                        title="Télécharger"
+                      >
+                        <Download className="h-3.5 w-3.5 text-violet-500" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => handleRemoveFile(nom)}
+                        title="Retirer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Aucun document attaché.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
-              Formats acceptés: PDF, DOC, DOCX (max 10MB chacun)
+              Formats acceptés : PDF, DOC, DOCX, PNG, JPG (max 10 Mo chacun)
             </p>
           </div>
         </div>
@@ -544,21 +602,36 @@ export default function VerificationsPage() {
               </div>
             </div>
 
-            {viewingVerification.diplomaFiles.length > 0 && (
-              <div>
-                <Label>Fichiers de diplômes</Label>
-                <div className="space-y-2">
-                  {viewingVerification.diplomaFiles.map((file, index) => (
-                    <Button key={index} variant="outline" size="sm" asChild>
-                      <a href={file} target="_blank" rel="noopener noreferrer">
-                        <FileText className="h-4 w-4 mr-2" />
-                        Diplôme {index + 1}
-                      </a>
-                    </Button>
+            <div>
+              <Label>Documents</Label>
+              {viewingVerification.diplomaFiles.length > 0 ? (
+                <ul className="mt-2 space-y-2">
+                  {viewingVerification.diplomaFiles.map((file) => (
+                    <li
+                      key={file}
+                      className="flex items-center justify-between gap-3 rounded border px-3 py-2"
+                    >
+                      <span className="flex items-center gap-2 text-sm">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        {file.split("/").pop()}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadDocument(file)}
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Télécharger
+                      </Button>
+                    </li>
                   ))}
-                </div>
-              </div>
-            )}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Aucun document attaché.
+                </p>
+              )}
+            </div>
 
             {viewingVerification.rejectionReason && (
               <div>

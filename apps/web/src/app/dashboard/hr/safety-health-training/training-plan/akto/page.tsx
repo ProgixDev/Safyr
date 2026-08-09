@@ -22,6 +22,8 @@ import {
   FileText,
   Clock,
   CheckCircle,
+  Download,
+  Upload,
   Eye,
   Pencil,
   Trash2,
@@ -35,6 +37,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+/**
+ * Pièces attendues d'un dossier de financement : devis du prestataire,
+ * convention de formation signée, puis facture. Elles étaient auparavant
+ * mélangées dans une simple liste de noms de fichiers, sans possibilité de
+ * savoir laquelle manquait.
+ */
+const DOCUMENT_SLOTS = [
+  { key: "devis", label: "Devis" },
+  { key: "convention", label: "Convention de formation" },
+  { key: "facture", label: "Facture" },
+] as const;
+
+type DocumentSlot = (typeof DOCUMENT_SLOTS)[number]["key"];
+
+type DossierDocuments = Partial<Record<DocumentSlot, string>>;
 
 interface AKTOOPCODossier {
   id: string;
@@ -50,7 +68,35 @@ interface AKTOOPCODossier {
   createdAt: string;
   submittedAt?: string;
   validatedAt?: string;
-  documents: string[];
+  documents: DossierDocuments;
+}
+
+const ACCEPTED_FILES = ".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx";
+
+function pickFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ACCEPTED_FILES;
+    input.onchange = () => resolve(input.files?.[0] ?? null);
+    input.oncancel = () => resolve(null);
+    input.click();
+  });
+}
+
+function downloadDocument(filename: string) {
+  const blob = new Blob(
+    [
+      `Document : ${filename}\n(Placeholder — le vrai fichier sera servi par le backend une fois branché.)`,
+    ],
+    { type: "text/plain" },
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 const mockDossiers: AKTOOPCODossier[] = [
@@ -68,7 +114,11 @@ const mockDossiers: AKTOOPCODossier[] = [
     createdAt: "2024-10-15",
     submittedAt: "2024-10-20",
     validatedAt: "2024-11-05",
-    documents: ["dossier_formation.pdf", "facture.pdf"],
+    documents: {
+      devis: "devis_ssiap1_dupont.pdf",
+      convention: "convention_ssiap1_dupont.pdf",
+      facture: "facture_ssiap1_dupont.pdf",
+    },
   },
   {
     id: "2",
@@ -83,7 +133,7 @@ const mockDossiers: AKTOOPCODossier[] = [
     accountUrl: "https://opco.fr/compte/789012",
     createdAt: "2024-11-10",
     submittedAt: "2024-11-15",
-    documents: ["dossier_formation.pdf"],
+    documents: { devis: "devis_sst_martin.pdf" },
   },
   {
     id: "3",
@@ -94,7 +144,7 @@ const mockDossiers: AKTOOPCODossier[] = [
     amount: 3500,
     status: "À créer",
     createdAt: "2024-12-01",
-    documents: [],
+    documents: {},
   },
 ];
 
@@ -180,6 +230,35 @@ export default function AKTOOPCOPage() {
         );
       },
     },
+    // Vue globale : une colonne par pièce, pour voir d'un coup d'œil ce qui
+    // manque sur chaque dossier sans avoir à l'ouvrir.
+    ...DOCUMENT_SLOTS.map<ColumnDef<AKTOOPCODossier>>(({ key, label }) => ({
+      key,
+      label,
+      render: (dossier) => {
+        const filename = dossier.documents[key];
+        return filename ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadDocument(filename)}
+            title={filename}
+          >
+            <Download className="h-3 w-3 mr-1" />
+            Télécharger
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleUploadDocument(dossier, key)}
+          >
+            <Upload className="h-3 w-3 mr-1" />
+            Téléverser
+          </Button>
+        );
+      },
+    })),
   ];
 
   const handleCreate = () => {
@@ -247,7 +326,7 @@ export default function AKTOOPCOPage() {
       status: "À créer",
       accountUrl: formData.accountUrl || undefined,
       createdAt: new Date().toISOString().split("T")[0],
-      documents: [],
+      documents: {},
     };
     setDossiers([...dossiers, newDossier]);
     setIsCreateModalOpen(false);
@@ -256,6 +335,43 @@ export default function AKTOOPCOPage() {
   const handleRowClick = (dossier: AKTOOPCODossier) => {
     setSelectedDossier(dossier);
     setIsViewModalOpen(true);
+  };
+
+  /** Attache (ou remplace) une pièce du dossier : devis, convention, facture. */
+  const handleUploadDocument = async (
+    dossier: AKTOOPCODossier,
+    slot: DocumentSlot,
+  ) => {
+    const file = await pickFile();
+    if (!file) return;
+    const applique = (d: AKTOOPCODossier): AKTOOPCODossier => ({
+      ...d,
+      documents: { ...d.documents, [slot]: file.name },
+    });
+    setDossiers((prev) =>
+      prev.map((d) => (d.id === dossier.id ? applique(d) : d)),
+    );
+    // La modale de détail travaille sur une copie : on la met à jour aussi.
+    setSelectedDossier((current) =>
+      current?.id === dossier.id ? applique(current) : current,
+    );
+  };
+
+  const handleRemoveDocument = (
+    dossier: AKTOOPCODossier,
+    slot: DocumentSlot,
+  ) => {
+    const applique = (d: AKTOOPCODossier): AKTOOPCODossier => {
+      const documents = { ...d.documents };
+      delete documents[slot];
+      return { ...d, documents };
+    };
+    setDossiers((prev) =>
+      prev.map((d) => (d.id === dossier.id ? applique(d) : d)),
+    );
+    setSelectedDossier((current) =>
+      current?.id === dossier.id ? applique(current) : current,
+    );
   };
 
   const handleSubmitDossier = (dossierId: string) => {
@@ -602,29 +718,64 @@ export default function AKTOOPCOPage() {
               </div>
             )}
 
+            {/* Vue détaillée : une ligne par pièce du dossier de financement */}
             <div className="pt-4 border-t">
               <Label className="text-base font-semibold mb-3 block">
-                Documents
+                Documents du dossier
               </Label>
-              {selectedDossier.documents.length > 0 ? (
-                <div className="space-y-2">
-                  {selectedDossier.documents.map((doc, index) => (
+              <div className="space-y-2">
+                {DOCUMENT_SLOTS.map(({ key, label }) => {
+                  const filename = selectedDossier.documents[key];
+                  return (
                     <div
-                      key={index}
-                      className="flex items-center justify-between p-2 bg-muted rounded-lg"
+                      key={key}
+                      className="flex items-center justify-between gap-3 rounded-lg border p-2"
                     >
-                      <span className="text-sm">{doc}</span>
-                      <Button variant="ghost" size="sm">
-                        <FileText className="h-4 w-4" />
-                      </Button>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{label}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {filename ?? "Non fourni"}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {filename && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadDocument(filename)}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Télécharger
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            void handleUploadDocument(selectedDossier, key)
+                          }
+                        >
+                          <Upload className="h-3 w-3 mr-1" />
+                          {filename ? "Remplacer" : "Téléverser"}
+                        </Button>
+                        {filename && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() =>
+                              handleRemoveDocument(selectedDossier, key)
+                            }
+                            title="Supprimer le document"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Aucun document ajouté
-                </p>
-              )}
+                  );
+                })}
+              </div>
             </div>
 
             <div className="pt-4 border-t space-y-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -363,6 +364,7 @@ const documentTypeIcons = {
 };
 
 export default function OnboardingPage() {
+  const searchParams = useSearchParams();
   const [onboardingPaths, setOnboardingPaths] =
     useState<OnboardingPath[]>(mockOnboardingPaths);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -424,6 +426,25 @@ export default function OnboardingPage() {
     setSelectedEmployeeId(employeeId);
     setIsDocumentsModalOpen(true);
   };
+
+  /*
+   * Arrivée depuis un dossier salarié (`?employee=<id>`) : on ouvre
+   * directement ses documents d'intégration. Calculé pendant le rendu plutôt
+   * que dans un effet — les dossiers arrivent de l'API, il faut attendre
+   * qu'ils soient chargés avant de résoudre l'identifiant.
+   */
+  const employeeParam = searchParams.get("employee");
+  const [handledEmployeeParam, setHandledEmployeeParam] = useState<
+    string | null
+  >(null);
+  if (
+    employeeParam &&
+    employeeParam !== handledEmployeeParam &&
+    apiEmployees.length > 0
+  ) {
+    setHandledEmployeeParam(employeeParam);
+    loadEmployeeDocuments(employeeParam);
+  }
 
   // Télécharger un document
   const downloadDocument = (doc: EmployeeDocument) => {

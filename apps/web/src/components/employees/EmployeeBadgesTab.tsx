@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-import { FileSignature, Download, FlipHorizontal } from "lucide-react";
+import { FileSignature, Download, FlipHorizontal, Loader2 } from "lucide-react";
 import type { Employee } from "@/lib/types";
 import QRCode from "qrcode";
 import Image from "next/image";
+import { useOrganization } from "@/hooks/organization";
+import { useSignedUrl } from "@/hooks/storage";
 
 interface EmployeeBadgesTabProps {
   employee: Employee;
@@ -17,6 +19,17 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
   const selectedBadgeType = "access";
   const [isFlipped, setIsFlipped] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // Le badge reprend l'identité de l'entreprise : changer le logo ou l'adresse
+  // sur la fiche Entreprise se répercute ici, sans rien coder en dur.
+  const { data: organization } = useOrganization();
+  const { data: logoUrl } = useSignedUrl(organization?.logo);
+
+  const companyName = organization?.name ?? "—";
+  const companyAddress = organization?.address ?? "";
+  const authorizationNumber = organization?.authorizationNumber ?? "—";
+  const cartePro = employee.cartePro?.trim() || "—";
 
   const generateQRCode = async (data: string) => {
     try {
@@ -39,17 +52,97 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
   // Generate QR code on mount and when employee or badge type changes
   useEffect(() => {
     const generateQR = async () => {
-      const qrData = `PRODIGE-${employee.employeeNumber}-${selectedBadgeType}-${employee.id}`;
+      const qrData = `${companyName}-${employee.employeeNumber}-${selectedBadgeType}-${employee.id}`;
       await generateQRCode(qrData);
     };
     generateQR();
-  }, [employee.id, employee.employeeNumber, selectedBadgeType]);
+  }, [employee.id, employee.employeeNumber, companyName, selectedBadgeType]);
 
-  const handleDownloadBadge = (badgeType: string) => {
-    // In a real app, this would generate and download a PDF badge
-    console.log(
-      `Downloading ${badgeType} badge for ${employee.firstName} ${employee.lastName}`,
-    );
+  /**
+   * Génère le badge en PDF au format carte (85,6 × 54 mm), recto puis verso.
+   * Le bouton se contentait auparavant d'un console.log.
+   */
+  const handleDownloadBadge = async () => {
+    setIsDownloading(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: [85.6, 54],
+      });
+
+      // ── Recto ──
+      if (logoUrl) {
+        try {
+          doc.addImage(logoUrl, 4, 4, 14, 14, undefined, "FAST");
+        } catch {
+          // Format d'image non supporté par jsPDF : on garde le badge sans logo.
+        }
+      }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.text(companyName.toUpperCase(), 4, 22);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(5);
+      doc.text(companyAddress, 4, 25, { maxWidth: 45 });
+
+      if (employee.photo) {
+        try {
+          doc.addImage(employee.photo, 62, 4, 20, 20, undefined, "FAST");
+        } catch {
+          // Photo distante non convertible : badge genere sans photo.
+        }
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(
+        `${employee.firstName.toUpperCase()} ${employee.lastName.toUpperCase()}`,
+        42.8,
+        34,
+        { align: "center" },
+      );
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(employee.position, 42.8, 38, { align: "center" });
+
+      doc.setFontSize(5);
+      doc.text(`Matricule : ${employee.employeeNumber}`, 4, 44);
+      doc.text(
+        `Né(e) le : ${employee.dateOfBirth.toLocaleDateString("fr-FR")}`,
+        4,
+        46.5,
+      );
+      doc.text(`Carte professionnelle : ${cartePro}`, 4, 49);
+      doc.text(`Autorisation administrative : ${authorizationNumber}`, 4, 51.5);
+
+      // ── Verso ──
+      doc.addPage([85.6, 54], "landscape");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text("Code QR de vérification", 42.8, 8, { align: "center" });
+      if (qrCodeUrl) {
+        doc.addImage(qrCodeUrl, 31, 11, 24, 24);
+      }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.text(`Matricule : ${employee.employeeNumber}`, 42.8, 40, {
+        align: "center",
+      });
+      doc.text(`Valide jusqu'au 31/12/${new Date().getFullYear()}`, 42.8, 44, {
+        align: "center",
+      });
+
+      doc.save(
+        `badge-${employee.lastName}-${employee.employeeNumber}.pdf`.replace(
+          /\s+/g,
+          "-",
+        ),
+      );
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -99,40 +192,30 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
                     {/* Logo Section */}
                     <div className="flex flex-col items-start">
                       <div className="w-20 h-20 mb-1">
-                        <div className="relative w-full h-full">
-                          {/* Diamond pattern logo placeholder */}
-                          <svg viewBox="0 0 100 100" className="w-full h-full">
-                            <defs>
-                              <pattern
-                                id="dots"
-                                x="0"
-                                y="0"
-                                width="20"
-                                height="20"
-                                patternUnits="userSpaceOnUse"
-                              >
-                                <circle cx="10" cy="10" r="3" fill="#1e40af" />
-                              </pattern>
-                            </defs>
-                            <polygon
-                              points="50,10 90,50 50,90 10,50"
-                              fill="url(#dots)"
-                            />
-                          </svg>
-                        </div>
+                        {logoUrl ? (
+                          <Image
+                            src={logoUrl}
+                            alt={companyName}
+                            width={80}
+                            height={80}
+                            unoptimized
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center border border-dashed border-gray-300 text-[9px] text-gray-400">
+                            Logo
+                          </div>
+                        )}
                       </div>
                       <div className="text-left">
                         <p className="text-[10px] font-bold uppercase leading-tight text-gray-900">
-                          PRODIGE SÉCURITÉ
+                          {companyName}
                         </p>
                         <p className="text-[9px] font-semibold leading-tight text-gray-800">
                           Siège social
                         </p>
                         <p className="text-[8px] leading-tight mt-0.5 text-gray-700">
-                          229 Rue Saint-Honoré
-                        </p>
-                        <p className="text-[8px] leading-tight text-gray-700">
-                          75001 PARIS
+                          {companyAddress || "Adresse non renseignée"}
                         </p>
                       </div>
                     </div>
@@ -140,13 +223,21 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
                     {/* Photo - Square */}
                     <div className="shrink-0">
                       <div className="h-24 w-24 border border-gray-300 overflow-hidden">
-                        <Image
-                          src={employee.photo || ""}
-                          alt={employee.firstName}
-                          width={96}
-                          height={96}
-                          className="w-full h-full object-cover"
-                        />
+                        {employee.photo ? (
+                          <Image
+                            src={employee.photo}
+                            alt={employee.firstName}
+                            width={96}
+                            height={96}
+                            unoptimized
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gray-100 text-lg font-semibold text-gray-400">
+                            {employee.firstName[0]}
+                            {employee.lastName[0]}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -184,17 +275,13 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
                       </div>
                       <div>
                         <span className="font-semibold">Carte : </span>
-                        <span>
-                          CAR-006-2027-06-15-{new Date().getFullYear()}272748
-                        </span>
+                        <span>{cartePro}</span>
                       </div>
                       <div>
                         <span className="font-semibold">
                           Autorisation administrative :{" "}
                         </span>
-                        <span>
-                          N°AUT-075-2121-02-14-{new Date().getFullYear()}10715
-                        </span>
+                        <span>{authorizationNumber}</span>
                       </div>
                     </div>
                   </div>
@@ -225,6 +312,7 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
                           alt="QR Code"
                           width={144}
                           height={144}
+                          unoptimized
                           className="w-36 h-36"
                         />
                       ) : (
@@ -251,10 +339,15 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
 
             {/* Download Button */}
             <Button
-              onClick={() => handleDownloadBadge(selectedBadgeType)}
+              onClick={() => void handleDownloadBadge()}
+              disabled={isDownloading}
               className="gap-2"
             >
-              <Download className="h-4 w-4" />
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
               Télécharger le badge
             </Button>
           </div>
