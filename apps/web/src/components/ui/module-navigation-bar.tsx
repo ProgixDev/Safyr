@@ -18,6 +18,13 @@ import { useUiStore } from "@/lib/stores/uiStore";
 
 export interface NavItem {
   label: string;
+  /**
+   * Libellé court affiché en dessous de 1536 px. Mesuré au navigateur : à
+   * 1440 px les neuf menus RH réclamaient 1 328 px pour 1 328 px disponibles,
+   * donc « Business » retombait sur une seconde ligne. Raccourcir les trois
+   * libellés les plus longs dégage ~280 px et tient jusqu'à 1280 px.
+   */
+  shortLabel?: string;
   href?: string;
   icon: React.ElementType;
   disabled?: boolean;
@@ -58,6 +65,17 @@ const NAV_ITEM_BASE =
  * à faire déborder les neuf menus RH sur une seconde ligne.
  */
 const NAV_ICON = "h-3.5 w-3.5 shrink-0 2xl:h-4 2xl:w-4";
+
+/** Libellé court en dessous de 1536 px, libellé complet au-delà. */
+function NavLabel({ item }: { item: NavItem }) {
+  if (!item.shortLabel) return <span>{item.label}</span>;
+  return (
+    <>
+      <span className="2xl:hidden">{item.shortLabel}</span>
+      <span className="hidden 2xl:inline">{item.label}</span>
+    </>
+  );
+}
 
 const NAV_ITEM_ACTIVE = "bg-primary text-primary-foreground shadow-sm";
 const NAV_ITEM_IDLE = "text-foreground hover:bg-accent hover:text-foreground";
@@ -135,7 +153,8 @@ export function ModuleNavigationBar({
                 )}
               >
                 <ModuleIcon className={NAV_ICON} />
-                <span>Tableau de bord</span>
+                <span className="2xl:hidden">Accueil</span>
+                <span className="hidden 2xl:inline">Tableau de bord</span>
               </Link>
 
               <div className="h-5 w-px shrink-0 bg-border" />
@@ -152,7 +171,7 @@ export function ModuleNavigationBar({
                       className={cn(NAV_ITEM_BASE, NAV_ITEM_DISABLED)}
                     >
                       <Icon className={NAV_ICON} />
-                      <span>{item.label}</span>
+                      <NavLabel item={item} />
                     </div>
                   );
                 }
@@ -174,7 +193,7 @@ export function ModuleNavigationBar({
                           )}
                         >
                           <Icon className={NAV_ICON} />
-                          <span>{item.label}</span>
+                          <NavLabel item={item} />
                           <ChevronDown className="h-3 w-3 shrink-0 opacity-70" />
                         </button>
                       </DropdownMenuTrigger>
@@ -247,7 +266,7 @@ export function ModuleNavigationBar({
                       )}
                     >
                       <Icon className={NAV_ICON} />
-                      <span>{item.label}</span>
+                      <NavLabel item={item} />
                     </Link>
                   );
                 }

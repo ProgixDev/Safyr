@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
   },
   {
     label: "Collaborateurs",
+    shortLabel: "Salariés",
     icon: Users,
     children: [
       {
@@ -81,6 +82,7 @@ const navItems: NavItem[] = [
   },
   {
     label: "Temps & Activités",
+    shortLabel: "Temps",
     icon: Calendar,
     children: [
       {
@@ -104,6 +106,7 @@ const navItems: NavItem[] = [
   },
   {
     label: "Rémunération & Paie",
+    shortLabel: "Paie",
     icon: Wallet,
     children: [
       {
@@ -134,6 +137,7 @@ const navItems: NavItem[] = [
   },
   {
     label: "Santé & Formation",
+    shortLabel: "Formation",
     icon: ShieldCheck,
     children: [
       {
