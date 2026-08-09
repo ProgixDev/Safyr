@@ -63,7 +63,7 @@ import {
   mockAgentShifts,
 } from "@/data/site-shifts";
 import { mockTimeOffRequests } from "@/data/time-off";
-import { mockPlanningAgents } from "@/data/planning-agents";
+import { usePlanningAgents } from "@/hooks/planning";
 import { playAlertBeep } from "@/lib/audio-alerts";
 import { DailyView } from "./_components/DailyView";
 import { WeeklyView } from "./_components/WeeklyView";
@@ -99,6 +99,8 @@ export function ScheduleView({
   forceSimulation?: boolean;
 }) {
   const { settings } = usePlanningSettingsStore();
+  // Agents du planning = dossiers salariés du module RH (plus de liste figée).
+  const { agents: planningAgents } = usePlanningAgents();
   const idCounterRef = React.useRef(0);
   const generateShiftId = () => {
     idCounterRef.current += 1;
@@ -312,7 +314,7 @@ export function ScheduleView({
           ? selectedAgentIds
               .filter((id) => !assignedIds.has(id))
               .map((id) => {
-                const a = mockPlanningAgents.find((p) => p.id === id);
+                const a = planningAgents.find((p) => p.id === id);
                 return a ? { agentId: a.id, agentName: a.name } : null;
               })
               .filter(
@@ -323,7 +325,7 @@ export function ScheduleView({
       map.set(site.id, [...filtered, ...extras]);
     });
     return map;
-  }, [visibleSites, siteAgents, selectedAgentIds]);
+  }, [visibleSites, siteAgents, selectedAgentIds, planningAgents]);
 
   // Helper: templates for a specific site
   const getSiteStandardShifts = (siteId: string | null) =>
@@ -335,7 +337,7 @@ export function ScheduleView({
     return siteAgents
       .filter((sa) => sa.siteId === siteId && sa.active)
       .map((sa) => {
-        const agent = mockPlanningAgents.find((a) => a.id === sa.agentId);
+        const agent = planningAgents.find((a) => a.id === sa.agentId);
         return { ...sa, agent };
       });
   };
@@ -344,7 +346,7 @@ export function ScheduleView({
   const getAvailableAgentsForSite = (siteId: string | null) => {
     const assigned = getAssignedAgentsForSite(siteId);
     const assignedIds = assigned.map((a) => a.agentId);
-    return mockPlanningAgents.filter((a) => !assignedIds.includes(a.id));
+    return planningAgents.filter((a) => !assignedIds.includes(a.id));
   };
 
   // Calculate display dates
@@ -636,7 +638,7 @@ export function ScheduleView({
     const now = new Date();
     const newAssignments: SiteAgentAssignment[] = agentsToAssign
       .map((agentId, idx) => {
-        const agent = mockPlanningAgents.find((a) => a.id === agentId);
+        const agent = planningAgents.find((a) => a.id === agentId);
         if (!agent) return null;
         return {
           id: `sa-${now.getTime()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
@@ -1482,7 +1484,7 @@ export function ScheduleView({
             <FilterBar
               clients={mockClients}
               sites={mockSites.filter((s) => s.status === "active")}
-              agents={mockPlanningAgents}
+              agents={planningAgents}
               selectedClientIds={selectedClientIds}
               selectedSiteIds={selectedSiteIds}
               selectedAgentIds={selectedAgentIds}
@@ -2873,7 +2875,7 @@ export function ScheduleView({
                 <div>
                   <div className="font-medium">
                     {
-                      mockPlanningAgents.find(
+                      planningAgents.find(
                         (a) => a.id === conflictDetails.agentId,
                       )?.name
                     }

@@ -27,6 +27,11 @@ import {
   Trash2,
 } from "lucide-react";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
+import {
+  pickAndUploadFile,
+  downloadStoredFile,
+  type StoredFile,
+} from "@/lib/document-files";
 
 /**
  * Pièces attendues d'un dossier de financement : devis du prestataire,
@@ -42,7 +47,7 @@ const DOCUMENT_SLOTS = [
 
 type DocumentSlot = (typeof DOCUMENT_SLOTS)[number]["key"];
 
-type DossierDocuments = Partial<Record<DocumentSlot, string>>;
+type DossierDocuments = Partial<Record<DocumentSlot, StoredFile>>;
 
 interface AKTOOPCODossier {
   id: string;
@@ -61,34 +66,6 @@ interface AKTOOPCODossier {
   documents: DossierDocuments;
 }
 
-const ACCEPTED_FILES = ".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx";
-
-function pickFile(): Promise<File | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ACCEPTED_FILES;
-    input.onchange = () => resolve(input.files?.[0] ?? null);
-    input.oncancel = () => resolve(null);
-    input.click();
-  });
-}
-
-function downloadDocument(filename: string) {
-  const blob = new Blob(
-    [
-      `Document : ${filename}\n(Placeholder — le vrai fichier sera servi par le backend une fois branché.)`,
-    ],
-    { type: "text/plain" },
-  );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filename}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 const mockDossiers: AKTOOPCODossier[] = [
   {
     id: "1",
@@ -105,9 +82,9 @@ const mockDossiers: AKTOOPCODossier[] = [
     submittedAt: "2024-10-20",
     validatedAt: "2024-11-05",
     documents: {
-      devis: "devis_ssiap1_dupont.pdf",
-      convention: "convention_ssiap1_dupont.pdf",
-      facture: "facture_ssiap1_dupont.pdf",
+      devis: { name: "devis_ssiap1_dupont.pdf" },
+      convention: { name: "convention_ssiap1_dupont.pdf" },
+      facture: { name: "facture_ssiap1_dupont.pdf" },
     },
   },
   {
@@ -123,7 +100,7 @@ const mockDossiers: AKTOOPCODossier[] = [
     accountUrl: "https://opco.fr/compte/789012",
     createdAt: "2024-11-10",
     submittedAt: "2024-11-15",
-    documents: { devis: "devis_sst_martin.pdf" },
+    documents: { devis: { name: "devis_sst_martin.pdf" } },
   },
   {
     id: "3",
@@ -226,13 +203,13 @@ export default function AKTOOPCOPage() {
       key,
       label,
       render: (dossier) => {
-        const filename = dossier.documents[key];
-        return filename ? (
+        const fichier = dossier.documents[key];
+        return fichier ? (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => downloadDocument(filename)}
-            title={filename}
+            onClick={() => void downloadStoredFile(fichier)}
+            title={fichier.name}
           >
             <Download className="h-3 w-3 mr-1" />
             Télécharger
@@ -332,11 +309,22 @@ export default function AKTOOPCOPage() {
     dossier: AKTOOPCODossier,
     slot: DocumentSlot,
   ) => {
-    const file = await pickFile();
-    if (!file) return;
+    let fichier: StoredFile | null = null;
+    try {
+      fichier = await pickAndUploadFile();
+    } catch (e) {
+      alert(
+        `Échec du téléversement : ${
+          e instanceof Error ? e.message : "Erreur inconnue"
+        }`,
+      );
+      return;
+    }
+    if (!fichier) return;
+
     const applique = (d: AKTOOPCODossier): AKTOOPCODossier => ({
       ...d,
-      documents: { ...d.documents, [slot]: file.name },
+      documents: { ...d.documents, [slot]: fichier },
     });
     setDossiers((prev) =>
       prev.map((d) => (d.id === dossier.id ? applique(d) : d)),
@@ -693,7 +681,7 @@ export default function AKTOOPCOPage() {
               </Label>
               <div className="space-y-2">
                 {DOCUMENT_SLOTS.map(({ key, label }) => {
-                  const filename = selectedDossier.documents[key];
+                  const fichier = selectedDossier.documents[key];
                   return (
                     <div
                       key={key}
@@ -702,15 +690,15 @@ export default function AKTOOPCOPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium">{label}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {filename ?? "Non fourni"}
+                          {fichier?.name ?? "Non fourni"}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
-                        {filename && (
+                        {fichier && (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => downloadDocument(filename)}
+                            onClick={() => void downloadStoredFile(fichier)}
                           >
                             <Download className="h-3 w-3 mr-1" />
                             Télécharger
@@ -724,9 +712,9 @@ export default function AKTOOPCOPage() {
                           }
                         >
                           <Upload className="h-3 w-3 mr-1" />
-                          {filename ? "Remplacer" : "Téléverser"}
+                          {fichier ? "Remplacer" : "Téléverser"}
                         </Button>
-                        {filename && (
+                        {fichier && (
                           <Button
                             variant="ghost"
                             size="sm"

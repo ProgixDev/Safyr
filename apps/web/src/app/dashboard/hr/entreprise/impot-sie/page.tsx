@@ -38,54 +38,23 @@ import {
   DocumentActionsMenu,
   RowActionsMenu,
 } from "@/components/ui/row-actions-menu";
-
-const ACCEPTED_FILES = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx";
-
-// Téléchargement d'un document : génère un fichier placeholder.
-// À remplacer par le vrai fichier servi par le backend une fois branché.
-function downloadDocument(filename: string) {
-  const blob = new Blob(
-    [
-      `Document : ${filename}\n(Placeholder — le vrai fichier sera servi par le backend une fois branché.)`,
-    ],
-    { type: "text/plain" },
-  );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filename}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-/**
- * Ouvre le sélecteur de fichier et résout avec le fichier choisi (ou null si
- * l'utilisateur annule). Le téléversement se contentait auparavant d'une
- * `alert()` sans rien enregistrer : le document n'apparaissait jamais dans le
- * tableau, d'où la remarque « téléverser ne marche pas ».
- */
-function pickFile(): Promise<File | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ACCEPTED_FILES;
-    input.onchange = () => resolve(input.files?.[0] ?? null);
-    input.oncancel = () => resolve(null);
-    input.click();
-  });
-}
+import {
+  pickAndUploadFile,
+  downloadStoredFile,
+  type StoredFile,
+} from "@/lib/document-files";
 
 /** Cellule document : télécharger si présent, téléverser sinon. */
 function DocumentCell({
-  filename,
+  file,
   onUpload,
   onView,
 }: {
-  filename: string | null;
+  file: StoredFile | null;
   onUpload: () => void;
   onView?: () => void;
 }) {
-  if (!filename) {
+  if (!file) {
     return (
       <Button variant="outline" size="sm" onClick={onUpload}>
         <Upload className="h-3 w-3 mr-1" />
@@ -98,8 +67,8 @@ function DocumentCell({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => downloadDocument(filename)}
-        title={filename}
+        onClick={() => void downloadStoredFile(file)}
+        title={file.name}
       >
         <Download className="h-3 w-3 mr-1" />
         Télécharger
@@ -110,7 +79,7 @@ function DocumentCell({
           size="sm"
           className="h-7 w-7 p-0"
           onClick={onView}
-          title={`Voir ${filename}`}
+          title={`Voir ${file.name}`}
         >
           <Eye className="h-3.5 w-3.5" />
         </Button>
@@ -132,10 +101,10 @@ interface TVADocument {
   id: string;
   mois: string;
   annee: string;
-  grandLivre: string | null;
-  declaration: string | null;
-  arDeclaration: string | null;
-  paiement: string | null;
+  grandLivre: StoredFile | null;
+  declaration: StoredFile | null;
+  arDeclaration: StoredFile | null;
+  paiement: StoredFile | null;
   statut: "complet" | "partiel" | "manquant";
   dateEcheance: string;
 }
@@ -143,9 +112,9 @@ interface TVADocument {
 interface CFEDocument {
   id: string;
   annee: string;
-  declaration: string | null;
-  avis: string | null;
-  paiement: string | null;
+  declaration: StoredFile | null;
+  avis: StoredFile | null;
+  paiement: StoredFile | null;
   statut: "complet" | "partiel" | "manquant";
   montant: number;
 }
@@ -153,8 +122,8 @@ interface CFEDocument {
 interface PrelevementDocument {
   id: string;
   periode: string;
-  declaration: string | null;
-  bordereau: string | null;
+  declaration: StoredFile | null;
+  bordereau: StoredFile | null;
   statut: "declare" | "en_attente" | "en_retard";
   montant: number;
 }
@@ -164,7 +133,7 @@ interface Courrier {
   date: string;
   type: "recu" | "envoye";
   objet: string;
-  document: string | null;
+  document: StoredFile | null;
   organisme: "impots" | "urssaf" | "tresor_public";
   statut: "traite" | "en_cours" | "en_attente";
 }
@@ -192,10 +161,10 @@ export default function ImpotSIEPage() {
       id: "1",
       mois: "janvier",
       annee: "2024",
-      grandLivre: "GL_01_2024.pdf",
-      declaration: "DECL_TVA_01_2024.pdf",
-      arDeclaration: "AR_TVA_01_2024.pdf",
-      paiement: "PAIEMENT_TVA_01_2024.pdf",
+      grandLivre: { name: "GL_01_2024.pdf" },
+      declaration: { name: "DECL_TVA_01_2024.pdf" },
+      arDeclaration: { name: "AR_TVA_01_2024.pdf" },
+      paiement: { name: "PAIEMENT_TVA_01_2024.pdf" },
       statut: "complet",
       dateEcheance: "2024-02-20",
     },
@@ -203,8 +172,8 @@ export default function ImpotSIEPage() {
       id: "2",
       mois: "février",
       annee: "2024",
-      grandLivre: "GL_02_2024.pdf",
-      declaration: "DECL_TVA_02_2024.pdf",
+      grandLivre: { name: "GL_02_2024.pdf" },
+      declaration: { name: "DECL_TVA_02_2024.pdf" },
       arDeclaration: null,
       paiement: null,
       statut: "partiel",
@@ -227,18 +196,18 @@ export default function ImpotSIEPage() {
     {
       id: "1",
       annee: "2024",
-      declaration: "CFE_2024.pdf",
-      avis: "AVIS_CFE_2024.pdf",
-      paiement: "PAIEMENT_CFE_2024.pdf",
+      declaration: { name: "CFE_2024.pdf" },
+      avis: { name: "AVIS_CFE_2024.pdf" },
+      paiement: { name: "PAIEMENT_CFE_2024.pdf" },
       statut: "complet",
       montant: 2500,
     },
     {
       id: "2",
       annee: "2023",
-      declaration: "CFE_2023.pdf",
-      avis: "AVIS_CFE_2023.pdf",
-      paiement: "PAIEMENT_CFE_2023.pdf",
+      declaration: { name: "CFE_2023.pdf" },
+      avis: { name: "AVIS_CFE_2023.pdf" },
+      paiement: { name: "PAIEMENT_CFE_2023.pdf" },
       statut: "complet",
       montant: 2200,
     },
@@ -248,15 +217,15 @@ export default function ImpotSIEPage() {
     {
       id: "1",
       periode: "Janvier 2024",
-      declaration: "PAS_01_2024.pdf",
-      bordereau: "BORDEREAU_01_2024.pdf",
+      declaration: { name: "PAS_01_2024.pdf" },
+      bordereau: { name: "BORDEREAU_01_2024.pdf" },
       statut: "declare",
       montant: 15000,
     },
     {
       id: "2",
       periode: "Février 2024",
-      declaration: "PAS_02_2024.pdf",
+      declaration: { name: "PAS_02_2024.pdf" },
       bordereau: null,
       statut: "en_attente",
       montant: 16200,
@@ -269,7 +238,7 @@ export default function ImpotSIEPage() {
       date: "2024-02-15",
       type: "recu",
       objet: "Demande de justificatifs TVA Q4 2023",
-      document: "COURRIER_IMPOTS_02_2024.pdf",
+      document: { name: "COURRIER_IMPOTS_02_2024.pdf" },
       organisme: "impots",
       statut: "traite",
     },
@@ -278,7 +247,7 @@ export default function ImpotSIEPage() {
       date: "2024-02-20",
       type: "envoye",
       objet: "Réponse demande justificatifs",
-      document: "REPONSE_IMPOTS_02_2024.pdf",
+      document: { name: "REPONSE_IMPOTS_02_2024.pdf" },
       organisme: "impots",
       statut: "traite",
     },
@@ -287,7 +256,7 @@ export default function ImpotSIEPage() {
       date: "2024-03-01",
       type: "recu",
       objet: "Avis de contrôle fiscal",
-      document: "CONTROLE_FISCAL_03_2024.pdf",
+      document: { name: "CONTROLE_FISCAL_03_2024.pdf" },
       organisme: "impots",
       statut: "en_cours",
     },
@@ -302,19 +271,15 @@ export default function ImpotSIEPage() {
 
   /** Attache (ou remplace) le document scanné du courrier. */
   const handleUploadCourrier = async (courrier: Courrier) => {
-    const file = await pickFile();
-    if (!file) return;
+    const fichier = await televerser();
+    if (!fichier) return;
     setCourriers((prev) =>
-      prev.map((c) =>
-        c.id === courrier.id ? { ...c, document: file.name } : c,
-      ),
+      prev.map((c) => (c.id === courrier.id ? { ...c, document: fichier } : c)),
     );
     setViewedCourrier((current) =>
-      current?.id === courrier.id
-        ? { ...current, document: file.name }
-        : current,
+      current?.id === courrier.id ? { ...current, document: fichier } : current,
     );
-    confirmUpload(`le courrier « ${courrier.objet} »`, file.name);
+    confirmUpload(`le courrier « ${courrier.objet} »`, fichier.name);
   };
 
   const handleDeleteCourrier = (courrier: Courrier) => {
@@ -326,6 +291,23 @@ export default function ImpotSIEPage() {
 
   // ── Téléversement : confirmation visible après chaque dépôt ──────────────
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+
+  /**
+   * Sélectionne un fichier et l'envoie réellement dans le stockage : sans cela
+   * « Télécharger » ne pouvait rendre qu'un texte d'espace réservé.
+   */
+  const televerser = async (): Promise<StoredFile | null> => {
+    try {
+      return await pickAndUploadFile();
+    } catch (e) {
+      alert(
+        `Échec du téléversement : ${
+          e instanceof Error ? e.message : "Erreur inconnue"
+        }`,
+      );
+      return null;
+    }
+  };
 
   const confirmUpload = (label: string, filename: string) => {
     setUploadNotice(`« ${filename} » enregistré pour ${label}.`);
@@ -371,8 +353,8 @@ export default function ImpotSIEPage() {
    * volée, sinon le téléversement serait perdu.
    */
   const handleUploadTva = async (dossier: TVADocument, field: TvaDocField) => {
-    const file = await pickFile();
-    if (!file) return;
+    const fichier = await televerser();
+    if (!fichier) return;
 
     setTvaDossiers((prev) => {
       const existe = prev.some(
@@ -381,7 +363,7 @@ export default function ImpotSIEPage() {
       const base = existe ? prev : [...prev, dossier];
       return base.map((d) =>
         d.mois === dossier.mois && d.annee === dossier.annee
-          ? withTvaStatut({ ...d, [field]: file.name })
+          ? withTvaStatut({ ...d, [field]: fichier })
           : d,
       );
     });
@@ -391,12 +373,12 @@ export default function ImpotSIEPage() {
       current &&
       current.mois === dossier.mois &&
       current.annee === dossier.annee
-        ? withTvaStatut({ ...current, [field]: file.name })
+        ? withTvaStatut({ ...current, [field]: fichier })
         : current,
     );
     confirmUpload(
       `${TVA_DOC_LABELS[field]} — ${dossier.mois} ${dossier.annee}`,
-      file.name,
+      fichier.name,
     );
   };
 
@@ -443,19 +425,19 @@ export default function ImpotSIEPage() {
   };
 
   const handleUploadCfe = async (dossier: CFEDocument, field: CfeDocField) => {
-    const file = await pickFile();
-    if (!file) return;
+    const fichier = await televerser();
+    if (!fichier) return;
     setCfeDossiers((prev) =>
       prev.map((d) =>
-        d.id === dossier.id ? withCfeStatut({ ...d, [field]: file.name }) : d,
+        d.id === dossier.id ? withCfeStatut({ ...d, [field]: fichier }) : d,
       ),
     );
     setViewedCfe((current) =>
       current?.id === dossier.id
-        ? withCfeStatut({ ...current, [field]: file.name })
+        ? withCfeStatut({ ...current, [field]: fichier })
         : current,
     );
-    confirmUpload(`${CFE_DOC_LABELS[field]} ${dossier.annee}`, file.name);
+    confirmUpload(`${CFE_DOC_LABELS[field]} ${dossier.annee}`, fichier.name);
   };
 
   const [viewedCfe, setViewedCfe] = useState<CFEDocument | null>(null);
@@ -491,14 +473,14 @@ export default function ImpotSIEPage() {
     prelevement: PrelevementDocument,
     field: PrelevementDocField,
   ) => {
-    const file = await pickFile();
-    if (!file) return;
+    const fichier = await televerser();
+    if (!fichier) return;
     setPrelevements((prev) =>
       prev.map((p) =>
         p.id === prelevement.id
           ? {
               ...p,
-              [field]: file.name,
+              [field]: fichier,
               statut:
                 field === "declaration" && p.bordereau
                   ? "declare"
@@ -511,12 +493,12 @@ export default function ImpotSIEPage() {
     );
     setViewedPrelevement((current) =>
       current?.id === prelevement.id
-        ? { ...current, [field]: file.name }
+        ? { ...current, [field]: fichier }
         : current,
     );
     confirmUpload(
       `${PRELEVEMENT_DOC_LABELS[field]} — ${prelevement.periode}`,
-      file.name,
+      fichier.name,
     );
   };
 
@@ -702,7 +684,7 @@ export default function ImpotSIEPage() {
       label: TVA_DOC_LABELS[field],
       render: (dossier) => (
         <DocumentCell
-          filename={dossier[field]}
+          file={dossier[field]}
           onUpload={() => void handleUploadTva(dossier, field)}
           onView={() => handleViewDocument(dossier, field)}
         />
@@ -754,21 +736,25 @@ export default function ImpotSIEPage() {
   );
 
   const [previewDocument, setPreviewDocument] = useState<{
-    name: string;
+    file: StoredFile;
     content: string;
     type: string;
   } | null>(null);
 
   /** Ouvre l'aperçu d'un document TVA déjà déposé. */
   const handleViewDocument = (dossier: TVADocument, type: TvaDocField) => {
-    const filename = dossier[type];
+    const fichier = dossier[type];
     const label = TVA_DOC_LABELS[type];
 
-    if (!filename) return;
+    if (!fichier) return;
 
     setPreviewDocument({
-      name: filename,
-      content: `Document : ${filename}\n\nMois : ${dossier.mois}\nAnnée : ${dossier.annee}\nStatut : ${getStatutText(dossier.statut)}\n\n--- Contenu du document ---\n\n${label}\n${"-".repeat(label.length)}\n\nCeci est un aperçu du document.\nLe contenu réel sera affiché une fois le backend connecté.\n\nFichier : ${filename}\nTaille : 2.4 MB\nType : PDF`,
+      file: fichier,
+      content: `Document : ${fichier.name}\n\nMois : ${dossier.mois}\nAnnée : ${dossier.annee}\nStatut : ${getStatutText(dossier.statut)}\n\n${label}\n${"-".repeat(label.length)}\n\n${
+        fichier.key
+          ? "Cliquez sur « Télécharger » pour ouvrir le fichier déposé."
+          : "Exemple de démonstration : aucun fichier n'a été déposé pour cette ligne."
+      }`,
       type: label,
     });
   };
@@ -966,7 +952,7 @@ export default function ImpotSIEPage() {
                     label: CFE_DOC_LABELS[field],
                     render: (dossier) => (
                       <DocumentCell
-                        filename={dossier[field]}
+                        file={dossier[field]}
                         onUpload={() => void handleUploadCfe(dossier, field)}
                       />
                     ),
@@ -1032,7 +1018,7 @@ export default function ImpotSIEPage() {
                     label: PRELEVEMENT_DOC_LABELS[field],
                     render: (prelevement) => (
                       <DocumentCell
-                        filename={prelevement[field]}
+                        file={prelevement[field]}
                         onUpload={() =>
                           void handleUploadPrelevement(prelevement, field)
                         }
@@ -1133,7 +1119,7 @@ export default function ImpotSIEPage() {
                         onUpload={() => void handleUploadCourrier(courrier)}
                         onDownload={
                           courrier.document
-                            ? () => downloadDocument(courrier.document!)
+                            ? () => void downloadStoredFile(courrier.document!)
                             : undefined
                         }
                         onDelete={() => handleDeleteCourrier(courrier)}
@@ -1167,7 +1153,8 @@ export default function ImpotSIEPage() {
                 secondary: {
                   label: "Télécharger",
                   variant: "outline" as const,
-                  onClick: () => downloadDocument(viewedCourrier.document!),
+                  onClick: () =>
+                    void downloadStoredFile(viewedCourrier.document!),
                 },
               }
             : {}),
@@ -1210,7 +1197,7 @@ export default function ImpotSIEPage() {
             <div>
               <Label className="text-sm font-medium">Document joint</Label>
               <p className="text-sm text-muted-foreground">
-                {viewedCourrier.document ?? "Aucun document joint"}
+                {viewedCourrier.document?.name ?? "Aucun document joint"}
               </p>
             </div>
           </div>
@@ -1264,7 +1251,7 @@ export default function ImpotSIEPage() {
                 >
                   <span className="text-sm">{TVA_DOC_LABELS[field]}</span>
                   <DocumentCell
-                    filename={viewedTva[field]}
+                    file={viewedTva[field]}
                     onUpload={() => void handleUploadTva(viewedTva, field)}
                   />
                 </div>
@@ -1372,7 +1359,7 @@ export default function ImpotSIEPage() {
                 >
                   <span className="text-sm">{CFE_DOC_LABELS[field]}</span>
                   <DocumentCell
-                    filename={viewedCfe[field]}
+                    file={viewedCfe[field]}
                     onUpload={() => void handleUploadCfe(viewedCfe, field)}
                   />
                 </div>
@@ -1532,7 +1519,7 @@ export default function ImpotSIEPage() {
                     {PRELEVEMENT_DOC_LABELS[field]}
                   </span>
                   <DocumentCell
-                    filename={viewedPrelevement[field]}
+                    file={viewedPrelevement[field]}
                     onUpload={() =>
                       void handleUploadPrelevement(viewedPrelevement, field)
                     }
@@ -1855,7 +1842,7 @@ export default function ImpotSIEPage() {
             primary: {
               label: "Télécharger",
               onClick: () => {
-                downloadDocument(previewDocument.name);
+                void downloadStoredFile(previewDocument.file);
               },
             },
             secondary: {
@@ -1873,7 +1860,7 @@ export default function ImpotSIEPage() {
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium">{previewDocument.name}</p>
+                  <p className="font-medium">{previewDocument.file.name}</p>
                   <p className="text-xs text-muted-foreground">PDF • 2.4 MB</p>
                 </div>
               </div>

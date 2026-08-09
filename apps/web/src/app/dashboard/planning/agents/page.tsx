@@ -46,54 +46,23 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { PlanningAgent } from "@/data/planning-agents";
-import { mockEmployees } from "@/data/employees";
-import type { Employee } from "@/lib/types";
-
-// Convert Employee to PlanningAgent
-function employeeToPlanningAgent(employee: Employee): PlanningAgent {
-  // Extract contract info from active contract
-  const activeContract = employee.contracts.find((c) => c.status === "active");
-  const contractType =
-    activeContract?.type === "INTERIM"
-      ? "Intérim"
-      : activeContract?.type === "CDD"
-        ? "CDD"
-        : "CDI";
-  const contractHours = activeContract?.workingHours || 35;
-
-  // Extract qualifications from documents
-  const qualifications: string[] = [];
-  if (employee.documents.cqpAps) qualifications.push("CQP APS");
-  if (employee.documents.ssiap) {
-    const ssiapType = employee.documents.ssiap.type;
-    if (ssiapType === "SSIAP1") qualifications.push("SSIAP 1");
-    else if (ssiapType === "SSIAP2") qualifications.push("SSIAP 2");
-    else if (ssiapType === "SSIAP3") qualifications.push("SSIAP 3");
-    else qualifications.push("SSIAP");
-  }
-  if (employee.documents.sst) qualifications.push("SST");
-  if (employee.documents.proCard) qualifications.push("Carte Professionnelle");
-
-  return {
-    id: employee.id,
-    name: `${employee.firstName} ${employee.lastName}`,
-    contractType,
-    contractHours,
-    qualifications,
-    availabilityStatus: employee.status === "active" ? "Disponible" : "Absent",
-    weeklyHours: contractHours,
-    maxAmplitude: 12,
-    lastActivity: employee.updatedAt.toISOString().split("T")[0],
-    phone: employee.phone,
-    email: employee.email,
-  };
-}
+import { usePlanningAgents } from "@/hooks/planning";
 
 export default function PlanningAgentsPage() {
   const searchParams = useSearchParams();
-  const [agents, setAgents] = useState<PlanningAgent[]>(() =>
-    mockEmployees.map(employeeToPlanningAgent),
-  );
+
+  // Source unique : les dossiers salariés du module RH. La page partait
+  // auparavant d'une liste de démonstration, si bien qu'un salarié créé dans
+  // les RH n'apparaissait jamais dans le planning.
+  const { agents: agentsFromApi, isLoading } = usePlanningAgents();
+  const [agents, setAgents] = useState<PlanningAgent[]>([]);
+  const [syncedIds, setSyncedIds] = useState<string | null>(null);
+
+  const apiIds = agentsFromApi.map((a) => a.id).join(",");
+  if (apiIds !== syncedIds) {
+    setSyncedIds(apiIds);
+    setAgents(agentsFromApi);
+  }
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const showCreateFromUrl = searchParams.get("create") === "true";
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -263,74 +232,6 @@ export default function PlanningAgentsPage() {
         email: formData.email || "",
       };
       setAgents([...agents, newAgent]);
-
-      // In production, this agent would be automatically synced to HR module
-      // For now, we add them to the local mockEmployees array
-      const now = new Date();
-      const nameParts = newAgent.name.split(" ");
-      const newEmployee: Employee = {
-        id: newAgent.id,
-        firstName: nameParts[0] || "",
-        lastName: nameParts.slice(1).join(" ") || "",
-        email: newAgent.email,
-        phone: newAgent.phone,
-        dateOfBirth: new Date("1990-01-01"),
-        placeOfBirth: "",
-        nationality: "Française",
-        gender: "male",
-        civilStatus: "single",
-        address: {
-          street: "",
-          city: "",
-          postalCode: "",
-          country: "France",
-        },
-        bankDetails: {
-          iban: "",
-          bic: "",
-          bankName: "",
-        },
-        socialSecurityNumber: "",
-        employeeNumber: `EMP-${newAgent.id}`,
-        hireDate: now,
-        position: "Agent de Sécurité",
-        department: "Sécurité",
-        workSchedule: "full-time",
-        status: "active",
-        documents: {},
-        contracts: [
-          {
-            id: `contract-${newAgent.id}`,
-            employeeId: newAgent.id,
-            type:
-              newAgent.contractType === "CDI"
-                ? "CDI"
-                : newAgent.contractType === "CDD"
-                  ? "CDD"
-                  : "CDI",
-            startDate: now,
-            position: "Agent de Sécurité",
-            department: "Sécurité",
-            salary: { gross: 1800, net: 1404, currency: "EUR" },
-            workingHours: newAgent.contractHours,
-            signedByEmployee: false,
-            signedByEmployer: false,
-            probationRenewed: false,
-            amendments: [],
-            status: "active",
-            createdAt: now,
-            updatedAt: now,
-          },
-        ],
-        assignedEquipment: [],
-        savingsPlans: {
-          pee: { contributions: 0, balance: 0 },
-          pereco: { contributions: 0, balance: 0 },
-        },
-        createdAt: now,
-        updatedAt: now,
-      };
-      mockEmployees.push(newEmployee);
     }
     setIsCreateModalOpen(false);
     setFormData({});
@@ -465,6 +366,7 @@ export default function PlanningAgentsPage() {
 
       <DataTable
         data={agents}
+        isLoading={isLoading}
         columns={columns}
         searchKey="name"
         searchPlaceholder="Rechercher un agent..."
