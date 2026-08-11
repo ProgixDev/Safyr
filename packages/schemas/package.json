@@ -40,6 +40,10 @@
     "./payroll": {
       "types": "./dist/payroll.d.ts",
       "default": "./dist/payroll.js"
+    },
+    "./contract": {
+      "types": "./dist/contract.d.ts",
+      "default": "./dist/contract.js"
     }
   },
   "scripts": {

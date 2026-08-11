@@ -9,3 +9,4 @@ export * from "./logbook";
 export * from "./communication";
 export * from "./clients";
 export * from "./payroll";
+export * from "./contracts";

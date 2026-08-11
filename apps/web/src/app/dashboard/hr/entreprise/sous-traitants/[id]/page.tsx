@@ -37,11 +37,12 @@ import {
   CreditCard,
   Euro,
 } from "lucide-react";
+import { pickFile, downloadStoredFile } from "@/lib/document-files";
 import {
-  pickAndUploadFile,
-  downloadStoredFile,
-  type StoredFile,
-} from "@/lib/document-files";
+  useAttachments,
+  useAttachDocument,
+  useDeleteAttachment,
+} from "@/hooks/contracts";
 import {
   useSubcontractor,
   useUpdateSubcontractor,
@@ -202,8 +203,22 @@ export default function SousTraitantDetailPage({
     setSousTraitant(toEditable(apiSousTraitant));
   }
 
-  const [documents, setDocuments] = useState<Document[]>([]);
+  // Documents persistes en base (rattachement generique scope/scopeId/slot).
+  const { data: pieces = [] } = useAttachments("subcontractor", id);
+  const attacher = useAttachDocument("subcontractor", id);
+  const detacher = useDeleteAttachment("subcontractor", id);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+
+  const documents: Document[] = pieces.map((p) => ({
+    id: p.id,
+    sousTraitantId: id,
+    name: p.name,
+    type: p.slot,
+    uploadDate: p.createdAt.split("T")[0],
+    status: "valid",
+    required: requiredDocuments.some((d) => d.type === p.slot),
+    storageKey: p.storageKey,
+  }));
   const [isEditing, setIsEditing] = useState(
     searchParams.get("edit") === "true",
   );
@@ -311,35 +326,20 @@ export default function SousTraitantDetailPage({
     const exigence = [...requiredDocuments, ...optionalDocuments].find(
       (d) => d.type === type,
     );
-    let fichier: StoredFile | null = null;
+    const file = await pickFile();
+    if (!file) return;
     try {
-      fichier = await pickAndUploadFile();
+      await attacher.mutateAsync({ file, scopeId: id, slot: type });
+      setUploadNotice(
+        `« ${file.name} » enregistré pour ${exigence?.name ?? type}.`,
+      );
     } catch (e) {
       alert(
         `Échec du téléversement : ${
           e instanceof Error ? e.message : "Erreur inconnue"
         }`,
       );
-      return;
     }
-    if (!fichier) return;
-
-    setDocuments((prev) => [
-      ...prev.filter((d) => d.type !== type),
-      {
-        id: `${type}-${fichier.key ?? fichier.name}`,
-        sousTraitantId: id,
-        name: fichier.name,
-        type,
-        uploadDate: new Date().toISOString().split("T")[0],
-        status: "valid",
-        required: requiredDocuments.some((d) => d.type === type),
-        storageKey: fichier.key,
-      },
-    ]);
-    setUploadNotice(
-      `« ${fichier.name} » enregistré pour ${exigence?.name ?? type}.`,
-    );
   };
 
   /** Ouvre le fichier reellement depose. */
@@ -425,10 +425,7 @@ export default function SousTraitantDetailPage({
           role="status"
           className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm"
         >
-          <span>
-            {uploadNotice} Le rattachement à la fiche n&apos;est pas encore
-            enregistré en base : il disparaîtra au rechargement.
-          </span>
+          <span>{uploadNotice}</span>
           <Button
             variant="ghost"
             size="sm"
@@ -1004,9 +1001,19 @@ export default function SousTraitantDetailPage({
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0"
+                      title="Remplacer"
                       onClick={() => void handleDocumentUpload(doc.type)}
                     >
-                      <Upload className="h-3 w-3" />
+                      <Upload className="h-3 w-3 text-blue-500" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      title="Supprimer"
+                      onClick={() => void detacher.mutateAsync(doc.id)}
+                    >
+                      <Trash2 className="h-3 w-3 text-red-600" />
                     </Button>
                   </div>
                 )}

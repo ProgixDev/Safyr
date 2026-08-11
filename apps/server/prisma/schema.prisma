@@ -184,6 +184,7 @@ model Member {
   certifications Certification[]
   timeEntries    TimeEntry[]
   logbookEvents  LogbookEvent[]
+  contracts      Contract[]
 
   @@unique([organizationId, employeeNumber])
   @@index([organizationId])
@@ -314,6 +315,13 @@ model Document {
   uploaderId String
   uploader   User   @relation(fields: [uploaderId], references: [id])
 
+  // Rattachement générique, pour les modules qui n'ont pas de table dédiée :
+  // sous-traitants, dossiers fiscaux (TVA/CFE/prélèvement/courriers), AKTO/OPCO.
+  // scope = module, scopeId = identifiant de la ligne, slot = pièce attendue.
+  scope   String?
+  scopeId String?
+  slot    String?
+
   certification Certification?
 
   createdAt DateTime @default(now())
@@ -324,7 +332,40 @@ model Document {
   @@index([memberId])
   @@index([uploaderId])
   @@index([requirementId])
+  @@index([organizationId, scope, scopeId])
   @@map("document")
+}
+
+/// Contrat de travail d'un salarié : CDI, CDD, intérim et avenants.
+model Contract {
+  id             String @id @default(cuid())
+  organizationId String
+
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  type      String // "CDI" | "CDD" | "INTERIM" | "APPRENTICESHIP" | "INTERNSHIP"
+  position  String
+  startDate DateTime
+  endDate   DateTime?
+
+  workingHours Float?  // heures hebdomadaires
+  grossSalary  Float?
+  trialPeriodEndDate DateTime?
+
+  status String @default("active") // "draft" | "active" | "ended" | "terminated"
+
+  signedByEmployee Boolean @default(false)
+  signedByEmployer Boolean @default(false)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([memberId])
+  @@map("contract")
 }
 
 model TimeEntry {

@@ -6,3 +6,4 @@ export * from "./shift";
 export * from "./logbook";
 export * from "./client";
 export * from "./payroll";
+export * from "./contract";
