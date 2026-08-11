@@ -23,6 +23,7 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { cn } from "@/lib/utils";
 import {
   Upload,
   Download,
@@ -44,55 +45,41 @@ import {
   type StoredFile,
 } from "@/lib/document-files";
 
-/** Cellule document : télécharger si présent, téléverser sinon. */
+/**
+ * Cellule document : le nom du fichier et le menu d'actions à trois points.
+ *
+ * Chaque cellule affichait jusqu'à trois boutons « Télécharger », « Voir » et
+ * « Téléverser » ; avec quatre colonnes sur douze mois, le tableau devenait
+ * illisible. Les actions passent dans le menu standard du logiciel.
+ */
 function DocumentCell({
   file,
   onUpload,
   onView,
+  onDelete,
 }: {
   file: StoredFile | null;
   onUpload: () => void;
   onView?: () => void;
+  onDelete?: () => void;
 }) {
-  if (!file) {
-    return (
-      <Button variant="outline" size="sm" onClick={onUpload}>
-        <Upload className="h-3 w-3 mr-1" />
-        Téléverser
-      </Button>
-    );
-  }
   return (
-    <div className="flex items-center gap-1">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => void downloadStoredFile(file)}
-        title={file.name}
+    <div className="flex items-center justify-between gap-2">
+      <span
+        className={cn(
+          "truncate text-xs",
+          file ? "text-foreground" : "text-muted-foreground",
+        )}
+        title={file?.name}
       >
-        <Download className="h-3 w-3 mr-1" />
-        Télécharger
-      </Button>
-      {onView && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0"
-          onClick={onView}
-          title={`Voir ${file.name}`}
-        >
-          <Eye className="h-3.5 w-3.5" />
-        </Button>
-      )}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 w-7 p-0"
-        onClick={onUpload}
-        title="Remplacer le document"
-      >
-        <Upload className="h-3.5 w-3.5" />
-      </Button>
+        {file ? file.name : "Non fourni"}
+      </span>
+      <DocumentActionsMenu
+        onView={file && onView ? onView : undefined}
+        onUpload={onUpload}
+        onDownload={file ? () => void downloadStoredFile(file) : undefined}
+        onDelete={file && onDelete ? onDelete : undefined}
+      />
     </div>
   );
 }
@@ -284,6 +271,24 @@ export default function ImpotSIEPage() {
     );
   };
 
+  /** Retire un document d'un dossier TVA (le statut est recalculé). */
+  const handleDeleteTva = (dossier: TVADocument, field: TvaDocField) => {
+    setTvaDossiers((prev) =>
+      prev.map((d) =>
+        d.mois === dossier.mois && d.annee === dossier.annee
+          ? withTvaStatut({ ...d, [field]: null })
+          : d,
+      ),
+    );
+    setViewedTva((current) =>
+      current &&
+      current.mois === dossier.mois &&
+      current.annee === dossier.annee
+        ? withTvaStatut({ ...current, [field]: null })
+        : current,
+    );
+  };
+
   const [viewedTva, setViewedTva] = useState<TVADocument | null>(null);
   const [editedTva, setEditedTva] = useState<TVADocument | null>(null);
 
@@ -340,6 +345,19 @@ export default function ImpotSIEPage() {
         : current,
     );
     confirmUpload(`${CFE_DOC_LABELS[field]} ${dossier.annee}`, fichier.name);
+  };
+
+  const handleDeleteCfeDoc = (dossier: CFEDocument, field: CfeDocField) => {
+    setCfeDossiers((prev) =>
+      prev.map((d) =>
+        d.id === dossier.id ? withCfeStatut({ ...d, [field]: null }) : d,
+      ),
+    );
+    setViewedCfe((current) =>
+      current?.id === dossier.id
+        ? withCfeStatut({ ...current, [field]: null })
+        : current,
+    );
   };
 
   const [viewedCfe, setViewedCfe] = useState<CFEDocument | null>(null);
@@ -401,6 +419,18 @@ export default function ImpotSIEPage() {
     confirmUpload(
       `${PRELEVEMENT_DOC_LABELS[field]} — ${prelevement.periode}`,
       fichier.name,
+    );
+  };
+
+  const handleDeletePrelevementDoc = (
+    prelevement: PrelevementDocument,
+    field: PrelevementDocField,
+  ) => {
+    setPrelevements((prev) =>
+      prev.map((p) => (p.id === prelevement.id ? { ...p, [field]: null } : p)),
+    );
+    setViewedPrelevement((current) =>
+      current?.id === prelevement.id ? { ...current, [field]: null } : current,
     );
   };
 
@@ -589,6 +619,7 @@ export default function ImpotSIEPage() {
           file={dossier[field]}
           onUpload={() => void handleUploadTva(dossier, field)}
           onView={() => handleViewDocument(dossier, field)}
+          onDelete={() => handleDeleteTva(dossier, field)}
         />
       ),
     })),
@@ -865,6 +896,7 @@ export default function ImpotSIEPage() {
                       <DocumentCell
                         file={dossier[field]}
                         onUpload={() => void handleUploadCfe(dossier, field)}
+                        onDelete={() => handleDeleteCfeDoc(dossier, field)}
                       />
                     ),
                   })),
@@ -932,6 +964,9 @@ export default function ImpotSIEPage() {
                         file={prelevement[field]}
                         onUpload={() =>
                           void handleUploadPrelevement(prelevement, field)
+                        }
+                        onDelete={() =>
+                          handleDeletePrelevementDoc(prelevement, field)
                         }
                       />
                     ),
@@ -1164,6 +1199,7 @@ export default function ImpotSIEPage() {
                   <DocumentCell
                     file={viewedTva[field]}
                     onUpload={() => void handleUploadTva(viewedTva, field)}
+                    onDelete={() => handleDeleteTva(viewedTva, field)}
                   />
                 </div>
               ))}
@@ -1272,6 +1308,7 @@ export default function ImpotSIEPage() {
                   <DocumentCell
                     file={viewedCfe[field]}
                     onUpload={() => void handleUploadCfe(viewedCfe, field)}
+                    onDelete={() => handleDeleteCfeDoc(viewedCfe, field)}
                   />
                 </div>
               ))}
@@ -1433,6 +1470,9 @@ export default function ImpotSIEPage() {
                     file={viewedPrelevement[field]}
                     onUpload={() =>
                       void handleUploadPrelevement(viewedPrelevement, field)
+                    }
+                    onDelete={() =>
+                      handleDeletePrelevementDoc(viewedPrelevement, field)
                     }
                   />
                 </div>

@@ -26,7 +26,11 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
-import { RowActionsMenu } from "@/components/ui/row-actions-menu";
+import {
+  RowActionsMenu,
+  DocumentActionsMenu,
+} from "@/components/ui/row-actions-menu";
+import { cn } from "@/lib/utils";
 import {
   pickAndUploadFile,
   downloadStoredFile,
@@ -155,27 +159,31 @@ export default function AKTOOPCOPage() {
     ...DOCUMENT_SLOTS.map<ColumnDef<AKTOOPCODossier>>(({ key, label }) => ({
       key,
       label,
+      // Un menu d'actions par colonne plutot qu'une paire de boutons : avec
+      // trois pieces par dossier le tableau devenait illisible.
       render: (dossier) => {
         const fichier = dossier.documents[key];
-        return fichier ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void downloadStoredFile(fichier)}
-            title={fichier.name}
-          >
-            <Download className="h-3 w-3 mr-1" />
-            Télécharger
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void handleUploadDocument(dossier, key)}
-          >
-            <Upload className="h-3 w-3 mr-1" />
-            Téléverser
-          </Button>
+        return (
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={cn(
+                "truncate text-xs",
+                fichier ? "text-foreground" : "text-muted-foreground",
+              )}
+              title={fichier?.name}
+            >
+              {fichier ? fichier.name : "Non fourni"}
+            </span>
+            <DocumentActionsMenu
+              onUpload={() => void handleUploadDocument(dossier, key)}
+              onDownload={
+                fichier ? () => void downloadStoredFile(fichier) : undefined
+              }
+              onDelete={
+                fichier ? () => handleRemoveDocument(dossier, key) : undefined
+              }
+            />
+          </div>
         );
       },
     })),
