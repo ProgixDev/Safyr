@@ -9,6 +9,26 @@ export type CertificationCode =
   | "H0B0"
   | "FIRE";
 
+/** Champs metier du poste (Planning > Postes), stockes en JSON cote serveur. */
+export interface PostDetails {
+  type?: string;
+  requiredQualifications?: string[];
+  defaultShiftDuration?: number;
+  breakDuration?: number;
+  nightShift?: boolean;
+  weekendWork?: boolean;
+  rotatingShift?: boolean;
+  minAgents?: number;
+  maxAgents?: number;
+  duties?: string[];
+  procedures?: string;
+  equipment?: string[];
+  emergencyContactMode?: "site" | "client" | "manual";
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  priority?: "low" | "medium" | "high" | "critical";
+}
+
 export interface Post {
   id: string;
   siteId: string;
@@ -18,6 +38,7 @@ export interface Post {
   defaultStartTime: string | null;
   defaultEndTime: string | null;
   active: boolean;
+  details: PostDetails | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,6 +85,7 @@ export interface CreatePostPayload {
   defaultStartTime?: string;
   defaultEndTime?: string;
   active?: boolean;
+  details?: PostDetails;
 }
 
 export type UpdatePostPayload = Partial<CreatePostPayload>;

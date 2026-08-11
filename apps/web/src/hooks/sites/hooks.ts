@@ -88,3 +88,46 @@ export function useDeletePost(siteId: string) {
     onSuccess: () => invalidate(),
   });
 }
+
+/**
+ * Variantes prenant le site en paramètre : sur l'écran Planning › Postes, la
+ * liste couvre tous les sites, le site n'est donc pas connu au montage.
+ */
+export function useCreateSitePost() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({
+      siteId,
+      data,
+    }: {
+      siteId: string;
+      data: CreatePostPayload;
+    }) => createPost(siteId, data),
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useUpdateSitePost() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({
+      siteId,
+      postId,
+      data,
+    }: {
+      siteId: string;
+      postId: string;
+      data: UpdatePostPayload;
+    }) => updatePost(siteId, postId, data),
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useDeleteSitePost() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ siteId, postId }: { siteId: string; postId: string }) =>
+      deletePost(siteId, postId),
+    onSuccess: () => invalidate(),
+  });
+}

@@ -40,27 +40,49 @@ function dureeVacation(post: ApiPost): number {
 function toPoste(post: ApiPost): Poste {
   const debut = post.defaultStartTime ?? "";
   const heureDebut = Number(debut.split(":")[0] ?? 0);
+  // Les champs métier du poste sont enregistrés dans `details` ; les valeurs
+  // par défaut ci-dessous couvrent les postes créés avant cette colonne.
+  const details = post.details ?? {};
   return {
     id: post.id,
     siteId: post.siteId,
     name: post.name,
-    type: "surveillance",
+    type: (details.type ?? "surveillance") as Poste["type"],
     description: post.description ?? undefined,
     requirements: {
       requiredCertifications: post.requiredCertifications.map(
         (c) => CERTIF_LABELS[c] ?? c,
       ),
+      requiredQualifications: details.requiredQualifications ?? [],
     },
     schedule: {
-      defaultShiftDuration: dureeVacation(post),
-      nightShift: heureDebut >= 20 || heureDebut < 6,
-      weekendWork: false,
-      rotatingShift: false,
+      defaultShiftDuration: details.defaultShiftDuration ?? dureeVacation(post),
+      breakDuration: details.breakDuration ?? 0,
+      nightShift: details.nightShift ?? (heureDebut >= 20 || heureDebut < 6),
+      weekendWork: details.weekendWork ?? false,
+      rotatingShift: details.rotatingShift ?? false,
       vacationStart: post.defaultStartTime ?? undefined,
       vacationEnd: post.defaultEndTime ?? undefined,
     },
-    capacity: { minAgents: 1, maxAgents: 2 },
+    capacity: {
+      minAgents: details.minAgents ?? 1,
+      maxAgents: details.maxAgents ?? 2,
+      currentAgents: 0,
+    },
+    instructions: {
+      duties: details.duties ?? [],
+      procedures: details.procedures,
+      equipment: details.equipment ?? [],
+      emergencyContact: details.emergencyContactName
+        ? `${details.emergencyContactName}${
+            details.emergencyContactPhone
+              ? ` — ${details.emergencyContactPhone}`
+              : ""
+          }`
+        : undefined,
+    },
     status: post.active ? "active" : "inactive",
+    priority: details.priority ?? "medium",
     createdAt: new Date(post.createdAt),
     updatedAt: new Date(post.updatedAt),
   } as unknown as Poste;

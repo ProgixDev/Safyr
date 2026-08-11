@@ -61,8 +61,9 @@ export class SitesService {
     data: CreatePostDto,
   ) {
     await this.get(organizationId, siteId);
+    const { details, ...champs } = data;
     return this.prisma.post.create({
-      data: { ...data, siteId },
+      data: { ...champs, siteId, ...(details ? { details } : {}) },
     });
   }
 
@@ -77,7 +78,11 @@ export class SitesService {
       where: { id: postId, siteId },
     });
     if (!post) throw new NotFoundException("Poste introuvable");
-    return this.prisma.post.update({ where: { id: postId }, data });
+    const { details, ...champs } = data;
+    return this.prisma.post.update({
+      where: { id: postId },
+      data: { ...champs, ...(details ? { details } : {}) },
+    });
   }
 
   async deletePost(

@@ -56,6 +56,12 @@ import {
 } from "lucide-react";
 import type { Poste, PosteType } from "@/lib/types";
 import { usePlanningSites } from "@/hooks/planning";
+import {
+  useCreateSitePost,
+  useUpdateSitePost,
+  useDeleteSitePost,
+} from "@/hooks/sites";
+import type { CertificationCode, PostDetails } from "@safyr/api-client";
 import { SITE_COLOR_MAP } from "@/lib/site-colors";
 import { PhoneInput } from "@/components/ui/phone-input";
 import {
@@ -80,6 +86,26 @@ const POSTE_TYPE_LABELS: Record<string, string> = {
   di: "DI",
   autres: "Autres",
 };
+
+/**
+ * Correspondance entre les libelles affiches et les codes attendus par l'API.
+ * Un libelle sans code (« Autres ») est conserve comme qualification libre.
+ */
+const CODES_CERTIFICATION: Record<string, CertificationCode> = {
+  "CQP/APS": "CQP_APS",
+  "CQP APS": "CQP_APS",
+  "Carte Pro": "CNAPS",
+  "Carte Professionnelle": "CNAPS",
+  "SSIAP 1": "SSIAP1",
+  "SSIAP 2": "SSIAP2",
+  "SSIAP 3": "SSIAP3",
+  SST: "SST",
+  H0B0: "H0B0",
+  "Visite médicale": "VM",
+  Incendie: "FIRE",
+};
+
+const SAUT_DE_LIGNE = /\r?\n/;
 
 const CERTIFICATIONS_OPTIONS = [
   "CQP/APS",
@@ -156,11 +182,19 @@ export default function PostesPage() {
   // rendu des que la source change.
   const [postes, setPostes] = useState<Poste[]>([]);
   const [postesCharges, setPostesCharges] = useState<string | null>(null);
-  const clePostes = mockPostes.map((p) => p.id).join(",");
+  const clePostes = mockPostes
+    .map((p) => `${p.id}:${p.updatedAt?.getTime?.() ?? ""}`)
+    .join(",");
   if (clePostes !== postesCharges) {
     setPostesCharges(clePostes);
     setPostes(mockPostes);
   }
+  const creerPoste = useCreateSitePost();
+  const modifierPoste = useUpdateSitePost();
+  const supprimerPoste = useDeleteSitePost();
+  const [erreurEnregistrement, setErreurEnregistrement] = useState<
+    string | null
+  >(null);
   const [selectedPoste, setSelectedPoste] = useState<Poste | null>(null);
   const [posteToDelete, setPosteToDelete] = useState<Poste | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -199,7 +233,7 @@ export default function PostesPage() {
       high: { variant: "default" as const, label: "Élevé" },
       critical: { variant: "destructive" as const, label: "Critique" },
     };
-    const c = map[priority];
+    const c = map[priority] ?? map.medium;
     return <Badge variant={c.variant}>{c.label}</Badge>;
   };
 
@@ -390,11 +424,21 @@ export default function PostesPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!posteToDelete) return;
-    setPostes((prev) => prev.filter((p) => p.id !== posteToDelete.id));
-    setIsDeleteModalOpen(false);
-    setPosteToDelete(null);
+    setErreurEnregistrement(null);
+    try {
+      await supprimerPoste.mutateAsync({
+        siteId: posteToDelete.siteId,
+        postId: posteToDelete.id,
+      });
+      setIsDeleteModalOpen(false);
+      setPosteToDelete(null);
+    } catch (e) {
+      setErreurEnregistrement(
+        e instanceof Error ? e.message : "La suppression a échoué.",
+      );
+    }
   };
 
   const handleOpenCreate = () => {
@@ -426,96 +470,84 @@ export default function PostesPage() {
     return undefined;
   };
 
-  const handleSave = (isEdit: boolean) => {
+  /** Decoupe un champ multi-lignes en liste de consignes. */
+  const decouperLignes = (valeur: string): string[] =>
+    valeur ? valeur.split(SAUT_DE_LIGNE).filter(Boolean) : [];
+
+  /** Traduit le formulaire en charge utile API (colonnes + details JSON). */
+  const construirePayload = (values: PosteFormValues, siteId: string) => {
+    const codes: CertificationCode[] = [];
+    const qualificationsLibres = [...values.requiredQualifications];
+    for (const libelle of values.requiredCertifications) {
+      const code = CODES_CERTIFICATION[libelle];
+      if (code) codes.push(code);
+      else if (!qualificationsLibres.includes(libelle))
+        qualificationsLibres.push(libelle);
+    }
+
+    const details: PostDetails = {
+      type: values.type,
+      requiredQualifications: qualificationsLibres,
+      defaultShiftDuration: values.defaultShiftDuration,
+      breakDuration: values.breakDuration,
+      nightShift: values.nightShift,
+      weekendWork: values.weekendWork,
+      rotatingShift: values.rotatingShift,
+      minAgents: values.minAgents,
+      maxAgents: values.maxAgents,
+      duties: decouperLignes(values.duties),
+      procedures: values.procedures || undefined,
+      equipment: values.equipment,
+      emergencyContactMode: values.emergencyContactMode,
+      emergencyContactName:
+        resolveEmergencyContact(values, siteId)?.split(" — ")[0] || undefined,
+      emergencyContactPhone: values.emergencyContactPhone || undefined,
+      priority: values.priority,
+    };
+
+    return {
+      name: values.name,
+      description: values.description || undefined,
+      requiredCertifications: codes,
+      defaultStartTime: values.vacationStart || undefined,
+      defaultEndTime: values.vacationEnd || undefined,
+      active: values.status === "active",
+      details,
+    };
+  };
+
+  const handleSave = async (isEdit: boolean) => {
     const values = form.state.values;
-    if (isEdit && selectedPoste) {
-      setPostes((prev) =>
-        prev.map((p) =>
-          p.id === selectedPoste.id
-            ? {
-                ...p,
-                name: values.name,
-                type: values.type,
-                description: values.description,
-                requirements: {
-                  requiredCertifications: values.requiredCertifications,
-                  requiredQualifications: values.requiredQualifications,
-                },
-                schedule: {
-                  defaultShiftDuration: values.defaultShiftDuration,
-                  breakDuration: values.breakDuration,
-                  nightShift: values.nightShift,
-                  weekendWork: values.weekendWork,
-                  rotatingShift: values.rotatingShift,
-                  vacationStart: values.vacationStart,
-                  vacationEnd: values.vacationEnd,
-                },
-                capacity: {
-                  minAgents: values.minAgents,
-                  maxAgents: values.maxAgents,
-                  currentAgents: p.capacity.currentAgents,
-                },
-                instructions: {
-                  duties: values.duties
-                    ? values.duties.split("\n").filter(Boolean)
-                    : [],
-                  procedures: values.procedures,
-                  equipment: values.equipment,
-                  emergencyContact: resolveEmergencyContact(
-                    values,
-                    selectedPoste.siteId,
-                  ),
-                },
-                status: values.status,
-                priority: values.priority,
-                updatedAt: new Date(),
-              }
-            : p,
-        ),
+    setErreurEnregistrement(null);
+    try {
+      if (isEdit && selectedPoste) {
+        await modifierPoste.mutateAsync({
+          siteId: selectedPoste.siteId,
+          postId: selectedPoste.id,
+          data: construirePayload(values, selectedPoste.siteId),
+        });
+        setIsEditModalOpen(false);
+      } else {
+        if (!createSiteId) {
+          setErreurEnregistrement("Sélectionnez un site pour ce poste.");
+          return;
+        }
+        await creerPoste.mutateAsync({
+          siteId: createSiteId,
+          data: construirePayload(values, createSiteId),
+        });
+        setIsCreateModalOpen(false);
+      }
+    } catch (e) {
+      setErreurEnregistrement(
+        e instanceof Error ? e.message : "L'enregistrement a échoué.",
       );
-      setIsEditModalOpen(false);
-    } else {
-      const newPoste: Poste = {
-        id: `poste-${Date.now()}`,
-        siteId: createSiteId,
-        name: values.name,
-        type: values.type,
-        description: values.description,
-        requirements: {
-          requiredCertifications: values.requiredCertifications,
-          requiredQualifications: values.requiredQualifications,
-        },
-        schedule: {
-          defaultShiftDuration: values.defaultShiftDuration,
-          breakDuration: values.breakDuration,
-          nightShift: values.nightShift,
-          weekendWork: values.weekendWork,
-          rotatingShift: values.rotatingShift,
-          vacationStart: values.vacationStart,
-          vacationEnd: values.vacationEnd,
-        },
-        capacity: {
-          minAgents: values.minAgents,
-          maxAgents: values.maxAgents,
-          currentAgents: 0,
-        },
-        instructions: {
-          duties: values.duties
-            ? values.duties.split("\n").filter(Boolean)
-            : [],
-          procedures: values.procedures,
-          equipment: values.equipment,
-          emergencyContact: resolveEmergencyContact(values, createSiteId),
-        },
-        status: values.status,
-        priority: values.priority,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setPostes((prev) => [...prev, newPoste]);
-      setIsCreateModalOpen(false);
     }
   };
+
+  const messageErreur = erreurEnregistrement ? (
+    <p className="mb-4 text-sm text-red-500">{erreurEnregistrement}</p>
+  ) : null;
 
   const posteForm = (
     <Tabs defaultValue="general" className="w-full">
@@ -1250,6 +1282,7 @@ export default function PostesPage() {
               </SelectContent>
             </Select>
           </div>
+          {messageErreur}
           {posteForm}
         </div>
       </Modal>
@@ -1275,6 +1308,7 @@ export default function PostesPage() {
           },
         }}
       >
+        {messageErreur}
         {posteForm}
       </Modal>
 

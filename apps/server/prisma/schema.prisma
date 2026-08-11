@@ -516,6 +516,9 @@ model Post {
   defaultStartTime      String? // "07:00"
   defaultEndTime        String? // "19:00"
   active                Boolean  @default(true)
+  /// Caracteristiques metier du poste saisies dans Planning > Postes
+  /// (type, capacite, consignes, equipement, contact d'urgence, priorite).
+  details               Json?
 
   shifts Shift[]
 
