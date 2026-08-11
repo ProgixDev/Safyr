@@ -88,7 +88,7 @@ export function createInvoice(
 ): Promise<Invoice> {
   return apiFetch<Invoice>("/billing/invoices", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 
@@ -97,7 +97,7 @@ export function generateInvoiceFromPlanning(
 ): Promise<Invoice> {
   return apiFetch<Invoice>("/billing/invoices/from-planning", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 
@@ -107,7 +107,7 @@ export function updateInvoice(
 ): Promise<Invoice> {
   return apiFetch<Invoice>(`/billing/invoices/${invoiceId}`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 

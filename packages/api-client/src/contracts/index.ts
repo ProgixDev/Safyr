@@ -48,7 +48,7 @@ export function createContract(
 ): Promise<Contract> {
   return apiFetch<Contract>(base(memberId), {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 
@@ -59,7 +59,7 @@ export function updateContract(
 ): Promise<Contract> {
   return apiFetch<Contract>(`${base(memberId)}/${contractId}`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 
@@ -154,7 +154,7 @@ export function createShiftTemplate(
 ): Promise<ShiftTemplate> {
   return apiFetch<ShiftTemplate>("/shift-templates", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 
