@@ -43,6 +43,7 @@ import {
   UpdateOrganizationSchema,
 } from "@safyr/schemas/organization";
 import { FormFieldRow } from "@/components/ui/form-field-row";
+import { tvaDepuisSiretOuSiren } from "@/lib/tva";
 import { CompanySearch } from "@/components/ui/company-search";
 import { PhoneField } from "@/components/ui/phone-field";
 import { formatDate, formatDateForInput } from "@/lib/date-utils";
@@ -511,6 +512,13 @@ function EntrepriseContent({
                       field={field}
                       label="SIRET"
                       editing={isEditing}
+                      helperText="Le numéro de TVA se remplit automatiquement."
+                      onValueChange={(valeur) => {
+                        // La TVA intracommunautaire se calcule a partir du
+                        // SIREN : inutile de la saisir a la main.
+                        const tva = tvaDepuisSiretOuSiren(valeur);
+                        if (tva) form.setFieldValue("numTVA", tva);
+                      }}
                     >
                       <Input placeholder="Numéro SIRET" />
                     </FormFieldRow>

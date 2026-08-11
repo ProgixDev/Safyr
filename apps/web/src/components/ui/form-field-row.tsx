@@ -24,6 +24,8 @@ interface FormFieldRowProps {
   children: React.ReactElement<InjectedProps>;
   className?: string;
   helperText?: string;
+  /** Appelé après la saisie, pour dériver un autre champ (ex. SIRET → TVA). */
+  onValueChange?: (value: string) => void;
 }
 
 /**
@@ -40,6 +42,7 @@ export function FormFieldRow({
   children,
   className,
   helperText,
+  onValueChange,
 }: FormFieldRowProps) {
   const isTouched = field.state.meta.isTouched;
   const isInvalid = isTouched && field.state.meta.errors.length > 0;
@@ -62,7 +65,10 @@ export function FormFieldRow({
           onBlur: field.handleBlur,
           onChange: (
             e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-          ) => field.handleChange(e.target.value as never),
+          ) => {
+            field.handleChange(e.target.value as never);
+            onValueChange?.(e.target.value);
+          },
           disabled: !editing,
           className: cn(
             children.props.className,

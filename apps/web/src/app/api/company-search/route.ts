@@ -25,6 +25,15 @@ function computeTva(siren: string): string {
 }
 
 /**
+ * L'annuaire renvoie la raison sociale suivie du sigle entre parenthèses
+ * (« PRODIGE SECURITE PRIVEE (PRODIGE) »). On ne garde que la raison sociale :
+ * le sigle n'a pas à figurer dans le nom de l'entreprise.
+ */
+function nettoyerRaisonSociale(nom: string): string {
+  return nom.replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+
+/**
  * Normalise la saisie avant d'interroger l'annuaire.
  *
  * L'API gouv ne comprend que le nom ou le SIREN/SIRET : un numéro de TVA
@@ -88,7 +97,9 @@ export async function GET(req: NextRequest) {
       return {
         siren,
         siret: siege.siret ?? "",
-        name: r.nom_complet ?? r.nom_raison_sociale ?? "",
+        name: nettoyerRaisonSociale(
+          r.nom_complet ?? r.nom_raison_sociale ?? "",
+        ),
         address: siege.adresse ?? "",
         postalCode: siege.code_postal ?? "",
         city: siege.libelle_commune ?? "",
