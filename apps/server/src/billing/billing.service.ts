@@ -11,6 +11,28 @@ function euros(v: number): number {
   return Math.round(v * 100) / 100;
 }
 
+/** Durée légale hebdomadaire au-delà de laquelle les heures sont majorées. */
+const SEUIL_HEBDO = 35;
+
+/**
+ * Identifiant de la semaine civile (lundi → dimanche) d'une date, du type
+ * « 2026-W33 ». Sert à remettre le compteur d'heures à zéro chaque semaine.
+ */
+function cleSemaine(date: Date): string {
+  const d = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  // Jeudi de la semaine courante : détermine l'année ISO.
+  const jour = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - jour + 3);
+  const premierJeudi = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const decalage = (premierJeudi.getUTCDay() + 6) % 7;
+  premierJeudi.setUTCDate(premierJeudi.getUTCDate() - decalage + 3);
+  const semaine =
+    1 + Math.round((d.getTime() - premierJeudi.getTime()) / (7 * 86_400_000));
+  return `${d.getUTCFullYear()}-W${String(semaine).padStart(2, "0")}`;
+}
+
 @Injectable()
 export class BillingService {
   constructor(private readonly prisma: PrismaService) {}
@@ -116,8 +138,9 @@ export class BillingService {
 
   /**
    * Construit une facture a partir des vacations planifiees sur la periode,
-   * pour tous les sites rattaches au client. Les heures au-dela de 35 h par
-   * semaine et par site sont comptees en heures majorees (+25 %).
+   * pour tous les sites rattaches au client. Au-dela de 35 h sur une meme
+   * semaine civile pour un meme agent, les heures sont majorees de 25 %,
+   * comme le prevoit la duree legale du travail.
    */
   async genererDepuisPlanning(orgId: string, dto: GenerateInvoiceDto) {
     const debut = new Date(dto.periodStart);
@@ -139,23 +162,41 @@ export class BillingService {
       );
     }
 
-    // Heures par site
-    const parSite = new Map<string, { nom: string; heures: number }>();
-    for (const v of vacations) {
+    // Repartition normales / majorees : compteur de 35 h par agent et par
+    // semaine civile, alimente dans l'ordre chronologique des vacations.
+    const parSite = new Map<
+      string,
+      { nom: string; normales: number; majorees: number }
+    >();
+    const compteurs = new Map<string, number>();
+    const chronologiques = [...vacations].sort(
+      (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+    );
+
+    for (const v of chronologiques) {
       const site = v.post.site;
       const heures =
-        (new Date(v.endAt).getTime() - new Date(v.startAt).getTime()) / 3_600_000;
-      const courant = parSite.get(site.id) ?? { nom: site.name, heures: 0 };
-      courant.heures += heures;
+        (new Date(v.endAt).getTime() - new Date(v.startAt).getTime()) /
+        3_600_000;
+
+      // Une vacation non affectee est comptee sur le poste qu'elle occupe.
+      const cle = `${v.memberId ?? `poste:${v.postId}`}|${cleSemaine(
+        new Date(v.startAt),
+      )}`;
+      const dejaFaites = compteurs.get(cle) ?? 0;
+      const normales = Math.max(0, Math.min(heures, SEUIL_HEBDO - dejaFaites));
+      const majorees = heures - normales;
+      compteurs.set(cle, dejaFaites + heures);
+
+      const courant = parSite.get(site.id) ?? {
+        nom: site.name,
+        normales: 0,
+        majorees: 0,
+      };
+      courant.normales += normales;
+      courant.majorees += majorees;
       parSite.set(site.id, courant);
     }
-
-    // Repartition normales / majorees : 35 h par semaine et par site
-    const semaines = Math.max(
-      1,
-      Math.ceil((fin.getTime() - debut.getTime()) / (7 * 86_400_000)),
-    );
-    const seuil = 35 * semaines;
 
     const lignes: {
       label: string;
@@ -166,9 +207,7 @@ export class BillingService {
     let heuresNormales = 0;
     let heuresMajorees = 0;
 
-    for (const [siteId, { nom, heures }] of parSite) {
-      const normales = Math.min(heures, seuil);
-      const majorees = Math.max(0, heures - seuil);
+    for (const [siteId, { nom, normales, majorees }] of parSite) {
       heuresNormales += normales;
       heuresMajorees += majorees;
 
@@ -195,11 +234,17 @@ export class BillingService {
     const totalHeures = euros(heuresNormales + heuresMajorees);
     const premierSite = [...parSite.entries()][0];
 
+    // La fiche client d'Entreprise, quand elle existe, sert de référence.
+    const client = await this.prisma.client.findFirst({
+      where: { organizationId: orgId, name: dto.clientName },
+      select: { id: true },
+    });
+
     return this.prisma.invoice.create({
       data: {
         organizationId: orgId,
         invoiceNumber: await this.prochainNumero(orgId),
-        clientId: dto.clientName,
+        clientId: client?.id ?? dto.clientName,
         clientName: dto.clientName,
         siteId: parSite.size === 1 ? premierSite[0] : null,
         siteName: parSite.size === 1 ? premierSite[1].nom : null,
