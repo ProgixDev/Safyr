@@ -160,7 +160,9 @@ export default function BillingClientsPage() {
         }
         actions={(c) => (
           <RowActionsMenu
-            onView={() => router.push(`/dashboard/hr/entreprise/clients/${c.id}`)}
+            onView={() =>
+              router.push(`/dashboard/hr/entreprise/clients/${c.id}`)
+            }
             extraItems={[
               {
                 label: "Facturer la période",

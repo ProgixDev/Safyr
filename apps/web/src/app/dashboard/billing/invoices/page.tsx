@@ -61,7 +61,11 @@ function jour(iso: string): string {
 /** Premier et dernier jour du mois précédent, au format AAAA-MM-JJ. */
 function moisPrecedent(): { debut: string; fin: string } {
   const maintenant = new Date();
-  const debut = new Date(maintenant.getFullYear(), maintenant.getMonth() - 1, 1);
+  const debut = new Date(
+    maintenant.getFullYear(),
+    maintenant.getMonth() - 1,
+    1,
+  );
   const fin = new Date(maintenant.getFullYear(), maintenant.getMonth(), 0);
   const iso = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(

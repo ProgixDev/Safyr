@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Clock,
   MapPin,
+  Plus,
   XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +17,22 @@ import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
-import { useLogbookEvents, useValidateLogbookEvent } from "@/hooks/logbook";
-import type { LogbookEvent, Severity } from "@safyr/api-client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  useCreateLogbookEvent,
+  useLogbookEvents,
+  useValidateLogbookEvent,
+} from "@/hooks/logbook";
+import { useSites } from "@/hooks/sites";
+import type { EventType, LogbookEvent, Severity } from "@safyr/api-client";
 
 const TYPE_LABELS: Record<LogbookEvent["type"], string> = {
   event: "Événement",
@@ -67,6 +82,15 @@ function formatDateTime(iso: string): string {
   });
 }
 
+/** Date/heure courante au format attendu par un champ datetime-local. */
+function maintenantLocal(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(
+    d.getHours(),
+  )}:${p(d.getMinutes())}`;
+}
+
 function agentName(e: LogbookEvent): string {
   if (!e.member) return "—";
   const full = [e.member.firstName, e.member.lastName]
@@ -80,6 +104,50 @@ export default function LogbookEventsApiPage() {
   const events = useMemo<LogbookEvent[]>(() => data ?? [], [data]);
 
   const validateMutation = useValidateLogbookEvent();
+  const creerEvenement = useCreateLogbookEvent();
+  const { data: sites = [] } = useSites();
+
+  const [saisieOuverte, setSaisieOuverte] = useState(false);
+  const [erreurSaisie, setErreurSaisie] = useState<string | null>(null);
+  const [nouveau, setNouveau] = useState({
+    siteId: "",
+    type: "event" as EventType,
+    severity: "low" as Severity,
+    title: "",
+    description: "",
+    occurredAt: maintenantLocal(),
+  });
+
+  async function enregistrerEvenement() {
+    setErreurSaisie(null);
+    if (!nouveau.title.trim()) {
+      setErreurSaisie("Le titre de l'événement est requis.");
+      return;
+    }
+    try {
+      await creerEvenement.mutateAsync({
+        siteId: nouveau.siteId || undefined,
+        type: nouveau.type,
+        severity: nouveau.severity,
+        title: nouveau.title.trim(),
+        description: nouveau.description.trim() || undefined,
+        occurredAt: new Date(nouveau.occurredAt).toISOString(),
+      });
+      setSaisieOuverte(false);
+      setNouveau({
+        siteId: "",
+        type: "event",
+        severity: "low",
+        title: "",
+        description: "",
+        occurredAt: maintenantLocal(),
+      });
+    } catch (e) {
+      setErreurSaisie(
+        e instanceof Error ? e.message : "L'enregistrement a échoué.",
+      );
+    }
+  }
 
   const [validating, setValidating] = useState<LogbookEvent | null>(null);
   const [validationStatus, setValidationStatus] = useState<
@@ -201,14 +269,20 @@ export default function LogbookEventsApiPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <ClipboardList className="h-7 w-7" />
-          Main courante — Événements
-        </h1>
-        <p className="text-muted-foreground">
-          Saisies des agents en temps réel, validation par les superviseurs
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <ClipboardList className="h-7 w-7" />
+            Main courante — Événements
+          </h1>
+          <p className="text-muted-foreground">
+            Saisies des agents en temps réel, validation par les superviseurs
+          </p>
+        </div>
+        <Button onClick={() => setSaisieOuverte(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nouvel événement
+        </Button>
       </div>
 
       <InfoCardContainer>
@@ -329,6 +403,135 @@ export default function LogbookEventsApiPage() {
           />
         </CardContent>
       </Card>
+
+      <Modal
+        open={saisieOuverte}
+        onOpenChange={setSaisieOuverte}
+        type="form"
+        size="lg"
+        title="Nouvel événement de main courante"
+        description="Consigné au registre, puis soumis à validation du superviseur"
+        actions={{
+          secondary: {
+            label: "Annuler",
+            onClick: () => setSaisieOuverte(false),
+            variant: "outline",
+          },
+          primary: {
+            label: creerEvenement.isPending ? "Enregistrement…" : "Enregistrer",
+            disabled: creerEvenement.isPending,
+            onClick: enregistrerEvenement,
+          },
+        }}
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="titre">Titre</Label>
+            <Input
+              id="titre"
+              value={nouveau.title}
+              onChange={(e) =>
+                setNouveau((n) => ({ ...n, title: e.target.value }))
+              }
+              placeholder="Ex : Ronde de contrôle secteur nord"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="site">Site</Label>
+              <Select
+                value={nouveau.siteId}
+                onValueChange={(v) => setNouveau((n) => ({ ...n, siteId: v }))}
+              >
+                <SelectTrigger id="site">
+                  <SelectValue placeholder="Sélectionner un site" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sites.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="survenu">Date et heure</Label>
+              <Input
+                id="survenu"
+                type="datetime-local"
+                value={nouveau.occurredAt}
+                onChange={(e) =>
+                  setNouveau((n) => ({ ...n, occurredAt: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="type">Type</Label>
+              <Select
+                value={nouveau.type}
+                onValueChange={(v) =>
+                  setNouveau((n) => ({ ...n, type: v as EventType }))
+                }
+              >
+                <SelectTrigger id="type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(
+                    Object.keys(TYPE_LABELS) as (keyof typeof TYPE_LABELS)[]
+                  ).map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {TYPE_LABELS[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="gravite">Gravité</Label>
+              <Select
+                value={nouveau.severity}
+                onValueChange={(v) =>
+                  setNouveau((n) => ({ ...n, severity: v as Severity }))
+                }
+              >
+                <SelectTrigger id="gravite">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(SEVERITY_META) as Severity[]).map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {SEVERITY_META[g].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              rows={4}
+              value={nouveau.description}
+              onChange={(e) =>
+                setNouveau((n) => ({ ...n, description: e.target.value }))
+              }
+              placeholder="Déroulé des faits, personnes présentes, suites données…"
+            />
+          </div>
+
+          {erreurSaisie && (
+            <p className="text-sm text-red-500">{erreurSaisie}</p>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         open={!!validating}
