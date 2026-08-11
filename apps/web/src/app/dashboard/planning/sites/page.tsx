@@ -52,8 +52,19 @@ export default function SitesPage() {
   const { sites: mockSites, postes: mockPostes } = usePlanningSites();
 
   const searchParams = useSearchParams();
-  const [sites, setSites] = useState<Site[]>(mockSites);
-  const [postes, setPostes] = useState<Poste[]>(mockPostes);
+  // Memes precautions que sur l'ecran Postes : les listes viennent de l'API,
+  // l'etat local doit suivre au lieu de figer la valeur initiale.
+  const [sites, setSites] = useState<Site[]>([]);
+  const [postes, setPostes] = useState<Poste[]>([]);
+  const [donneesChargees, setDonneesChargees] = useState<string | null>(null);
+  const cleDonnees = `${mockSites.map((s) => s.id).join(",")}|${mockPostes
+    .map((p) => p.id)
+    .join(",")}`;
+  if (cleDonnees !== donneesChargees) {
+    setDonneesChargees(cleDonnees);
+    setSites(mockSites);
+    setPostes(mockPostes);
+  }
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [isCreateSiteModalOpen, setIsCreateSiteModalOpen] = useState(false);
   const [isEditSiteModalOpen, setIsEditSiteModalOpen] = useState(false);

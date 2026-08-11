@@ -150,7 +150,17 @@ export default function PostesPage() {
   } = usePlanningSites();
 
   const searchParams = useSearchParams();
-  const [postes, setPostes] = useState<Poste[]>(mockPostes);
+
+  // Les postes arrivent de l'API : `useState` ne lit sa valeur initiale qu'une
+  // fois, la liste serait donc restee vide. On la resynchronise pendant le
+  // rendu des que la source change.
+  const [postes, setPostes] = useState<Poste[]>([]);
+  const [postesCharges, setPostesCharges] = useState<string | null>(null);
+  const clePostes = mockPostes.map((p) => p.id).join(",");
+  if (clePostes !== postesCharges) {
+    setPostesCharges(clePostes);
+    setPostes(mockPostes);
+  }
   const [selectedPoste, setSelectedPoste] = useState<Poste | null>(null);
   const [posteToDelete, setPosteToDelete] = useState<Poste | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
