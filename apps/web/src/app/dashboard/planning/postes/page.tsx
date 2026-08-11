@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -205,6 +205,9 @@ export default function PostesPage() {
   const showCreateFromUrl = searchParams.get("create") === "true";
 
   const form = useForm({ defaultValues: DEFAULT_FORM });
+  // `form.state` n'est pas reactif : sans abonnement, le bouton d'envoi
+  // restait desactive meme apres la saisie du nom.
+  const nomSaisi = useStore(form.store, (etat) => etat.values.name);
 
   const activeSiteId = isEditModalOpen
     ? (selectedPoste?.siteId ?? createSiteId)
@@ -1257,7 +1260,7 @@ export default function PostesPage() {
           primary: {
             label: "Créer le poste",
             onClick: () => handleSave(false),
-            disabled: !form.state.values.name,
+            disabled: !nomSaisi,
           },
           secondary: {
             label: "Annuler",
@@ -1299,7 +1302,7 @@ export default function PostesPage() {
           primary: {
             label: "Enregistrer",
             onClick: () => handleSave(true),
-            disabled: !form.state.values.name,
+            disabled: !nomSaisi,
           },
           secondary: {
             label: "Annuler",
