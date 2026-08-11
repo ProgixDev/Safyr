@@ -63,6 +63,9 @@ import {
 } from "@/data/site-shifts";
 import { mockTimeOffRequests } from "@/data/time-off";
 import { usePlanningAgents, usePlanningSites } from "@/hooks/planning";
+import { useShifts, useCreateShift, useDeleteShift } from "@/hooks/shifts";
+import { useShiftTemplates } from "@/hooks/contracts";
+import type { Shift as ApiShift } from "@safyr/api-client";
 import { playAlertBeep } from "@/lib/audio-alerts";
 import { DailyView } from "./_components/DailyView";
 import { WeeklyView } from "./_components/WeeklyView";
@@ -193,6 +196,107 @@ export function ScheduleView({
       setLiveSiteAgents(v);
     }
   };
+  // Modeles de vacation enregistres, partages avec l'ecran Shift.
+  const { data: modelesApi = [] } = useShiftTemplates();
+
+  // Vacations réellement enregistrées en base.
+  const { data: vacationsApi = [] } = useShifts({});
+  const creerVacation = useCreateShift();
+  const supprimerVacation = useDeleteShift();
+
+  /** Convertit une vacation de l'API vers le format de la grille. */
+  const versGrille = (v: ApiShift): AgentShift => {
+    const debut = new Date(v.startAt);
+    const fin = new Date(v.endAt);
+    const hhmm = (d: Date) =>
+      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return {
+      id: v.id,
+      agentId: v.memberId ?? "",
+      siteId: v.post?.site.id ?? "",
+      postId: v.postId,
+      date: `${debut.getFullYear()}-${String(debut.getMonth() + 1).padStart(2, "0")}-${String(debut.getDate()).padStart(2, "0")}`,
+      shiftType: "standard",
+      startTime: hhmm(debut),
+      endTime: hhmm(fin),
+      breakDuration: 0,
+      color: "#3b82f6",
+      notes: v.notes ?? undefined,
+      createdAt: new Date(v.createdAt),
+      updatedAt: new Date(v.updatedAt),
+    } as AgentShift;
+  };
+
+  const [modelesCharges, setModelesCharges] = useState<string | null>(null);
+  const cleModeles = modelesApi.map((m) => m.id).join(",");
+  if (!forceSimulation && cleModeles !== modelesCharges) {
+    setModelesCharges(cleModeles);
+    setLiveStandardShifts(
+      modelesApi.map((m) => ({
+        id: m.id,
+        siteId: m.siteId,
+        name: m.name,
+        startTime: m.startTime,
+        endTime: m.endTime,
+        breakDuration: m.breakDuration,
+        color: m.color,
+        createdAt: new Date(m.createdAt),
+        updatedAt: new Date(m.updatedAt),
+      })),
+    );
+  }
+
+  // La grille repart des vacations enregistrées dès que la liste change.
+  const [vacationsChargees, setVacationsChargees] = useState<string | null>(
+    null,
+  );
+  const cleVacations = vacationsApi.map((v) => v.id).join(",");
+  if (!forceSimulation && cleVacations !== vacationsChargees) {
+    setVacationsChargees(cleVacations);
+    setLiveAgentShifts(vacationsApi.map(versGrille));
+  }
+
+  /** Construit une date ISO à partir du jour et de l'heure de la grille. */
+  const versIso = (date: string, heure: string) =>
+    new Date(`${date}T${heure}:00`).toISOString();
+
+  const enregistrerVacation = async (vacation: AgentShift) => {
+    // Une vacation doit viser un poste : à défaut, on prend le premier du site.
+    const site = mockSites.find((s) => s.id === vacation.siteId);
+    const postId = vacation.postId ?? site?.postes?.[0]?.id;
+    if (!postId || !vacation.agentId) return;
+
+    try {
+      await creerVacation.mutateAsync({
+        postId,
+        memberId: vacation.agentId,
+        startAt: versIso(vacation.date, vacation.startTime),
+        endAt: versIso(vacation.date, vacation.endTime),
+        ...(vacation.notes ? { notes: vacation.notes } : {}),
+      });
+    } catch (e) {
+      console.error("Vacation non enregistrée", e);
+    }
+  };
+
+  const retirerVacation = async (vacation: AgentShift) => {
+    // Seules les vacations déjà en base ont un identifiant serveur.
+    if (!vacationsApi.some((v) => v.id === vacation.id)) return;
+    try {
+      await supprimerVacation.mutateAsync(vacation.id);
+    } catch (e) {
+      console.error("Vacation non supprimée", e);
+    }
+  };
+
+  /**
+   * Enregistrement des vacations.
+   *
+   * La grille manipule un tableau local via treize points de mutation
+   * différents ; plutôt que d'instrumenter chacun, on compare l'ancien et le
+   * nouvel état ici — le seul passage obligé — et on répercute la différence
+   * sur l'API. En mode simulation rien n'est enregistré, c'est le principe.
+   */
   const setAgentShifts: React.Dispatch<React.SetStateAction<AgentShift[]>> = (
     v,
   ) => {
@@ -203,9 +307,25 @@ export function ScheduleView({
           ? (v as (x: AgentShift[]) => AgentShift[])(current)
           : v;
       });
-    } else {
-      setLiveAgentShifts(v);
+      return;
     }
+
+    const suivant =
+      typeof v === "function"
+        ? (v as (x: AgentShift[]) => AgentShift[])(liveAgentShifts)
+        : v;
+
+    const avant = new Set(liveAgentShifts.map((s) => s.id));
+    const apres = new Set(suivant.map((s) => s.id));
+
+    for (const vacation of suivant) {
+      if (!avant.has(vacation.id)) void enregistrerVacation(vacation);
+    }
+    for (const vacation of liveAgentShifts) {
+      if (!apres.has(vacation.id)) void retirerVacation(vacation);
+    }
+
+    setLiveAgentShifts(suivant);
   };
 
   // Modals

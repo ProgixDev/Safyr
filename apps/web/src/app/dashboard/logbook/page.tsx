@@ -28,7 +28,7 @@ import {
   WidgetGrid,
   PersonnaliserButton,
 } from "@/components/ui/widget-customizer";
-import { mockLogbookEvents } from "@/data/logbook-events";
+import { useLogbookEvents } from "@/hooks/logbook";
 import { mockAlerts } from "@/data/logbook-alerts";
 import { EventFeedWidget } from "@/components/logbook/dashboard/EventFeedWidget";
 import { ActiveAlertsPanel } from "@/components/logbook/dashboard/ActiveAlertsPanel";
@@ -55,16 +55,20 @@ type LogbookWidgetConfig = WidgetConfig & {
 };
 
 function OverviewWidget({ isLoading }: { isLoading: boolean }) {
-  const totalEvents = mockLogbookEvents.length;
-  const criticalEvents = mockLogbookEvents.filter(
+  // Compteurs calcules sur les evenements reellement enregistres.
+  const { data: evenements = [], isLoading: chargement } = useLogbookEvents({});
+  const totalEvents = evenements.length;
+  const criticalEvents = evenements.filter(
     (e) => e.severity === "critical",
   ).length;
-  const pendingValidation = mockLogbookEvents.filter(
-    (e) => e.status === "pending" || e.status === "in_progress",
+  const pendingValidation = evenements.filter(
+    (e) => e.status === "open",
   ).length;
-  const resolvedToday = mockLogbookEvents.filter(
-    (e) => e.status === "resolved",
+  const resolvedToday = evenements.filter(
+    (e) => e.status === "validated" || e.status === "closed",
   ).length;
+
+  isLoading = isLoading || chargement;
 
   if (isLoading) {
     return (
@@ -161,12 +165,13 @@ function OverviewWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function ReportsFilterWidget({ isLoading }: { isLoading: boolean }) {
+  const { data: evenements = [] } = useLogbookEvents({});
   const [dateFilter] = useState<DateFilterPreset>("week");
   const [customStartDate] = useState<string>("");
   const [customEndDate] = useState<string>("");
 
   const incidentsCount = useMemo(
-    () => mockLogbookEvents.filter((e) => e.type === "incident").length,
+    () => evenements.filter((e) => e.type === "incident").length,
     [],
   );
 
@@ -209,22 +214,21 @@ function ReportsFilterWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function LiveFeedWidget({ isLoading }: { isLoading: boolean }) {
+  const { data: evenements = [] } = useLogbookEvents({});
   return <EventFeedWidget isLoading={isLoading} />;
 }
 
 function AlertsWidget({ isLoading }: { isLoading: boolean }) {
+  const { data: evenements = [] } = useLogbookEvents({});
   return <ActiveAlertsPanel isLoading={isLoading} />;
 }
 
 function ValidationWidget({ isLoading }: { isLoading: boolean }) {
-  const pending = mockLogbookEvents.filter(
-    (e) => e.status === "pending",
-  ).length;
-  const inProgress = mockLogbookEvents.filter(
-    (e) => e.status === "in_progress",
-  ).length;
-  const resolved = mockLogbookEvents.filter(
-    (e) => e.status === "resolved",
+  const { data: evenements = [] } = useLogbookEvents({});
+  const pending = evenements.filter((e) => e.status === "open").length;
+  const inProgress = evenements.filter((e) => e.status === "open").length;
+  const resolved = evenements.filter(
+    (e) => e.status === "validated" || e.status === "closed",
   ).length;
 
   if (isLoading) {
@@ -319,6 +323,7 @@ function PortalsWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function PlanningWidget({ isLoading }: { isLoading: boolean }) {
+  const { data: evenements = [] } = useLogbookEvents({});
   if (isLoading) {
     return (
       <Card className="glass-card border-border/40 h-full">
@@ -356,6 +361,7 @@ function PlanningWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function SecurityWidget({ isLoading }: { isLoading: boolean }) {
+  const { data: evenements = [] } = useLogbookEvents({});
   if (isLoading) {
     return (
       <Card className="glass-card border-border/40 h-full">
@@ -369,7 +375,7 @@ function SecurityWidget({ isLoading }: { isLoading: boolean }) {
     );
   }
 
-  const securityEvents = mockLogbookEvents.filter((e) =>
+  const securityEvents = evenements.filter((e) =>
     ["critical", "high"].includes(e.severity),
   ).length;
 
@@ -490,11 +496,12 @@ function QuickActionsWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function ModuleHighlightsWidget({ isLoading }: { isLoading: boolean }) {
+  const { data: evenements = [] } = useLogbookEvents({});
   const activeAlerts = mockAlerts.filter(
     (a) => a.status === "active" || a.status === "acknowledged",
   ).length;
-  const reportsReady = mockLogbookEvents.filter(
-    (e) => e.status === "resolved",
+  const reportsReady = evenements.filter(
+    (e) => e.status === "validated" || e.status === "closed",
   ).length;
 
   if (isLoading) {

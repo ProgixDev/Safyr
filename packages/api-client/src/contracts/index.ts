@@ -120,3 +120,46 @@ export function deleteAttachment(documentId: string): Promise<{ id: string }> {
     { method: "DELETE" },
   );
 }
+
+// ── Modèles de vacation (planning) ────────────────────────────────────
+
+export interface ShiftTemplate {
+  id: string;
+  organizationId: string;
+  siteId: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  breakDuration: number;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ShiftTemplatePayload = {
+  siteId: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  breakDuration?: number;
+  color?: string;
+};
+
+export function listShiftTemplates(): Promise<ShiftTemplate[]> {
+  return apiFetch<ShiftTemplate[]>("/shift-templates");
+}
+
+export function createShiftTemplate(
+  payload: ShiftTemplatePayload,
+): Promise<ShiftTemplate> {
+  return apiFetch<ShiftTemplate>("/shift-templates", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteShiftTemplate(id: string): Promise<ShiftTemplate> {
+  return apiFetch<ShiftTemplate>(`/shift-templates/${id}`, {
+    method: "DELETE",
+  });
+}

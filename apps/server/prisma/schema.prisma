@@ -336,6 +336,26 @@ model Document {
   @@map("document")
 }
 
+/// Modele de vacation d'un site : horaires types reutilisables dans le planning.
+model ShiftTemplate {
+  id             String @id @default(cuid())
+  organizationId String
+  siteId         String
+
+  name          String
+  startTime     String // HH:mm
+  endTime       String // HH:mm
+  breakDuration Int    @default(0) // minutes
+  color         String @default("#3b82f6")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([siteId])
+  @@map("shift_template")
+}
+
 /// Contrat de travail d'un salarié : CDI, CDD, intérim et avenants.
 model Contract {
   id             String @id @default(cuid())

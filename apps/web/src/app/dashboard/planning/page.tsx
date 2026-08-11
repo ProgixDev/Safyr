@@ -51,48 +51,36 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { mockEmployees } from "@/data/employees";
-import { mockAgentShifts } from "@/data/site-shifts";
-import { mockSites } from "@/data/sites";
+import { usePlanningAgents, usePlanningSites } from "@/hooks/planning";
+import { useShifts } from "@/hooks/shifts";
 import { getSiteColorClasses } from "@/lib/site-colors";
 
-// Convert Employee to agent stats
-function getAgentStats() {
-  const activeEmployees = mockEmployees.filter((e) => e.status === "active");
-
-  const available = activeEmployees.length;
-  const cdiCount = activeEmployees.filter(
-    (e) => e.contracts.find((c) => c.status === "active")?.type === "CDI",
-  ).length;
-  const cddCount = activeEmployees.filter(
-    (e) => e.contracts.find((c) => c.status === "active")?.type === "CDD",
-  ).length;
-  const interimCount = activeEmployees.filter(
-    (e) => e.contracts.find((c) => c.status === "active")?.type === "INTERIM",
-  ).length;
-
-  const qualified = activeEmployees.filter(
-    (e) =>
-      e.documents.cqpAps ||
-      e.documents.ssiap ||
-      e.documents.sst ||
-      e.documents.proCard,
-  ).length;
+/**
+ * Statistiques des agents, calculees sur les dossiers salaries reels.
+ * Elles partaient d'une liste de demonstration : le tableau de bord du
+ * planning affichait donc des effectifs sans rapport avec l'entreprise.
+ */
+function useAgentStats() {
+  const { agents } = usePlanningAgents();
+  const disponibles = agents.filter(
+    (a) => a.availabilityStatus === "Disponible",
+  );
 
   return {
-    total: activeEmployees.length,
-    available,
-    onMission: 0, // Would come from mission data
-    onLeave: 0, // Would come from leave data
-    cdi: cdiCount,
-    cdd: cddCount,
-    interim: interimCount,
-    qualified,
+    total: agents.length,
+    available: disponibles.length,
+    onMission: agents.filter((a) => a.availabilityStatus === "En mission")
+      .length,
+    onLeave: agents.filter((a) => a.availabilityStatus === "Congé").length,
+    cdi: agents.filter((a) => a.contractType === "CDI").length,
+    cdd: agents.filter((a) => a.contractType === "CDD").length,
+    interim: agents.filter((a) => a.contractType === "Intérim").length,
+    qualified: agents.filter((a) => a.qualifications.length > 0).length,
   };
 }
 
 function AgentStatsWidget({ isLoading }: { isLoading: boolean }) {
-  const stats = getAgentStats();
+  const stats = useAgentStats();
 
   if (isLoading) {
     return (
@@ -145,7 +133,7 @@ function AgentStatsWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function AvailabilityWidget({ isLoading }: { isLoading: boolean }) {
-  const stats = getAgentStats();
+  const stats = useAgentStats();
 
   if (isLoading) {
     return (
@@ -193,7 +181,7 @@ function AvailabilityWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function MissionStatusWidget({ isLoading }: { isLoading: boolean }) {
-  const stats = getAgentStats();
+  const stats = useAgentStats();
   const onMission = 45; // Mock data
   const missionRate = (onMission / stats.total) * 100;
 
@@ -239,7 +227,7 @@ function MissionStatusWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function QualificationsWidget({ isLoading }: { isLoading: boolean }) {
-  const stats = getAgentStats();
+  const stats = useAgentStats();
   const qualifications = [
     { name: "CQP APS", count: 67, color: "bg-blue-500" },
     { name: "SSIAP", count: 34, color: "bg-green-500" },
@@ -289,7 +277,7 @@ function QualificationsWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function ContractTypesWidget({ isLoading }: { isLoading: boolean }) {
-  const stats = getAgentStats();
+  const stats = useAgentStats();
 
   if (isLoading) {
     return (
@@ -684,12 +672,27 @@ const formatDateFr = (offset: number) => {
 };
 
 function PlanningOverviewWidget({ isLoading }: { isLoading: boolean }) {
+  const { sites } = usePlanningSites();
+  const { agents } = usePlanningAgents();
+  const { data: vacations = [] } = useShifts({});
+
   const days = useMemo(() => {
     return [0, 1, 2].map((offset) => {
       const dateStr = getDateString(offset);
-      const shiftsForDay = mockAgentShifts.filter(
-        (shift) => shift.date === dateStr,
-      );
+      const shiftsForDay = vacations
+        .filter((v) => v.startAt.split("T")[0] === dateStr)
+        .map((v) => {
+          const debut = new Date(v.startAt);
+          const fin = new Date(v.endAt);
+          const hhmm = (d: Date) =>
+            `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+          return {
+            siteId: v.post?.site.id ?? "",
+            agentId: v.memberId ?? "",
+            startTime: hhmm(debut),
+            endTime: hhmm(fin),
+          };
+        });
 
       const siteMap = new Map<
         string,
@@ -704,13 +707,11 @@ function PlanningOverviewWidget({ isLoading }: { isLoading: boolean }) {
         }
       >();
       for (const shift of shiftsForDay) {
-        const site = mockSites.find((s) => s.id === shift.siteId);
+        const site = sites.find((s) => s.id === shift.siteId);
         const siteName = site?.name || shift.siteId;
         const siteColor = site ? getSiteColorClasses(site.color) : null;
-        const employee = mockEmployees.find((e) => e.id === shift.agentId);
-        const agentName = employee
-          ? `${employee.firstName} ${employee.lastName}`
-          : shift.agentId;
+        const agentName =
+          agents.find((a) => a.id === shift.agentId)?.name || shift.agentId;
         if (!siteMap.has(shift.siteId)) {
           siteMap.set(shift.siteId, {
             name: siteName,
@@ -725,15 +726,15 @@ function PlanningOverviewWidget({ isLoading }: { isLoading: boolean }) {
         });
       }
 
-      const sites = Array.from(siteMap.values());
+      const sitesDuJour = Array.from(siteMap.values());
 
       return {
         label: formatDateFr(offset),
         total: shiftsForDay.length,
-        sites,
+        sites: sitesDuJour,
       };
     });
-  }, []);
+  }, [vacations, sites, agents]);
 
   if (isLoading) {
     return (

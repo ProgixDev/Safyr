@@ -22,7 +22,8 @@ import {
   Mail,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
-import { mockAlerts, type Alert, type AlertType } from "@/data/logbook-alerts";
+import { type Alert, type AlertType } from "@/data/logbook-alerts";
+import { useLogbookEvents } from "@/hooks/logbook";
 import { getSeverityLabel } from "@/lib/logbook-utils";
 
 export default function AlertsPage() {
@@ -30,7 +31,38 @@ export default function AlertsPage() {
   const [viewingAlert, setViewingAlert] = useState<Alert | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
 
-  const alerts = mockAlerts;
+  /**
+   * Les alertes sont derivees des evenements reels de gravite elevee ou
+   * critique encore ouverts : la page lisait auparavant une liste de
+   * demonstration et n'etait donc jamais alimentee par le terrain.
+   */
+  const { data: evenements = [] } = useLogbookEvents({});
+
+  const alerts: Alert[] = evenements
+    .filter(
+      (e) =>
+        (e.severity === "high" || e.severity === "critical") &&
+        e.status === "open",
+    )
+    .map((e) => ({
+      id: e.id,
+      type: (e.category as AlertType) ?? "autre",
+      title: e.title,
+      description: e.description ?? "",
+      timestamp: e.occurredAt,
+      site: e.site?.name ?? "Site non renseigné",
+      siteId: e.siteId ?? "",
+      severity: e.severity === "critical" ? "critical" : "high",
+      status: "active",
+      notified: {
+        pcSecurite: false,
+        superviseur: false,
+        client: false,
+        pompiers: false,
+        police: false,
+        samu: false,
+      },
+    })) as unknown as Alert[];
 
   const filteredAlerts =
     filterType === "all" ? alerts : alerts.filter((a) => a.type === filterType);

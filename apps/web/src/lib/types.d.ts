@@ -2657,6 +2657,8 @@ export interface AgentShift {
   id: string;
   agentId: string;
   siteId: string;
+  /** Poste vise par la vacation (requis pour l'enregistrement en base). */
+  postId?: string;
   date: string; // YYYY-MM-DD format
   shiftType: ShiftType;
   // For standard shifts

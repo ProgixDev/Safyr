@@ -1,600 +1,270 @@
 "use client";
 
-import { useState } from "react";
-import {
-  mockLogbookEvents,
-  mockSites,
-  mockAgents,
-  LogbookEvent,
-} from "@/data/logbook-events";
+import { useMemo, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { Textarea } from "@/components/ui/textarea";
+import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { cn } from "@/lib/utils";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   Clock,
-  MessageSquare,
   MapPin,
-  Camera,
-  Video,
-  Mic,
-  Edit,
+  ShieldCheck,
+  Search,
 } from "lucide-react";
-import { Modal } from "@/components/ui/modal";
-import { getSeverityLabel, getStatusLabel } from "@/lib/logbook-utils";
+import { useLogbookEvents, useValidateLogbookEvent } from "@/hooks/logbook";
+import type { LogbookEvent, Severity } from "@safyr/api-client";
 
-export default function ValidationPage() {
-  const [events, setEvents] = useState<LogbookEvent[]>(mockLogbookEvents);
-  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
-  const [comment, setComment] = useState("");
-  const [action, setAction] = useState<"approve" | "reject" | "modify" | null>(
-    null,
+const SEVERITE_LABELS: Record<Severity, string> = {
+  low: "Faible",
+  medium: "Moyenne",
+  high: "Élevée",
+  critical: "Critique",
+};
+
+const SEVERITE_COULEURS: Record<Severity, string> = {
+  low: "bg-muted-foreground/40",
+  medium: "bg-sky-500",
+  high: "bg-orange-500",
+  critical: "bg-red-600",
+};
+
+const TYPE_LABELS: Record<LogbookEvent["type"], string> = {
+  event: "Événement",
+  incident: "Incident",
+  action: "Action",
+  control: "Contrôle",
+};
+
+function nomAgent(e: LogbookEvent) {
+  if (!e.member) return "—";
+  return `${e.member.firstName ?? ""} ${e.member.lastName ?? ""}`.trim() || "—";
+}
+
+/**
+ * Validation des saisies de la main courante.
+ *
+ * L'écran travaillait sur des événements de démonstration : il restait vide et
+ * ne validait rien. Il lit désormais les événements réels et appelle
+ * l'endpoint de validation, qui existait déjà côté serveur.
+ */
+export default function LogbookValidationPage() {
+  const { data: evenements = [], isLoading } = useLogbookEvents({});
+  const valider = useValidateLogbookEvent();
+
+  const [recherche, setRecherche] = useState("");
+  const [aRefuser, setARefuser] = useState<LogbookEvent | null>(null);
+  const [motif, setMotif] = useState("");
+
+  const aValider = useMemo(
+    () => evenements.filter((e) => e.status === "open"),
+    [evenements],
   );
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
-  const [viewingEvent, setViewingEvent] = useState<LogbookEvent | null>(null);
-  const [modifyData, setModifyData] = useState({
-    severity: "",
-    type: "",
-    tags: "",
-    notifyClient: false,
-  });
 
-  const pendingEvents = events.filter(
-    (e) =>
-      (e.status === "pending" || e.status === "in_progress") &&
-      e.severity === "critical",
-  );
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return "destructive";
-      case "high":
-        return "destructive";
-      case "medium":
-        return "default";
-      case "low":
-        return "secondary";
-      default:
-        return "outline";
-    }
-  };
-
-  const handleValidation = (
-    eventId: string,
-    validationAction: "approve" | "reject" | "modify",
-  ) => {
-    setSelectedEvent(eventId);
-    setAction(validationAction);
-    const event = events.find((e) => e.id === eventId);
-    if (event && validationAction === "modify") {
-      setModifyData({
-        severity: event.severity,
-        type: event.type,
-        tags: event.tags.join(", "),
-        notifyClient: event.clientNotified,
-      });
-      setIsModifyModalOpen(true);
-    }
-  };
-
-  const handleSubmitValidation = () => {
-    if (!selectedEvent) return;
-
-    const eventIndex = events.findIndex((e) => e.id === selectedEvent);
-    if (eventIndex === -1) return;
-
-    const updatedEvents = [...events];
-    const event = updatedEvents[eventIndex];
-
-    if (action === "approve") {
-      updatedEvents[eventIndex] = {
-        ...event,
-        status: "resolved" as const,
-        validatedAt: new Date().toISOString(),
-        supervisorComment: comment || undefined,
-        clientNotified: event.severity === "critical" || event.clientNotified,
-      };
-      // Notification client si critique
-      if (event.severity === "critical") {
-        alert("Notification envoyée au client (événement critique)");
-      }
-    } else if (action === "reject") {
-      updatedEvents[eventIndex] = {
-        ...event,
-        status: "deferred" as const,
-        supervisorComment: comment,
-      };
-    }
-
-    setEvents(updatedEvents);
-    setSelectedEvent(null);
-    setComment("");
-    setAction(null);
-  };
-
-  const handleModifyEvent = () => {
-    if (!selectedEvent) return;
-
-    const eventIndex = events.findIndex((e) => e.id === selectedEvent);
-    if (eventIndex === -1) return;
-
-    const updatedEvents = [...events];
-    updatedEvents[eventIndex] = {
-      ...updatedEvents[eventIndex],
-      severity: modifyData.severity as LogbookEvent["severity"],
-      type: modifyData.type as LogbookEvent["type"],
-      tags: modifyData.tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
-      clientNotified: modifyData.notifyClient,
-    };
-
-    setEvents(updatedEvents);
-    setIsModifyModalOpen(false);
-    setSelectedEvent(null);
-    setModifyData({ severity: "", type: "", tags: "", notifyClient: false });
-    setAction(null);
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleGenerateReport = (type: "daily" | "weekly" | "monthly") => {
-    alert(
-      `Génération du rapport ${type === "daily" ? "quotidien" : type === "weekly" ? "hebdomadaire" : "mensuel"} en cours...`,
+  const visibles = useMemo(() => {
+    const terme = recherche.trim().toLowerCase();
+    if (!terme) return aValider;
+    return aValider.filter((e) =>
+      `${e.title} ${e.description ?? ""} ${nomAgent(e)} ${e.site?.name ?? ""}`
+        .toLowerCase()
+        .includes(terme),
     );
+  }, [aValider, recherche]);
+
+  const traiter = async (
+    evenement: LogbookEvent,
+    status: "validated" | "rejected",
+    commentaire?: string,
+  ) => {
+    try {
+      await valider.mutateAsync({
+        eventId: evenement.id,
+        data: { status, ...(commentaire ? { comment: commentaire } : {}) },
+      });
+    } catch (e) {
+      alert(`Échec : ${e instanceof Error ? e.message : "erreur inconnue"}`);
+    }
   };
+
+  const colonnes: ColumnDef<LogbookEvent>[] = [
+    {
+      key: "severity",
+      label: "Gravité",
+      render: (e) => (
+        <span className="flex items-center gap-2">
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              SEVERITE_COULEURS[e.severity],
+            )}
+          />
+          <Badge variant="outline">{SEVERITE_LABELS[e.severity]}</Badge>
+        </span>
+      ),
+    },
+    {
+      key: "title",
+      label: "Événement",
+      sortable: true,
+      render: (e) => (
+        <div className="min-w-0">
+          <p className="font-medium">{e.title}</p>
+          {e.description && (
+            <p className="truncate text-sm text-muted-foreground">
+              {e.description}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      label: "Type",
+      render: (e) => <Badge variant="outline">{TYPE_LABELS[e.type]}</Badge>,
+    },
+    { key: "agent", label: "Agent", render: (e) => nomAgent(e) },
+    {
+      key: "site",
+      label: "Site",
+      render: (e) => (
+        <span className="flex items-center gap-1 text-sm">
+          <MapPin className="h-3 w-3 text-muted-foreground" />
+          {e.site?.name ?? "—"}
+        </span>
+      ),
+    },
+    {
+      key: "occurredAt",
+      label: "Survenu",
+      sortable: true,
+      render: (e) => new Date(e.occurredAt).toLocaleString("fr-FR"),
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-3xl font-light tracking-tight">
-          Validation des événements
-        </h1>
-        <p className="mt-2 text-sm font-light text-muted-foreground">
-          {pendingEvents.length} événement(s) en attente de validation
+        <h1 className="text-3xl font-bold">Validation des saisies</h1>
+        <p className="text-muted-foreground">
+          Événements en attente de contrôle par un superviseur
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {pendingEvents.length === 0 ? (
-          <Card className="glass-card border-border/40">
-            <CardContent className="pt-6 text-center py-12">
-              <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
-              <p className="text-lg font-light text-muted-foreground">
-                Aucun événement en attente de validation
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          pendingEvents.map((event) => (
-            <Card
-              key={event.id}
-              className="glass-card border-border/40 hover:border-primary/30 transition-all cursor-pointer"
-              onClick={() => {
-                setViewingEvent(event);
-                setIsViewModalOpen(true);
-              }}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant={getSeverityColor(event.severity)}>
-                        {getSeverityLabel(event.severity)}
-                      </Badge>
-                      <Badge variant="outline">{event.type}</Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(event.timestamp).toLocaleString("fr-FR")}
-                      </span>
-                    </div>
-                    <CardTitle className="text-xl font-light">
-                      {event.title}
-                    </CardTitle>
-                  </div>
-                  <Badge variant="secondary" className="gap-1">
-                    <Clock className="h-3 w-3" />
-                    {getStatusLabel(event.status)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Site:</span>
-                    <span className="ml-2 font-medium">
-                      {mockSites.find((s) => s.id === event.siteId)?.name ||
-                        event.site}
-                    </span>
-                  </div>
-                  {event.zone && (
-                    <div>
-                      <span className="text-muted-foreground">Zone:</span>
-                      <span className="ml-2 font-medium">{event.zone}</span>
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-muted-foreground">Agent:</span>
-                    <span className="ml-2 font-medium">
-                      {mockAgents.find((a) => a.id === event.agentId)?.name ||
-                        event.agentName}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">ID:</span>
-                    <span className="ml-2 font-mono text-xs">{event.id}</span>
-                  </div>
-                </div>
+      <InfoCardContainer>
+        <InfoCard
+          icon={Clock}
+          title="À valider"
+          value={aValider.length}
+          color="orange"
+        />
+        <InfoCard
+          icon={CheckCircle2}
+          title="Validés"
+          value={evenements.filter((e) => e.status === "validated").length}
+          color="green"
+        />
+        <InfoCard
+          icon={XCircle}
+          title="Refusés"
+          value={evenements.filter((e) => e.status === "rejected").length}
+          color="red"
+        />
+        <InfoCard
+          icon={ShieldCheck}
+          title="Total"
+          value={evenements.length}
+          color="gray"
+        />
+      </InfoCardContainer>
 
-                <div className="p-4 bg-muted/30 rounded-lg">
-                  <p className="text-sm">{event.description}</p>
-                </div>
-
-                {event.media && (
-                  <div className="flex gap-2">
-                    {event.media.photos && event.media.photos.length > 0 && (
-                      <Badge variant="outline" className="gap-1">
-                        📷 {event.media.photos.length} photo(s)
-                      </Badge>
-                    )}
-                    {event.media.videos && event.media.videos.length > 0 && (
-                      <Badge variant="outline" className="gap-1">
-                        🎥 {event.media.videos.length} vidéo(s)
-                      </Badge>
-                    )}
-                    {event.media.voiceNotes &&
-                      event.media.voiceNotes.length > 0 && (
-                        <Badge variant="outline" className="gap-1">
-                          🎤 {event.media.voiceNotes.length} note(s) vocale(s)
-                        </Badge>
-                      )}
-                  </div>
-                )}
-
-                {event.location && (
-                  <Badge variant="secondary" className="gap-1">
-                    📍 Géolocalisation disponible
-                  </Badge>
-                )}
-
-                <div
-                  className="flex gap-2 pt-4"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    onClick={() => handleValidation(event.id, "approve")}
-                    className="flex-1 gap-2"
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                    Valider
-                  </Button>
-                  <Button
-                    onClick={() => handleValidation(event.id, "reject")}
-                    variant="destructive"
-                    className="flex-1 gap-2"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Rejeter
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="gap-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleValidation(event.id, "modify");
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                    Modifier
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="gap-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewingEvent(event);
-                      setIsViewModalOpen(true);
-                    }}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    Commenter
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
-
-      {/* View Event Modal */}
-      <Modal
-        open={isViewModalOpen}
-        onOpenChange={setIsViewModalOpen}
-        type="details"
-        title="Détails de l'événement"
-        size="lg"
-      >
-        {viewingEvent && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>ID</Label>
-                <p className="text-sm font-mono">{viewingEvent.id}</p>
-              </div>
-              <div>
-                <Label>Date/Heure</Label>
-                <p className="text-sm">
-                  {new Date(viewingEvent.timestamp).toLocaleString("fr-FR")}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Site</Label>
-                <p className="text-sm">
-                  {mockSites.find((s) => s.id === viewingEvent.siteId)?.name ||
-                    "N/A"}
-                </p>
-              </div>
-              <div>
-                <Label>Zone</Label>
-                <p className="text-sm">{viewingEvent.zone || "-"}</p>
-              </div>
-            </div>
-
-            <div>
-              <Label>Titre</Label>
-              <p className="text-sm font-medium">{viewingEvent.title}</p>
-            </div>
-
-            <div>
-              <Label>Description</Label>
-              <p className="text-sm whitespace-pre-wrap">
-                {viewingEvent.description}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Type</Label>
-                <Badge variant="outline">{viewingEvent.type}</Badge>
-              </div>
-              <div>
-                <Label>Gravité</Label>
-                <Badge variant={getSeverityColor(viewingEvent.severity)}>
-                  {getSeverityLabel(viewingEvent.severity)}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Statut</Label>
-                <Badge variant="secondary">
-                  {getStatusLabel(viewingEvent.status)}
-                </Badge>
-              </div>
-              <div>
-                <Label>Agent</Label>
-                <p className="text-sm">
-                  {mockAgents.find((a) => a.id === viewingEvent.agentId)
-                    ?.name || "N/A"}
-                </p>
-              </div>
-            </div>
-
-            {viewingEvent.location && (
-              <div>
-                <Label>Géolocalisation</Label>
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4" />
-                  <span>
-                    {viewingEvent.location.lat.toFixed(4)},{" "}
-                    {viewingEvent.location.lng.toFixed(4)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {viewingEvent.media && (
-              <div>
-                <Label>Médias</Label>
-                <div className="flex gap-4 text-sm">
-                  {viewingEvent.media.photos &&
-                    viewingEvent.media.photos.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Camera className="h-4 w-4" />
-                        <span>{viewingEvent.media.photos.length} photo(s)</span>
-                      </div>
-                    )}
-                  {viewingEvent.media.videos &&
-                    viewingEvent.media.videos.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Video className="h-4 w-4" />
-                        <span>{viewingEvent.media.videos.length} vidéo(s)</span>
-                      </div>
-                    )}
-                  {viewingEvent.media.voiceNotes &&
-                    viewingEvent.media.voiceNotes.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Mic className="h-4 w-4" />
-                        <span>
-                          {viewingEvent.media.voiceNotes.length} note(s)
-                          vocale(s)
-                        </span>
-                      </div>
-                    )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-
-      {/* Validation Modal */}
-      <Modal
-        open={selectedEvent !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedEvent(null);
-            setComment("");
-            setAction(null);
-          }
-        }}
-        type="form"
-        title={
-          action === "approve" ? "Valider l'événement" : "Rejeter l'événement"
-        }
-        size="md"
-        actions={{
-          primary: {
-            label: "Confirmer",
-            onClick: handleSubmitValidation,
-            variant: action === "reject" ? "destructive" : "default",
-            disabled: action === "reject" && !comment.trim(),
-          },
-          secondary: {
-            label: "Annuler",
-            onClick: () => {
-              setSelectedEvent(null);
-              setComment("");
-              setAction(null);
-            },
-            variant: "outline",
-          },
-        }}
-      >
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="comment">
-              Commentaire {action === "reject" && "(requis)"}
-            </Label>
-            <Textarea
-              id="comment"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder={
-                action === "approve"
-                  ? "Ajouter un commentaire (optionnel)..."
-                  : "Expliquer la raison du rejet..."
-              }
-              rows={4}
-              required={action === "reject"}
-            />
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modify Event Modal */}
-      <Modal
-        open={isModifyModalOpen}
-        onOpenChange={setIsModifyModalOpen}
-        type="form"
-        title="Modifier l'événement"
-        size="lg"
-        actions={{
-          primary: {
-            label: "Enregistrer",
-            onClick: handleModifyEvent,
-          },
-          secondary: {
-            label: "Annuler",
-            onClick: () => {
-              setIsModifyModalOpen(false);
-              setSelectedEvent(null);
-              setModifyData({
-                severity: "",
-                type: "",
-                tags: "",
-                notifyClient: false,
-              });
-              setAction(null);
-            },
-            variant: "outline",
-          },
-        }}
-      >
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="severity">Gravité</Label>
-            <Select
-              value={modifyData.severity}
-              onValueChange={(value) =>
-                setModifyData({ ...modifyData, severity: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Faible</SelectItem>
-                <SelectItem value="medium">Moyenne</SelectItem>
-                <SelectItem value="high">Élevée</SelectItem>
-                <SelectItem value="critical">Critique</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="type">Type</Label>
-            <Select
-              value={modifyData.type}
-              onValueChange={(value) =>
-                setModifyData({ ...modifyData, type: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="routine">Routine</SelectItem>
-                <SelectItem value="incident">Incident</SelectItem>
-                <SelectItem value="action">Action</SelectItem>
-                <SelectItem value="control">Contrôle</SelectItem>
-                <SelectItem value="critical">Critique</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="tags">Tags (séparés par des virgules)</Label>
+      <Card>
+        <CardHeader>
+          <CardTitle>File de validation</CardTitle>
+          <div className="relative mt-2 max-w-md">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              id="tags"
-              value={modifyData.tags}
-              onChange={(e) =>
-                setModifyData({ ...modifyData, tags: e.target.value })
-              }
-              placeholder="ex: urgent, police, incendie"
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher un événement, un agent, un site…"
+              className="pl-8"
             />
           </div>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            data={visibles}
+            isLoading={isLoading}
+            columns={colonnes}
+            searchKey="title"
+            actions={(e) => (
+              <div className="flex justify-end gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-green-600"
+                  disabled={valider.isPending}
+                  onClick={() => void traiter(e, "validated")}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Valider
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-red-600"
+                  disabled={valider.isPending}
+                  onClick={() => {
+                    setARefuser(e);
+                    setMotif("");
+                  }}
+                >
+                  <XCircle className="h-4 w-4" />
+                  Refuser
+                </Button>
+              </div>
+            )}
+          />
+        </CardContent>
+      </Card>
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="notifyClient"
-              checked={modifyData.notifyClient}
-              onChange={(e) =>
-                setModifyData({ ...modifyData, notifyClient: e.target.checked })
-              }
-              className="rounded border-gray-300"
-            />
-            <Label htmlFor="notifyClient" className="cursor-pointer">
-              Notifier le client immédiatement
-            </Label>
-          </div>
+      <Modal
+        open={!!aRefuser}
+        onOpenChange={(open) => !open && setARefuser(null)}
+        type="form"
+        size="md"
+        title="Refuser l'événement"
+        actions={{
+          primary: {
+            label: "Refuser",
+            variant: "destructive" as const,
+            onClick: () => {
+              if (aRefuser) void traiter(aRefuser, "rejected", motif);
+              setARefuser(null);
+            },
+          },
+          secondary: {
+            label: "Annuler",
+            variant: "outline" as const,
+            onClick: () => setARefuser(null),
+          },
+        }}
+      >
+        <div className="space-y-3">
+          <p className="text-sm">
+            <span className="font-medium">{aRefuser?.title}</span> — indiquez le
+            motif du refus, il sera conservé avec l&apos;événement.
+          </p>
+          <Textarea
+            value={motif}
+            onChange={(e) => setMotif(e.target.value)}
+            placeholder="Motif du refus"
+          />
         </div>
       </Modal>
     </div>

@@ -11,6 +11,9 @@ import {
   deleteAttachment,
   type CreateContractPayload,
   type UpdateContractPayload,
+  listShiftTemplates,
+  createShiftTemplate,
+  deleteShiftTemplate,
   type AttachedScope,
 } from "@safyr/api-client";
 
@@ -98,5 +101,32 @@ export function useDeleteAttachment(scope: AttachedScope, scopeId?: string) {
     mutationFn: (documentId: string) => deleteAttachment(documentId),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: attachmentKeys.list(scope, scopeId) }),
+  });
+}
+
+// ── Modèles de vacation ───────────────────────────────────────────────
+
+export const shiftTemplateKeys = { all: ["shift-templates"] as const };
+
+export function useShiftTemplates() {
+  return useQuery({
+    queryKey: shiftTemplateKeys.all,
+    queryFn: listShiftTemplates,
+  });
+}
+
+export function useCreateShiftTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createShiftTemplate,
+    onSuccess: () => qc.invalidateQueries({ queryKey: shiftTemplateKeys.all }),
+  });
+}
+
+export function useDeleteShiftTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deleteShiftTemplate,
+    onSuccess: () => qc.invalidateQueries({ queryKey: shiftTemplateKeys.all }),
   });
 }

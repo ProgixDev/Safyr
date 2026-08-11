@@ -59,3 +59,18 @@ export const AttachDocumentSchema = z.object({
 
 export type AttachedScope = z.infer<typeof AttachedScopeSchema>;
 export type AttachDocumentDto = z.infer<typeof AttachDocumentSchema>;
+
+/** Modèle de vacation réutilisable dans le planning d'un site. */
+export const ShiftTemplateSchema = z.object({
+  siteId: z.string().trim().min(1, "Site requis"),
+  name: z.string().trim().min(1, "Nom requis").max(80),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Heure de début invalide"),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Heure de fin invalide"),
+  breakDuration: z.number().int().min(0).max(480).optional(),
+  color: z.string().trim().max(20).optional(),
+});
+
+export const UpdateShiftTemplateSchema = ShiftTemplateSchema.partial();
+
+export type ShiftTemplateDto = z.infer<typeof ShiftTemplateSchema>;
+export type UpdateShiftTemplateDto = z.infer<typeof UpdateShiftTemplateSchema>;

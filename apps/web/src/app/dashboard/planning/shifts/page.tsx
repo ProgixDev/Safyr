@@ -39,7 +39,11 @@ import {
   Coffee,
 } from "lucide-react";
 import type { StandardShift } from "@/lib/types";
-import { mockStandardShifts } from "@/data/site-shifts";
+import {
+  useShiftTemplates,
+  useCreateShiftTemplate,
+  useDeleteShiftTemplate,
+} from "@/hooks/contracts";
 import { usePlanningSites } from "@/hooks/planning";
 import { SITE_COLOR_MAP } from "@/lib/site-colors";
 
@@ -118,7 +122,22 @@ export default function ShiftsPage() {
   const { sites: mockSites } = usePlanningSites();
 
   const searchParams = useSearchParams();
-  const [shifts, setShifts] = useState<StandardShift[]>(mockStandardShifts);
+  // Modeles de vacation enregistres en base (table shift_template).
+  const { data: modeles = [] } = useShiftTemplates();
+  const creerModele = useCreateShiftTemplate();
+  const supprimerModele = useDeleteShiftTemplate();
+
+  const shifts: StandardShift[] = modeles.map((m) => ({
+    id: m.id,
+    siteId: m.siteId,
+    name: m.name,
+    startTime: m.startTime,
+    endTime: m.endTime,
+    breakDuration: m.breakDuration,
+    color: m.color,
+    createdAt: new Date(m.createdAt),
+    updatedAt: new Date(m.updatedAt),
+  }));
   const [selectedShift, setSelectedShift] = useState<StandardShift | null>(
     null,
   );
@@ -205,9 +224,17 @@ export default function ShiftsPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!shiftToDelete) return;
-    setShifts((prev) => prev.filter((s) => s.id !== shiftToDelete.id));
+    try {
+      await supprimerModele.mutateAsync(shiftToDelete.id);
+    } catch (e) {
+      alert(
+        `Échec de la suppression : ${
+          e instanceof Error ? e.message : "erreur inconnue"
+        }`,
+      );
+    }
     setIsDeleteModalOpen(false);
     setShiftToDelete(null);
   };
@@ -217,38 +244,30 @@ export default function ShiftsPage() {
     setIsCreateModalOpen(true);
   };
 
-  const handleSave = (isEdit: boolean) => {
-    if (isEdit && selectedShift) {
-      setShifts((prev) =>
-        prev.map((s) =>
-          s.id === selectedShift.id
-            ? {
-                ...s,
-                name: formData.name,
-                startTime: formData.startTime,
-                endTime: formData.endTime,
-                breakDuration: formData.breakDuration,
-                color: formData.color,
-                updatedAt: new Date(),
-              }
-            : s,
-        ),
-      );
+  const handleSave = async (isEdit: boolean) => {
+    const payload = {
+      siteId: formData.siteId,
+      name: formData.name,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      breakDuration: formData.breakDuration,
+      color: formData.color,
+    };
+    try {
+      // La modification passe par un remplacement : suppression puis creation,
+      // ce qui evite un endpoint supplementaire pour un cas rare.
+      if (isEdit && selectedShift) {
+        await supprimerModele.mutateAsync(selectedShift.id);
+      }
+      await creerModele.mutateAsync(payload);
       setIsEditModalOpen(false);
-    } else {
-      const newShift: StandardShift = {
-        id: `std-${Date.now()}`,
-        siteId: formData.siteId,
-        name: formData.name,
-        startTime: formData.startTime,
-        endTime: formData.endTime,
-        breakDuration: formData.breakDuration,
-        color: formData.color,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setShifts((prev) => [...prev, newShift]);
       setIsCreateModalOpen(false);
+    } catch (e) {
+      alert(
+        `Échec de l'enregistrement : ${
+          e instanceof Error ? e.message : "erreur inconnue"
+        }`,
+      );
     }
   };
 
@@ -805,7 +824,7 @@ export default function ShiftsPage() {
         actions={{
           primary: {
             label: "Créer",
-            onClick: () => handleSave(false),
+            onClick: () => void handleSave(false),
             disabled: !formData.name || !formData.siteId,
           },
           secondary: {
@@ -833,7 +852,7 @@ export default function ShiftsPage() {
         actions={{
           primary: {
             label: "Enregistrer",
-            onClick: () => handleSave(true),
+            onClick: () => void handleSave(true),
             disabled: !formData.name,
           },
           secondary: {
@@ -888,7 +907,7 @@ export default function ShiftsPage() {
         actions={{
           primary: {
             label: "Supprimer",
-            onClick: handleConfirmDelete,
+            onClick: () => void handleConfirmDelete(),
             variant: "destructive",
           },
           secondary: {
