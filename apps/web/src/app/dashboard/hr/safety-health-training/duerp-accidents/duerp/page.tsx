@@ -371,15 +371,7 @@ export default function DUERPPage() {
   const [postes, setPostes] = useState<Poste[]>(initialPostes);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPosteTitle, setNewPosteTitle] = useState("");
-  const [newRisks, setNewRisks] = useState<Risk[]>([
-    {
-      risque: "",
-      cause: "",
-      gravite: "Moyenne",
-      probabilite: "Moyenne",
-      mesures: "",
-    },
-  ]);
+  const [newRisks, setNewRisks] = useState<Risk[]>([]);
 
   const getGraviteBadge = (gravite: string) => {
     if (gravite === "Grave") {

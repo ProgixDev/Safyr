@@ -76,74 +76,11 @@ export function EmployeeDisciplineTab({
   employee,
 }: EmployeeDisciplineTabProps) {
   // Mock data - in real app, this would come from API
-  const [warnings] = useState<Warning[]>([
-    {
-      id: "1",
-      employeeId: employee.id,
-      date: new Date("2024-01-15"),
-      reason: "Retard répété",
-      description: "Plusieurs retards non justifiés cette semaine",
-      issuedBy: "Alice Dubois",
-      status: "active",
-      createdAt: new Date("2024-01-15"),
-      updatedAt: new Date("2024-01-15"),
-    },
-  ]);
+  const [warnings] = useState<Warning[]>([]);
 
-  const [procedures] = useState<DisciplinaryProcedure[]>([
-    {
-      id: "1",
-      employeeId: employee.id,
-      startDate: new Date("2024-01-15"),
-      steps: [
-        {
-          id: "1",
-          title: "Avertissement verbal",
-          description: "Discussion avec l'employé",
-          completed: true,
-          completedAt: new Date("2024-01-15"),
-        },
-        {
-          id: "2",
-          title: "Avertissement écrit",
-          description: "Envoi d'un avertissement écrit",
-          completed: false,
-        },
-      ],
-      currentStep: 1,
-      status: "ongoing",
-      documents: ["/files/avertissement_marie.pdf"],
-      createdAt: new Date("2024-01-15"),
-      updatedAt: new Date("2024-01-15"),
-    },
-  ]);
+  const [procedures] = useState<DisciplinaryProcedure[]>([]);
 
-  const [sanctions] = useState<Sanction[]>([
-    {
-      id: "1",
-      employeeId: employee.id,
-      date: new Date("2024-01-15"),
-      type: "Avertissement",
-      reason: "Retard répété",
-      description: "Plusieurs retards non justifiés cette semaine",
-      issuedBy: "Alice Dubois",
-      severity: "minor",
-      createdAt: new Date("2024-01-15"),
-      updatedAt: new Date("2024-01-15"),
-    },
-    {
-      id: "2",
-      employeeId: employee.id,
-      date: new Date("2024-01-10"),
-      type: "Suspension",
-      reason: "Comportement inapproprié",
-      description: "Incident avec un collègue",
-      issuedBy: "Alice Dubois",
-      severity: "major",
-      createdAt: new Date("2024-01-10"),
-      updatedAt: new Date("2024-01-10"),
-    },
-  ]);
+  const [sanctions] = useState<Sanction[]>([]);
 
   const geolocationSummary = getEmployeeGeolocationSummary(employee.id);
   const hseIncidents = geolocationSummary?.hseIncidents ?? [];

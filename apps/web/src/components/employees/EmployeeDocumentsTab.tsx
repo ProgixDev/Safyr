@@ -103,55 +103,7 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
 
   const firstMemberRequirementId = compliance?.[0]?.requirement.id ?? null;
 
-  const [documents] = useState<Document[]>([
-    {
-      id: "1",
-      name: "Carte d'identité",
-      type: "id-card",
-      fileUrl: "/documents/id-card.pdf",
-      uploadedAt: new Date("2024-01-15"),
-      uploadedBy: "admin@safyr.com",
-      expiresAt: new Date("2029-01-15"),
-      verified: true,
-    },
-    {
-      id: "2",
-      name: "Carte Vitale",
-      type: "health-card",
-      fileUrl: "/documents/health-card.pdf",
-      uploadedAt: new Date("2024-02-01"),
-      uploadedBy: "admin@safyr.com",
-      verified: true,
-    },
-    {
-      id: "3",
-      name: "CV",
-      type: "cv",
-      fileUrl: "/documents/cv.pdf",
-      uploadedAt: new Date("2020-01-10"),
-      uploadedBy: "jean.dupont@safyr.com",
-      verified: true,
-    },
-    {
-      id: "4",
-      name: "Justificatif de domicile",
-      type: "proof-address",
-      fileUrl: "/documents/proof-address.pdf",
-      uploadedAt: new Date("2024-11-01"),
-      uploadedBy: "admin@safyr.com",
-      expiresAt: new Date("2025-11-01"),
-      verified: true,
-    },
-    {
-      id: "5",
-      name: "DPAE",
-      type: "dpae",
-      fileUrl: "/documents/dpae.pdf",
-      uploadedAt: new Date("2020-01-14"),
-      uploadedBy: "rh@safyr.com",
-      verified: true,
-    },
-  ]);
+  const [documents] = useState<Document[]>([]);
 
   const getCertificationStatusBadge = (status: CertStatus) => {
     const config = {

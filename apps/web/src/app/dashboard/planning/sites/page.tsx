@@ -40,7 +40,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { Site, Poste, SiteFormData } from "@/lib/types";
-import { mockSites, mockSiteStats, mockPostes } from "@/data/sites";
+import { usePlanningSites } from "@/hooks/planning";
+import { mockSiteStats } from "@/data/sites";
 import {
   SITE_COLOR_MAP,
   SITE_COLOR_OPTIONS,
@@ -48,6 +49,8 @@ import {
 } from "@/lib/site-colors";
 
 export default function SitesPage() {
+  const { sites: mockSites, postes: mockPostes } = usePlanningSites();
+
   const searchParams = useSearchParams();
   const [sites, setSites] = useState<Site[]>(mockSites);
   const [postes, setPostes] = useState<Poste[]>(mockPostes);

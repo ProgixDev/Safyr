@@ -55,7 +55,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { Poste, PosteType } from "@/lib/types";
-import { mockPostes, mockSites, mockClients } from "@/data/sites";
+import { usePlanningSites } from "@/hooks/planning";
 import { SITE_COLOR_MAP } from "@/lib/site-colors";
 import { PhoneInput } from "@/components/ui/phone-input";
 import {
@@ -143,6 +143,12 @@ const DEFAULT_FORM: PosteFormValues = {
 };
 
 export default function PostesPage() {
+  const {
+    sites: mockSites,
+    postes: mockPostes,
+    clients: mockClients,
+  } = usePlanningSites();
+
   const searchParams = useSearchParams();
   const [postes, setPostes] = useState<Poste[]>(mockPostes);
   const [selectedPoste, setSelectedPoste] = useState<Poste | null>(null);

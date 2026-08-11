@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import type { StandardShift } from "@/lib/types";
 import { mockStandardShifts } from "@/data/site-shifts";
-import { mockSites } from "@/data/sites";
+import { usePlanningSites } from "@/hooks/planning";
 import { SITE_COLOR_MAP } from "@/lib/site-colors";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -115,6 +115,8 @@ const DEFAULT_FORM: ShiftFormData = {
 // ─── page ────────────────────────────────────────────────────────────────────
 
 export default function ShiftsPage() {
+  const { sites: mockSites } = usePlanningSites();
+
   const searchParams = useSearchParams();
   const [shifts, setShifts] = useState<StandardShift[]>(mockStandardShifts);
   const [selectedShift, setSelectedShift] = useState<StandardShift | null>(

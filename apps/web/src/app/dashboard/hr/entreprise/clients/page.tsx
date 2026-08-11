@@ -28,54 +28,9 @@ export default function ClientsPage() {
   const searchParams = useSearchParams();
   const { data: clients = [] } = useClients();
 
-  const [contracts] = useState<ClientContract[]>([
-    {
-      id: "1",
-      clientId: "1",
-      startDate: new Date("2024-01-15"),
-      endDate: new Date("2025-01-15"),
-      description: "Contrat de surveillance générale",
-      status: "active",
-    },
-    {
-      id: "2",
-      clientId: "1",
-      startDate: new Date("2023-06-01"),
-      endDate: new Date("2024-05-31"),
-      description: "Contrat événementiel",
-      status: "expired",
-    },
-    {
-      id: "3",
-      clientId: "2",
-      startDate: new Date("2024-03-01"),
-      description: "Contrat de gardiennage permanent",
-      status: "active",
-    },
-  ]);
+  const [contracts] = useState<ClientContract[]>([]);
 
-  const [gifts] = useState<ClientGift[]>([
-    {
-      id: "1",
-      clientId: "1",
-      giftDescription: "Panier de Noël",
-      date: new Date("2023-12-20"),
-      valueHT: 125,
-      tva: 25,
-      valueTTC: 150,
-      notes: "Remis au directeur général",
-    },
-    {
-      id: "2",
-      clientId: "2",
-      giftDescription: "Bouteille de champagne",
-      date: new Date("2024-01-15"),
-      valueHT: 67,
-      tva: 13,
-      valueTTC: 80,
-      notes: "Nouvel an - équipe dirigeante",
-    },
-  ]);
+  const [gifts] = useState<ClientGift[]>([]);
 
   // Ouvre directement le formulaire quand on arrive depuis l'action rapide
   // "Nouveau client" du tableau de bord (/...?new=1).

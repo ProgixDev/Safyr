@@ -156,111 +156,13 @@ export default function ImpotSIEPage() {
     montant: 0,
   });
 
-  const [tvaDossiers, setTvaDossiers] = useState<TVADocument[]>([
-    {
-      id: "1",
-      mois: "janvier",
-      annee: "2024",
-      grandLivre: { name: "GL_01_2024.pdf" },
-      declaration: { name: "DECL_TVA_01_2024.pdf" },
-      arDeclaration: { name: "AR_TVA_01_2024.pdf" },
-      paiement: { name: "PAIEMENT_TVA_01_2024.pdf" },
-      statut: "complet",
-      dateEcheance: "2024-02-20",
-    },
-    {
-      id: "2",
-      mois: "février",
-      annee: "2024",
-      grandLivre: { name: "GL_02_2024.pdf" },
-      declaration: { name: "DECL_TVA_02_2024.pdf" },
-      arDeclaration: null,
-      paiement: null,
-      statut: "partiel",
-      dateEcheance: "2024-03-20",
-    },
-    {
-      id: "3",
-      mois: "mars",
-      annee: "2024",
-      grandLivre: null,
-      declaration: null,
-      arDeclaration: null,
-      paiement: null,
-      statut: "manquant",
-      dateEcheance: "2024-04-20",
-    },
-  ]);
+  const [tvaDossiers, setTvaDossiers] = useState<TVADocument[]>([]);
 
-  const [cfeDossiers, setCfeDossiers] = useState<CFEDocument[]>([
-    {
-      id: "1",
-      annee: "2024",
-      declaration: { name: "CFE_2024.pdf" },
-      avis: { name: "AVIS_CFE_2024.pdf" },
-      paiement: { name: "PAIEMENT_CFE_2024.pdf" },
-      statut: "complet",
-      montant: 2500,
-    },
-    {
-      id: "2",
-      annee: "2023",
-      declaration: { name: "CFE_2023.pdf" },
-      avis: { name: "AVIS_CFE_2023.pdf" },
-      paiement: { name: "PAIEMENT_CFE_2023.pdf" },
-      statut: "complet",
-      montant: 2200,
-    },
-  ]);
+  const [cfeDossiers, setCfeDossiers] = useState<CFEDocument[]>([]);
 
-  const [prelevements, setPrelevements] = useState<PrelevementDocument[]>([
-    {
-      id: "1",
-      periode: "Janvier 2024",
-      declaration: { name: "PAS_01_2024.pdf" },
-      bordereau: { name: "BORDEREAU_01_2024.pdf" },
-      statut: "declare",
-      montant: 15000,
-    },
-    {
-      id: "2",
-      periode: "Février 2024",
-      declaration: { name: "PAS_02_2024.pdf" },
-      bordereau: null,
-      statut: "en_attente",
-      montant: 16200,
-    },
-  ]);
+  const [prelevements, setPrelevements] = useState<PrelevementDocument[]>([]);
 
-  const [courriers, setCourriers] = useState<Courrier[]>([
-    {
-      id: "1",
-      date: "2024-02-15",
-      type: "recu",
-      objet: "Demande de justificatifs TVA Q4 2023",
-      document: { name: "COURRIER_IMPOTS_02_2024.pdf" },
-      organisme: "impots",
-      statut: "traite",
-    },
-    {
-      id: "2",
-      date: "2024-02-20",
-      type: "envoye",
-      objet: "Réponse demande justificatifs",
-      document: { name: "REPONSE_IMPOTS_02_2024.pdf" },
-      organisme: "impots",
-      statut: "traite",
-    },
-    {
-      id: "3",
-      date: "2024-03-01",
-      type: "recu",
-      objet: "Avis de contrôle fiscal",
-      document: { name: "CONTROLE_FISCAL_03_2024.pdf" },
-      organisme: "impots",
-      statut: "en_cours",
-    },
-  ]);
+  const [courriers, setCourriers] = useState<Courrier[]>([]);
 
   // ── Courriers : menu action (voir / téléverser / télécharger / supprimer) ──
   const [viewedCourrier, setViewedCourrier] = useState<Courrier | null>(null);
@@ -741,12 +643,21 @@ export default function ImpotSIEPage() {
     type: string;
   } | null>(null);
 
-  /** Ouvre l'aperçu d'un document TVA déjà déposé. */
+  /**
+   * « Voir » : ouvre le fichier réellement déposé. Les lignes d'exemple n'ont
+   * pas de fichier associé — on affiche alors une fiche d'information plutôt
+   * qu'un document trompeur.
+   */
   const handleViewDocument = (dossier: TVADocument, type: TvaDocField) => {
     const fichier = dossier[type];
     const label = TVA_DOC_LABELS[type];
 
     if (!fichier) return;
+
+    if (fichier.key) {
+      void downloadStoredFile(fichier);
+      return;
+    }
 
     setPreviewDocument({
       file: fichier,

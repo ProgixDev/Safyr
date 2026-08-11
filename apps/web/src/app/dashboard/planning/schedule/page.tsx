@@ -54,7 +54,6 @@ import type {
   TimeOffRequest,
 } from "@/lib/types";
 
-import { mockClients, mockSites, mockPostes } from "@/data/sites";
 import { BREAK_DURATION_OPTIONS } from "@/lib/planning-constants";
 import { getSiteColorClasses } from "@/lib/site-colors";
 import {
@@ -63,7 +62,7 @@ import {
   mockAgentShifts,
 } from "@/data/site-shifts";
 import { mockTimeOffRequests } from "@/data/time-off";
-import { usePlanningAgents } from "@/hooks/planning";
+import { usePlanningAgents, usePlanningSites } from "@/hooks/planning";
 import { playAlertBeep } from "@/lib/audio-alerts";
 import { DailyView } from "./_components/DailyView";
 import { WeeklyView } from "./_components/WeeklyView";
@@ -99,8 +98,14 @@ export function ScheduleView({
   forceSimulation?: boolean;
 }) {
   const { settings } = usePlanningSettingsStore();
-  // Agents du planning = dossiers salariés du module RH (plus de liste figée).
+  // Agents, sites et postes viennent des modules RH et Entreprise : le
+  // planning n'a plus de données propres.
   const { agents: planningAgents } = usePlanningAgents();
+  const {
+    sites: mockSites,
+    postes: mockPostes,
+    clients: mockClients,
+  } = usePlanningSites();
   const idCounterRef = React.useRef(0);
   const generateShiftId = () => {
     idCounterRef.current += 1;
