@@ -93,12 +93,7 @@ export const PRESENCE_STATUS_CONFIG: Record<
   },
 };
 
-export const PRESENCE_STATUSES: PresenceStatus[] = [
-  "present",
-  "late",
-  "absent",
-  "off-zone",
-];
+export const PRESENCE_STATUSES: PresenceStatus[] = [];
 
 // ── Hour helpers ───────────────────────────────────────────────────
 

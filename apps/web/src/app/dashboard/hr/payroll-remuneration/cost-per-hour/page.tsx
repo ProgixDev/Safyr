@@ -36,62 +36,7 @@ import {
 import type { PersonnelCost } from "@/lib/types";
 
 // Mock data
-const mockPersonnelCosts: PersonnelCost[] = [
-  {
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    period: "2024-12",
-    grossSalary: 3500,
-    netSalary: 2800,
-    taxableNet: 2750,
-    employeeContributions: 450,
-    employerContributions: 875,
-    totalEmployerCost: 4375,
-    currency: "EUR",
-    workedHours: 160,
-    costPerHour: 27.34,
-    allowances: 150,
-    bonuses: 500,
-    maintenance: 0,
-    totalCost: 4375,
-  },
-  {
-    employeeId: "EMP002",
-    employeeName: "Marie Martin",
-    period: "2024-12",
-    grossSalary: 3200,
-    netSalary: 2580,
-    taxableNet: 2520,
-    employeeContributions: 410,
-    employerContributions: 798,
-    totalEmployerCost: 3998,
-    currency: "EUR",
-    workedHours: 155,
-    costPerHour: 25.79,
-    allowances: 120,
-    bonuses: 0,
-    maintenance: 200,
-    totalCost: 4198,
-  },
-  {
-    employeeId: "EMP003",
-    employeeName: "Pierre Durand",
-    period: "2024-12",
-    grossSalary: 2800,
-    netSalary: 2250,
-    taxableNet: 2200,
-    employeeContributions: 360,
-    employerContributions: 700,
-    totalEmployerCost: 3500,
-    currency: "EUR",
-    workedHours: 160,
-    costPerHour: 21.88,
-    allowances: 80,
-    bonuses: 300,
-    maintenance: 0,
-    totalCost: 3500,
-  },
-];
+const mockPersonnelCosts: PersonnelCost[] = [];
 
 const departmentBreakdown = {
   Sécurité: { count: 25, totalCost: 125000, avgCostPerHour: 25.5 },

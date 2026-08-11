@@ -38,62 +38,7 @@ import {
 import type { TrainingCertification } from "@/lib/types";
 
 // Mock data for SST certifications with recycles
-const mockSSTCertifications: TrainingCertification[] = [
-  {
-    id: "1",
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    type: "SST",
-    number: "SST-2024-001",
-    issueDate: new Date("2022-03-15"),
-    expiryDate: new Date("2024-03-15"),
-    issuer: "INRS",
-    status: "valid",
-    lastRenewalDate: new Date("2022-03-15"),
-    nextRenewalDate: new Date("2024-03-15"),
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2022-03-15"),
-    createdAt: new Date("2022-03-15"),
-    updatedAt: new Date("2022-03-15"),
-  },
-  {
-    id: "2",
-    employeeId: "EMP002",
-    employeeName: "Marie Martin",
-    type: "SST",
-    number: "SST-2024-002",
-    issueDate: new Date("2023-06-01"),
-    expiryDate: new Date("2025-06-01"),
-    issuer: "INRS",
-    status: "valid",
-    lastRenewalDate: new Date("2023-06-01"),
-    nextRenewalDate: new Date("2025-06-01"),
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2023-06-01"),
-    createdAt: new Date("2023-06-01"),
-    updatedAt: new Date("2023-06-01"),
-  },
-  {
-    id: "3",
-    employeeId: "EMP003",
-    employeeName: "Pierre Durand",
-    type: "SST",
-    number: "SST-2024-003",
-    issueDate: new Date("2021-09-10"),
-    expiryDate: new Date("2023-09-10"),
-    issuer: "INRS",
-    status: "expired",
-    lastRenewalDate: new Date("2021-09-10"),
-    nextRenewalDate: new Date("2023-09-10"),
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2021-09-10"),
-    createdAt: new Date("2021-09-10"),
-    updatedAt: new Date("2021-09-10"),
-  },
-];
+const mockSSTCertifications: TrainingCertification[] = [];
 
 export default function SSTPage() {
   const [certifications, setCertifications] = useState<TrainingCertification[]>(

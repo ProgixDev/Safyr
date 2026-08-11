@@ -30,12 +30,13 @@ import { Combobox } from "@/components/ui/combobox";
 import { Progress } from "@/components/ui/progress";
 
 // Mock employees for selection
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont", hiringDate: "2020-01-15" },
-  { id: "2", name: "Jean Martin", hiringDate: "2019-03-20" },
-  { id: "3", name: "Sophie Leroy", hiringDate: "2021-06-10" },
-  { id: "4", name: "Pierre Durand", hiringDate: "2018-11-05" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 const employeeOptions = mockEmployees.map((employee) => ({
   value: employee.id,
@@ -43,98 +44,12 @@ const employeeOptions = mockEmployees.map((employee) => ({
 }));
 
 // Mock data for interviews
-const mockAnnualInterviews: Interview[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    type: "annual",
-    date: new Date("2024-12-15"),
-    interviewer: "Alice Dubois",
-    notes: "Excellente performance cette année. Objectifs atteints.",
-    objectives: [
-      "Améliorer les compétences en leadership",
-      "Suivre formation management",
-    ],
-    status: "completed",
-    documents: ["/files/entretien_marie_2024.pdf"],
-    createdAt: new Date("2024-11-15"),
-    updatedAt: new Date("2024-12-15"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    type: "annual",
-    date: new Date("2025-01-20"),
-    interviewer: "Alice Dubois",
-    notes: "",
-    objectives: [],
-    status: "scheduled",
-    createdAt: new Date("2024-12-01"),
-    updatedAt: new Date("2024-12-01"),
-  },
-];
+const mockAnnualInterviews: Interview[] = [];
 
-const mockProfessionalInterviews: Interview[] = [
-  {
-    id: "3",
-    employeeId: "1",
-    type: "professional",
-    date: new Date("2024-06-10"),
-    interviewer: "Dr. Dubois",
-    notes: "Discussion sur les perspectives d'évolution professionnelle.",
-    objectives: [
-      "Préparation au passage de CQP",
-      "Formation en management d'équipe",
-    ],
-    status: "completed",
-    documents: ["/files/entretien_prof_marie_2024.pdf"],
-    createdAt: new Date("2024-05-15"),
-    updatedAt: new Date("2024-06-10"),
-  },
-  {
-    id: "4",
-    employeeId: "2",
-    type: "professional",
-    date: new Date("2025-03-15"),
-    interviewer: "Dr. Dubois",
-    notes: "",
-    objectives: [],
-    status: "scheduled",
-    createdAt: new Date("2024-12-01"),
-    updatedAt: new Date("2024-12-01"),
-  },
-];
+const mockProfessionalInterviews: Interview[] = [];
 
 // Mock data for objectives
-const mockObjectives: Objective[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    title: "Améliorer les compétences en leadership",
-    description: "Développer les compétences en management d'équipe",
-    category: "development",
-    targetDate: new Date("2024-12-31"),
-    progress: 75,
-    status: "active",
-    relatedInterviewId: "1",
-    notes: "Formation management en cours",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-10-15"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    title: "Certification CQP",
-    description: "Obtenir la certification CQP dans les 2 ans",
-    category: "career",
-    targetDate: new Date("2025-12-31"),
-    progress: 30,
-    status: "active",
-    notes: "Préparation en cours",
-    createdAt: new Date("2024-03-01"),
-    updatedAt: new Date("2024-09-01"),
-  },
-];
+const mockObjectives: Objective[] = [];
 
 const statusLabels = {
   scheduled: "Planifié",

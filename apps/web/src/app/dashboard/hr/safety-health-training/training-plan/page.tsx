@@ -158,71 +158,7 @@ const TRAINING_TYPE_COLORS = [
 ] as const;
 
 // Mock data for training plans
-const mockTrainingPlans: TrainingPlan[] = [
-  {
-    id: "1",
-    title: "SSIAP 2",
-    description: "Recyclage annuel SSIAP niveau 2 pour les agents de sécurité",
-    plannedDate: new Date("2024-06-15"),
-    duration: 16,
-    participants: ["EMP001", "EMP002", "EMP003"],
-    trainer: "Formateur CNAPS",
-    location: "Centre de formation Paris",
-    budget: 2400,
-    currency: "EUR",
-    status: "planned",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    title: "SST",
-    description: "Session de recyclage SST pour tout le personnel",
-    plannedDate: new Date("2024-09-20"),
-    duration: 8,
-    participants: ["EMP001", "EMP002", "EMP003", "EMP004"],
-    trainer: "INRS",
-    location: "Salle de formation interne",
-    budget: 1200,
-    currency: "EUR",
-    status: "confirmed",
-    createdAt: new Date("2024-02-01"),
-    updatedAt: new Date("2024-02-01"),
-  },
-  {
-    id: "3",
-    title: "H0B0",
-    description: "Formation initiale H0B0 pour nouveaux agents",
-    plannedDate: new Date("2024-04-10"),
-    duration: 24,
-    participants: ["EMP005", "EMP006"],
-    trainer: "Organisme habilité",
-    location: "Centre de formation Lyon",
-    budget: 3600,
-    currency: "EUR",
-    status: "completed",
-    actualDate: new Date("2024-04-10"),
-    actualDuration: 24,
-    actualCost: 3400,
-    createdAt: new Date("2024-01-20"),
-    updatedAt: new Date("2024-04-10"),
-  },
-  {
-    id: "4",
-    title: "MAC/APS",
-    description: "MAC/APS pour agents de sécurité",
-    plannedDate: new Date("2024-11-05"),
-    duration: 28,
-    participants: ["EMP001", "EMP002", "EMP003", "EMP004", "EMP005"],
-    trainer: "Organisme agréé",
-    location: "Centre de formation Marseille",
-    budget: 4200,
-    currency: "EUR",
-    status: "planned",
-    createdAt: new Date("2024-03-01"),
-    updatedAt: new Date("2024-03-01"),
-  },
-];
+const mockTrainingPlans: TrainingPlan[] = [];
 
 // Mock training budget
 const mockTrainingBudget: TrainingBudget = {

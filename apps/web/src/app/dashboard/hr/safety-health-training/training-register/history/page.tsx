@@ -41,69 +41,16 @@ import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 
 // Mock employees
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont" },
-  { id: "2", name: "Jean Martin" },
-  { id: "3", name: "Sophie Leroy" },
-  { id: "4", name: "Pierre Durand" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 // Mock data
-const mockTrainingRegister: TrainingRegisterEntry[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    trainingName: "SSIAP 1 - Initial",
-    trainingType: "SSIAP",
-    trainingOrganization: "Centre de formation XYZ",
-    startDate: new Date("2024-01-15"),
-    endDate: new Date("2024-01-19"),
-    duration: 67,
-    cost: 850.0,
-    fundingSource: "opco",
-    certificationObtained: true,
-    certificationDate: new Date("2024-01-19"),
-    certificationNumber: "SSIAP1-2024-001",
-    expirationDate: new Date("2027-01-19"),
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-20"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    trainingName: "SST - Recyclage",
-    trainingType: "SST",
-    trainingOrganization: "ACME Formation",
-    startDate: new Date("2024-03-10"),
-    endDate: new Date("2024-03-11"),
-    duration: 14,
-    cost: 250.0,
-    fundingSource: "company",
-    certificationObtained: true,
-    certificationDate: new Date("2024-03-11"),
-    certificationNumber: "SST-2024-045",
-    expirationDate: new Date("2026-03-11"),
-    createdAt: new Date("2024-03-01"),
-    updatedAt: new Date("2024-03-12"),
-  },
-  {
-    id: "3",
-    employeeId: "3",
-    trainingName: "CQP APS",
-    trainingType: "CQP",
-    trainingOrganization: "Institut de Sécurité",
-    startDate: new Date("2024-02-01"),
-    endDate: new Date("2024-03-15"),
-    duration: 175,
-    cost: 1500.0,
-    fundingSource: "opco",
-    certificationObtained: true,
-    certificationDate: new Date("2024-03-15"),
-    certificationNumber: "CQP-2024-123",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-03-16"),
-  },
-];
+const mockTrainingRegister: TrainingRegisterEntry[] = [];
 
 const trainingTypeLabels = {
   SSIAP: "SSIAP",

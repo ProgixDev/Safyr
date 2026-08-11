@@ -24,12 +24,13 @@ import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
 
 // Mock employees for selection
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont" },
-  { id: "2", name: "Jean Martin" },
-  { id: "3", name: "Sophie Leroy" },
-  { id: "4", name: "Pierre Durand" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 const employeeOptions = mockEmployees.map((employee) => ({
   value: employee.id,
@@ -37,30 +38,7 @@ const employeeOptions = mockEmployees.map((employee) => ({
 }));
 
 // Mock data - replace with API call
-const mockWarnings: Warning[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    date: new Date("2024-01-15"),
-    reason: "Retard répété",
-    description: "Plusieurs retards non justifiés cette semaine",
-    issuedBy: "Alice Dubois",
-    status: "active",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    date: new Date("2024-01-10"),
-    reason: "Comportement inapproprié",
-    description: "Incident avec un collègue",
-    issuedBy: "Alice Dubois",
-    status: "lifted",
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-12"),
-  },
-];
+const mockWarnings: Warning[] = [];
 
 const statusLabels = {
   active: "Active",

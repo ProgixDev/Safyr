@@ -30,41 +30,7 @@ interface AutomationRule {
   triggerCount: number;
 }
 
-const mockRules: AutomationRule[] = [
-  {
-    id: "1",
-    name: "Auto-validation congés < 3 jours",
-    trigger: "Demande de congé créée",
-    condition: "Durée ≤ 3 jours ET Solde suffisant",
-    action: "Valider automatiquement",
-    isActive: true,
-    createdAt: "2024-01-15",
-    lastTriggered: "2024-12-20",
-    triggerCount: 45,
-  },
-  {
-    id: "2",
-    name: "Alerte formation expirée",
-    trigger: "Formation expirée",
-    condition: "SSIAP ou SST expiré",
-    action: "Envoyer email + notif RH",
-    isActive: true,
-    createdAt: "2024-01-15",
-    lastTriggered: "2024-12-18",
-    triggerCount: 12,
-  },
-  {
-    id: "3",
-    name: "Création dossier RH nouvel employé",
-    trigger: "Contrat signé",
-    condition: "Contrat CDI ou CDD signé",
-    action: "Créer dossier RH + Email bienvenue",
-    isActive: true,
-    createdAt: "2024-02-01",
-    lastTriggered: "2024-12-10",
-    triggerCount: 8,
-  },
-];
+const mockRules: AutomationRule[] = [];
 
 export default function WorkflowAutomationPage() {
   const [rules, setRules] = useState<AutomationRule[]>(mockRules);

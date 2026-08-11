@@ -30,12 +30,7 @@ export interface GeoZone {
 
 // ── Config ─────────────────────────────────────────────────────────
 
-export const ZONE_TYPES: ZoneType[] = [
-  "Site client",
-  "Zone sensible",
-  "Zone restreinte",
-  "Point de contrôle",
-];
+export const ZONE_TYPES: ZoneType[] = [];
 
 export const ZONE_TYPE_COLORS: Record<ZoneType, string> = {
   "Site client": "#22d3ee",
@@ -53,12 +48,7 @@ export const ZONE_TYPE_BADGE: Record<ZoneType, ZoneTypeBadgeVariant> = {
   "Point de contrôle": "secondary",
 };
 
-export const ALERT_LABELS: { key: keyof ZoneAlertRules; label: string }[] = [
-  { key: "entry", label: "Alerte entrée" },
-  { key: "exit", label: "Alerte sortie" },
-  { key: "absence", label: "Alerte absence programmée" },
-  { key: "parking", label: "Alerte stationnement prolongé" },
-];
+export const ALERT_LABELS: { key: keyof ZoneAlertRules; label: string }[] = [];
 
 // ── Geometry utilities (derived, not stored) ───────────────────────
 
@@ -233,84 +223,4 @@ export function getSiteBounds(
 
 // ── Mock Data ──────────────────────────────────────────────────────
 
-export const mockGeolocationZones: GeoZone[] = [
-  {
-    id: "zone-1",
-    name: "Zone Nord — Rosny 2",
-    type: "Site client",
-    site: "Centre Commercial Rosny 2",
-    color: "#22d3ee",
-    shape: {
-      kind: "circle",
-      center: [2.3522, 48.8566],
-      radius: 300,
-    },
-    alerts: { entry: true, exit: true, absence: true, parking: false },
-    createdAt: "2026-01-15T10:00:00Z",
-  },
-  {
-    id: "zone-2",
-    name: "Périmètre La Défense",
-    type: "Zone sensible",
-    site: "Siège Social La Défense",
-    color: "#f59e0b",
-    shape: {
-      kind: "polygon",
-      vertices: [
-        [2.233, 48.89],
-        [2.24, 48.894],
-        [2.242, 48.891],
-        [2.238, 48.888],
-        [2.234, 48.8885],
-      ],
-    },
-    alerts: { entry: true, exit: true, absence: false, parking: true },
-    createdAt: "2026-01-20T14:30:00Z",
-  },
-  {
-    id: "zone-3",
-    name: "Entrepôt Gennevilliers",
-    type: "Site client",
-    site: "Entrepôt Logistique Gennevilliers",
-    color: "#10b981",
-    shape: {
-      kind: "circle",
-      center: [2.2978, 48.9333],
-      radius: 200,
-    },
-    alerts: { entry: false, exit: true, absence: true, parking: false },
-    createdAt: "2026-02-01T09:00:00Z",
-  },
-  {
-    id: "zone-4",
-    name: "Zone Restreinte Serveurs",
-    type: "Zone restreinte",
-    site: "Siège Social La Défense",
-    color: "#ef4444",
-    shape: {
-      kind: "polygon",
-      vertices: [
-        [2.2355, 48.892],
-        [2.237, 48.892],
-        [2.237, 48.8912],
-        [2.2355, 48.8912],
-      ],
-    },
-    alerts: { entry: true, exit: true, absence: false, parking: false },
-    createdAt: "2026-02-10T16:00:00Z",
-  },
-  {
-    id: "zone-5",
-    name: "Checkpoint Ronde A",
-    type: "Point de contrôle",
-    site: "Centre Commercial Rosny 2",
-    color: "#a855f7",
-    shape: {
-      kind: "circle",
-      center: [2.349, 48.858],
-      radius: 50,
-    },
-    alerts: { entry: true, exit: false, absence: false, parking: false },
-    createdAt: "2026-02-15T11:00:00Z",
-  },
-];
+export const mockGeolocationZones: GeoZone[] = [];

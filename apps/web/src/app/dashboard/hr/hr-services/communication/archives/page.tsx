@@ -27,40 +27,7 @@ interface ArchivedEmail {
   status: "Envoyé" | "Échec" | "En attente";
 }
 
-const mockArchivedEmails: ArchivedEmail[] = [
-  {
-    id: "1",
-    date: "2024-12-20T10:30:00",
-    sender: "RH Admin",
-    recipients: ["Jean Dupont", "Marie Martin"],
-    recipientType: "employee",
-    subject: "Rappel formation SSIAP",
-    body: "Bonjour,\n\nNous vous rappelons que votre formation SSIAP expire bientôt. Merci de prendre rendez-vous pour le recyclage.\n\nCordialement,\nService RH",
-    attachments: ["calendrier_formations.pdf"],
-    status: "Envoyé",
-  },
-  {
-    id: "2",
-    date: "2024-12-19T14:15:00",
-    sender: "RH Admin",
-    recipients: ["Centre Commercial Rosny 2"],
-    recipientType: "client",
-    subject: "Rapport mensuel sécurité",
-    body: "Bonjour,\n\nVeuillez trouver ci-joint le rapport mensuel de sécurité pour le mois de novembre.\n\nCordialement,\nService RH",
-    attachments: ["rapport_novembre_2024.pdf", "statistiques.xlsx"],
-    status: "Envoyé",
-  },
-  {
-    id: "3",
-    date: "2024-12-18T09:00:00",
-    sender: "RH Admin",
-    recipients: ["Centre de Formation SSIAP", "Médecine du Travail Paris"],
-    recipientType: "partner",
-    subject: "Planification formations Q1 2025",
-    body: "Bonjour,\n\nNous souhaitons planifier les formations du premier trimestre 2025. Pouvez-vous nous transmettre vos disponibilités?\n\nCordialement,\nService RH",
-    status: "Envoyé",
-  },
-];
+const mockArchivedEmails: ArchivedEmail[] = [];
 
 export default function CommunicationArchivesPage() {
   const [emails] = useState<ArchivedEmail[]>(mockArchivedEmails);

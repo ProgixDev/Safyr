@@ -28,44 +28,7 @@ const mockPayrollStats: PayrollStats = {
   nextPayrollDate: new Date("2026-03-31"),
 };
 
-const mockAnomalies: PayrollAnomaly[] = [
-  {
-    id: "1",
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    type: "missing_hours",
-    description: "Heures travaillées manquantes pour décembre 2024",
-    severity: "high",
-    period: "2024-12",
-    status: "open",
-    createdAt: new Date("2024-12-20"),
-    updatedAt: new Date("2024-12-20"),
-  },
-  {
-    id: "2",
-    employeeId: "EMP002",
-    employeeName: "Marie Martin",
-    type: "contribution_error",
-    description: "Erreur dans le calcul des cotisations sociales",
-    severity: "medium",
-    period: "2024-12",
-    status: "investigating",
-    createdAt: new Date("2024-12-19"),
-    updatedAt: new Date("2024-12-20"),
-  },
-  {
-    id: "3",
-    employeeId: "EMP003",
-    employeeName: "Pierre Durand",
-    type: "incorrect_rate",
-    description: "Taux horaire incorrect appliqué",
-    severity: "critical",
-    period: "2024-12",
-    status: "open",
-    createdAt: new Date("2024-12-18"),
-    updatedAt: new Date("2024-12-18"),
-  },
-];
+const mockAnomalies: PayrollAnomaly[] = [];
 
 function RecentAnomaliesWidget() {
   return (

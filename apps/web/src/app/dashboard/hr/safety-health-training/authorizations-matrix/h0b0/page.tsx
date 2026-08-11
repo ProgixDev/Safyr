@@ -39,62 +39,7 @@ import type { TrainingCertification } from "@/lib/types";
 
 // Données de démonstration : habilitations électriques H0B0.
 // Recyclage recommandé tous les 3 ans (NF C 18-510).
-const mockH0B0Certifications: TrainingCertification[] = [
-  {
-    id: "1",
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    type: "H0B0",
-    number: "H0B0-2024-001",
-    issueDate: new Date("2022-03-15"),
-    expiryDate: new Date("2024-03-15"),
-    issuer: "APAVE",
-    status: "valid",
-    lastRenewalDate: new Date("2022-03-15"),
-    nextRenewalDate: new Date("2024-03-15"),
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2022-03-15"),
-    createdAt: new Date("2022-03-15"),
-    updatedAt: new Date("2022-03-15"),
-  },
-  {
-    id: "2",
-    employeeId: "EMP002",
-    employeeName: "Marie Martin",
-    type: "H0B0",
-    number: "H0B0-2024-002",
-    issueDate: new Date("2023-06-01"),
-    expiryDate: new Date("2025-06-01"),
-    issuer: "APAVE",
-    status: "valid",
-    lastRenewalDate: new Date("2023-06-01"),
-    nextRenewalDate: new Date("2025-06-01"),
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2023-06-01"),
-    createdAt: new Date("2023-06-01"),
-    updatedAt: new Date("2023-06-01"),
-  },
-  {
-    id: "3",
-    employeeId: "EMP003",
-    employeeName: "Pierre Durand",
-    type: "H0B0",
-    number: "H0B0-2024-003",
-    issueDate: new Date("2021-09-10"),
-    expiryDate: new Date("2023-09-10"),
-    issuer: "APAVE",
-    status: "expired",
-    lastRenewalDate: new Date("2021-09-10"),
-    nextRenewalDate: new Date("2023-09-10"),
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2021-09-10"),
-    createdAt: new Date("2021-09-10"),
-    updatedAt: new Date("2021-09-10"),
-  },
-];
+const mockH0B0Certifications: TrainingCertification[] = [];
 
 export default function H0B0Page() {
   const [certifications, setCertifications] = useState<TrainingCertification[]>(

@@ -9,162 +9,25 @@ import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Clock, CheckCircle, AlertTriangle, BadgeEuro } from "lucide-react";
 
 // Mock data for overtime counter
-const mockOvertimeCounters = [
-  {
-    id: "1",
-    employeeId: "1",
-    employeeName: "Jean Dupont",
-    employeeNumber: "EMP001",
-    department: "Sécurité",
-    accumulatedHours: 45.5,
-    paidHours: 20,
-    remainingHours: 25.5,
-    lastPaymentDate: new Date("2024-11-15"),
-    nextPaymentDate: new Date("2025-01-15"),
-    monthlyBreakdown: [
-      {
-        month: "Janvier 2024",
-        hours: 8.5,
-        status: "paid",
-        type: "Heures normales",
-        days: 5,
-      },
-      {
-        month: "Février 2024",
-        hours: 6.0,
-        status: "paid",
-        type: "Heures normales",
-        days: 4,
-      },
-      {
-        month: "Mars 2024",
-        hours: 7.5,
-        status: "pending",
-        type: "Heures normales",
-        days: 5,
-      },
-      {
-        month: "Avril 2024",
-        hours: 5.0,
-        status: "pending",
-        type: "Heures de nuit",
-        days: 3,
-      },
-      {
-        month: "Mai 2024",
-        hours: 9.0,
-        status: "pending",
-        type: "Weekend",
-        days: 6,
-      },
-      {
-        month: "Juin 2024",
-        hours: 9.5,
-        status: "pending",
-        type: "Heures normales",
-        days: 6,
-      },
-    ],
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    employeeName: "Marie Martin",
-    employeeNumber: "EMP002",
-    department: "Direction",
-    accumulatedHours: 32,
-    paidHours: 15,
-    remainingHours: 17,
-    lastPaymentDate: new Date("2024-10-30"),
-    nextPaymentDate: new Date("2024-12-30"),
-    monthlyBreakdown: [
-      {
-        month: "Janvier 2024",
-        hours: 4.0,
-        status: "paid",
-        type: "Heures normales",
-        days: 3,
-      },
-      {
-        month: "Février 2024",
-        hours: 5.5,
-        status: "paid",
-        type: "Weekend",
-        days: 4,
-      },
-      {
-        month: "Mars 2024",
-        hours: 6.0,
-        status: "pending",
-        type: "Heures normales",
-        days: 4,
-      },
-      {
-        month: "Avril 2024",
-        hours: 5.5,
-        status: "pending",
-        type: "Heures de nuit",
-        days: 3,
-      },
-      {
-        month: "Mai 2024",
-        hours: 6.0,
-        status: "pending",
-        type: "Heures normales",
-        days: 4,
-      },
-      {
-        month: "Juin 2024",
-        hours: 5.0,
-        status: "pending",
-        type: "Weekend",
-        days: 3,
-      },
-    ],
-  },
-  {
-    id: "3",
-    employeeId: "5",
-    employeeName: "Luc Moreau",
-    employeeNumber: "EMP005",
-    department: "Sécurité",
-    accumulatedHours: 18.5,
-    paidHours: 0,
-    remainingHours: 18.5,
-    lastPaymentDate: null,
-    nextPaymentDate: new Date("2025-02-15"),
-    monthlyBreakdown: [
-      {
-        month: "Janvier 2024",
-        hours: 3.5,
-        status: "pending",
-        type: "Heures normales",
-        days: 2,
-      },
-      {
-        month: "Février 2024",
-        hours: 4.0,
-        status: "pending",
-        type: "Heures normales",
-        days: 3,
-      },
-      {
-        month: "Mars 2024",
-        hours: 5.0,
-        status: "pending",
-        type: "Weekend",
-        days: 3,
-      },
-      {
-        month: "Avril 2024",
-        hours: 6.0,
-        status: "pending",
-        type: "Heures de nuit",
-        days: 4,
-      },
-    ],
-  },
-];
+const mockOvertimeCounters: {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeNumber: string;
+  department: string;
+  accumulatedHours: number;
+  paidHours: number;
+  remainingHours: number;
+  lastPaymentDate?: Date;
+  nextPaymentDate?: Date;
+  monthlyBreakdown: {
+    month: string;
+    hours: number;
+    status: string;
+    type: string;
+    days: number;
+  }[];
+}[] = [];
 
 export function OvertimeCounterOverview() {
   const [counters, setCounters] = useState(mockOvertimeCounters);

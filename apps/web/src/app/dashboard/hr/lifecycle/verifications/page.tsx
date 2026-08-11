@@ -24,45 +24,7 @@ import { Modal } from "@/components/ui/modal";
 import { CNAPS_TELESERVICES_URL, openExternal } from "@/lib/external-links";
 
 // Mock data - replace with API call
-const mockVerifications: RegulatoryVerification[] = [
-  {
-    id: "1",
-    applicationId: "1",
-    cnapsVerified: false,
-    diplomasVerified: true,
-    cnapsNumber: "CNAPS123456",
-    diplomaFiles: ["/files/diploma_marie.pdf"],
-    status: "pending",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    applicationId: "2",
-    cnapsVerified: true,
-    diplomasVerified: true,
-    cnapsNumber: "CNAPS123457",
-    diplomaFiles: ["/files/diploma_jean.pdf", "/files/cert_jean.pdf"],
-    verifiedAt: new Date("2024-01-12"),
-    verifiedBy: "Alice Dubois",
-    status: "verified",
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-12"),
-  },
-  {
-    id: "3",
-    applicationId: "3",
-    cnapsVerified: false,
-    diplomasVerified: false,
-    diplomaFiles: [],
-    status: "rejected",
-    rejectionReason: "Diplôme non conforme",
-    verifiedAt: new Date("2024-01-11"),
-    verifiedBy: "Alice Dubois",
-    createdAt: new Date("2024-01-08"),
-    updatedAt: new Date("2024-01-11"),
-  },
-];
+const mockVerifications: RegulatoryVerification[] = [];
 
 const statusLabels = {
   pending: "En attente",

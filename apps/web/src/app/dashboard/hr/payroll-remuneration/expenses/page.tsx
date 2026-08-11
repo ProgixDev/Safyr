@@ -48,102 +48,7 @@ import {
 import type { ExpenseItem as ApiExpenseItem } from "@safyr/api-client";
 
 // Mock data - replace with API call
-const mockExpenseReports: ExpenseReport[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    title: "Frais de déplacement - Mission site A",
-    items: [
-      {
-        id: "1",
-        category: "fuel",
-        description: "Essence pour déplacement",
-        amount: 45.5,
-        date: new Date("2024-12-10"),
-        receipt: "/files/receipt_1.pdf",
-        status: "submitted",
-      },
-      {
-        id: "2",
-        category: "meal",
-        description: "Repas midi",
-        amount: 15.0,
-        date: new Date("2024-12-10"),
-        status: "submitted",
-      },
-      {
-        id: "3",
-        category: "parking",
-        description: "Parking site A",
-        amount: 8.5,
-        date: new Date("2024-12-10"),
-        receipt: "/files/receipt_2.pdf",
-        status: "submitted",
-      },
-    ],
-    totalAmount: 69.0,
-    status: "submitted",
-    submittedAt: new Date("2024-12-11"),
-    exportedToPayroll: false,
-    createdAt: new Date("2024-12-10"),
-    updatedAt: new Date("2024-12-11"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    title: "Frais de formation SSIAP",
-    items: [
-      {
-        id: "1",
-        category: "travel",
-        description: "Train Paris-Lyon",
-        amount: 85.0,
-        date: new Date("2024-12-05"),
-        receipt: "/files/receipt_3.pdf",
-        status: "approved",
-      },
-      {
-        id: "2",
-        category: "accommodation",
-        description: "Hôtel 1 nuit",
-        amount: 90.0,
-        date: new Date("2024-12-05"),
-        receipt: "/files/receipt_4.pdf",
-        status: "approved",
-      },
-    ],
-    totalAmount: 175.0,
-    status: "approved",
-    submittedAt: new Date("2024-12-06"),
-    reviewedAt: new Date("2024-12-07"),
-    reviewedBy: "Alice Dubois",
-    approvedBy: "Alice Dubois",
-    approvedAt: new Date("2024-12-07"),
-    exportedToPayroll: false,
-    createdAt: new Date("2024-12-05"),
-    updatedAt: new Date("2024-12-07"),
-  },
-  {
-    id: "3",
-    employeeId: "1",
-    title: "Frais mission décembre",
-    items: [
-      {
-        id: "1",
-        category: "fuel",
-        description: "Essence",
-        amount: 50.0,
-        date: new Date("2024-12-15"),
-        status: "draft",
-      },
-    ],
-    totalAmount: 50.0,
-    status: "draft",
-    exportedToPayroll: false,
-    createdAt: new Date("2024-12-15"),
-    updatedAt: new Date("2024-12-15"),
-  },
-];
+const mockExpenseReports: ExpenseReport[] = [];
 
 const statusLabels = {
   draft: "Brouillon",
@@ -171,12 +76,13 @@ const categoryLabels = {
 };
 
 // Mock employees
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont" },
-  { id: "2", name: "Jean Martin" },
-  { id: "3", name: "Sophie Leroy" },
-  { id: "4", name: "Pierre Durand" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 type TableItem = ExpenseItem & {
   index: number;

@@ -35,83 +35,16 @@ import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 
 // Mock employees
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont" },
-  { id: "2", name: "Jean Martin" },
-  { id: "3", name: "Sophie Leroy" },
-  { id: "4", name: "Pierre Durand" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 // Mock data
-const mockPersonnelRegister: PersonnelRegisterEntry[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    registrationNumber: "2024-001",
-    entryDate: new Date("2024-01-15"),
-    contractType: "CDI",
-    contractWorkTime: "complet",
-    position: "Agent de sécurité",
-    qualification: "CQP APS",
-    nationality: "Française",
-    sex: "F",
-    birthDate: new Date("1995-03-20"),
-    birthPlace: "Paris (75)",
-    address: "15 rue de la République, 75001 Paris",
-    phone: "06 12 34 56 78",
-    email: "marie.dupont@example.com",
-    socialSecurityNumber: "1 95 03 75 123 456 78",
-    cnapsProfessionalCardNumber: "CNAPS-2024-001",
-    ssiapDiplomaNumber: "SSIAP1-2020-456",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    registrationNumber: "2024-002",
-    entryDate: new Date("2024-02-01"),
-    contractType: "CDI",
-    contractWorkTime: "complet",
-    position: "Chef d'équipe",
-    qualification: "SSIAP 2",
-    nationality: "Française",
-    sex: "M",
-    birthDate: new Date("1988-07-12"),
-    birthPlace: "Lyon (69)",
-    address: "8 avenue Victor Hugo, 69002 Lyon",
-    phone: "06 23 45 67 89",
-    email: "jean.martin@example.com",
-    socialSecurityNumber: "1 88 07 69 234 567 89",
-    cnapsProfessionalCardNumber: "CNAPS-2023-045",
-    ssiapDiplomaNumber: "SSIAP2-2019-789",
-    createdAt: new Date("2024-02-01"),
-    updatedAt: new Date("2024-02-01"),
-  },
-  {
-    id: "3",
-    employeeId: "3",
-    registrationNumber: "2024-003",
-    entryDate: new Date("2024-03-10"),
-    exitDate: new Date("2024-09-10"),
-    contractType: "CDD",
-    contractWorkTime: "partiel",
-    position: "Agent de sécurité",
-    qualification: "CQP APS",
-    nationality: "Française",
-    sex: "F",
-    birthDate: new Date("1992-11-05"),
-    birthPlace: "Marseille (13)",
-    address: "22 cours Julien, 13006 Marseille",
-    phone: "06 34 56 78 90",
-    email: "sophie.leroy@example.com",
-    socialSecurityNumber: "2 92 11 13 345 678 90",
-    cnapsProfessionalCardNumber: "CNAPS-2024-012",
-    ssiapDiplomaNumber: "SSIAP1-2021-123",
-    createdAt: new Date("2024-03-10"),
-    updatedAt: new Date("2024-09-10"),
-  },
-];
+const mockPersonnelRegister: PersonnelRegisterEntry[] = [];
 
 const contractTypeLabels = {
   CDI: "CDI",

@@ -65,91 +65,9 @@ interface InterpellationRecord {
   statutPaiement?: "regle" | "non_regle";
 }
 
-const mockSites = [
-  { id: "SITE-001", name: "Centre Commercial Atlantis" },
-  { id: "SITE-002", name: "Tour de Bureaux Skyline" },
-];
+const mockSites: { id: string; name: string }[] = [];
 
-const mockInterpellationRecords: InterpellationRecord[] = [
-  {
-    id: "INT-2024-001",
-    siteId: "SITE-001",
-    siteName: "Centre Commercial Atlantis",
-    date: "2024-12-24T14:30:00Z",
-    agentId: "AGT-125",
-    agentName: "Jean Dupont",
-    reason: "Comportement suspect",
-    description:
-      "Personne suspecte observée dans le parking. Contrôle d'identité effectué.",
-    personInterpellated: "M. X",
-    status: "archived",
-    archivedAt: "2024-12-24T15:00:00Z",
-    archivedBy: "Marie Martin",
-    personNom: "Dubois",
-    personPrenom: "Laurent",
-    personDateNaissance: "1987-03-15",
-    personLieuNaissance: "Marseille",
-    personAdresse: "12 rue de la Republique, 75001 Paris",
-    personTelephone: "06 12 34 56 78",
-    heureInterpellation: "14:30",
-    appelForcesOrdre: true,
-    detailForcesOrdre:
-      "Police nationale contactée à 14:45. Arrivée sur site à 15:10. PV numéro 2024-1247.",
-    typeInfraction: "vol",
-    montantProduits: 245.5,
-    statutPaiement: "regle",
-  },
-  {
-    id: "INT-2024-002",
-    siteId: "SITE-002",
-    siteName: "Tour de Bureaux Skyline",
-    date: "2024-12-23T10:15:00Z",
-    agentId: "AGT-126",
-    agentName: "Marie Martin",
-    reason: "Tentative d'intrusion",
-    description:
-      "Tentative d'accès non autorisé détectée. Intervention immédiate.",
-    status: "archived",
-    archivedAt: "2024-12-23T11:00:00Z",
-    archivedBy: "Pierre Durand",
-    personNom: "Moreau",
-    personPrenom: "Sébastien",
-    personDateNaissance: "1994-07-22",
-    personLieuNaissance: "Lyon",
-    personAdresse: "45 avenue Jean Jaurès, 69007 Lyon",
-    personTelephone: "07 89 01 23 45",
-    heureInterpellation: "10:15",
-    appelForcesOrdre: true,
-    detailForcesOrdre:
-      "Gendarmerie nationale contactée à 10:30. Remise en main propre à 11:05.",
-    typeInfraction: "intrusion",
-  },
-  {
-    id: "INT-2024-003",
-    siteId: "SITE-001",
-    siteName: "Centre Commercial Atlantis",
-    date: "2024-12-22T16:45:00Z",
-    agentId: "AGT-125",
-    agentName: "Jean Dupont",
-    reason: "Vérification d'identité",
-    description: "Vérification d'identité de routine effectuée.",
-    personInterpellated: "M. Y",
-    status: "active",
-    archivedAt: "",
-    archivedBy: "",
-    personNom: "Petit",
-    personPrenom: "Arnaud",
-    personDateNaissance: "2002-11-08",
-    personLieuNaissance: "Nantes",
-    personAdresse: "8 boulevard Victor Hugo, 44000 Nantes",
-    personTelephone: "06 55 44 33 22",
-    heureInterpellation: "16:45",
-    appelForcesOrdre: false,
-    typeInfraction: "degradation",
-    montantProduits: 80.0,
-    statutPaiement: "non_regle",
-  },
-];
+const mockInterpellationRecords: InterpellationRecord[] = [];
 
 const reasons = [
   "Vol",
@@ -251,7 +169,7 @@ function FicheFormSections({
           <div className="col-span-2">
             <Label>Site</Label>
             <Input
-              value={recordSite ?? mockSites[0].name}
+              value={recordSite ?? mockSites[0]?.name ?? ""}
               readOnly
               className="bg-muted/30 text-muted-foreground"
             />

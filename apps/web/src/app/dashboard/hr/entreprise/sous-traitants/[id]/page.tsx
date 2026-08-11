@@ -123,38 +123,7 @@ const optionalDocuments = [
   { type: "pv_ag", name: "PV Assemblée Générale", category: "juridique" },
 ];
 
-const mockDocuments: Document[] = [
-  {
-    id: "1",
-    sousTraitantId: "1",
-    name: "CNI Marie Martin",
-    type: "cni_dirigeant",
-    uploadDate: "2024-10-15",
-    expiryDate: "2029-10-15",
-    status: "valid",
-    required: true,
-  },
-  {
-    id: "2",
-    sousTraitantId: "1",
-    name: "Carte Pro Marie Martin",
-    type: "carte_pro_dirigeant",
-    uploadDate: "2024-09-20",
-    expiryDate: "2025-02-20",
-    status: "expiring",
-    required: true,
-  },
-  {
-    id: "3",
-    sousTraitantId: "1",
-    name: "Attestation URSSAF",
-    type: "urssaf",
-    uploadDate: "2024-11-01",
-    expiryDate: "2025-02-01",
-    status: "valid",
-    required: true,
-  },
-];
+const mockDocuments: Document[] = [];
 
 const EMPTY_DIRIGEANT: DirigeantInfo = {
   nom: "",

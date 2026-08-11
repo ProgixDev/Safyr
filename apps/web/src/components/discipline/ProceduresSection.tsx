@@ -37,12 +37,13 @@ import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
 
 // Mock employees for selection
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont" },
-  { id: "2", name: "Jean Martin" },
-  { id: "3", name: "Sophie Leroy" },
-  { id: "4", name: "Pierre Durand" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 const employeeOptions = mockEmployees.map((employee) => ({
   value: employee.id,
@@ -72,38 +73,7 @@ const standardSteps: DisciplinaryStep[] = [
   },
 ];
 
-const mockProcedures: DisciplinaryProcedure[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    startDate: new Date("2024-01-15"),
-    steps: standardSteps.map((step) => ({
-      ...step,
-      completed: step.id === "1" ? true : false,
-      completedAt: step.id === "1" ? new Date("2024-01-15") : undefined,
-    })),
-    currentStep: 1,
-    status: "ongoing",
-    documents: ["/files/avertissement_marie.pdf"],
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    startDate: new Date("2024-01-01"),
-    steps: standardSteps.map((step) => ({
-      ...step,
-      completed: true,
-      completedAt: new Date("2024-01-05"),
-    })),
-    currentStep: 3,
-    status: "completed",
-    documents: ["/files/procedure_jean.pdf"],
-    createdAt: new Date("2024-01-01"),
-    updatedAt: new Date("2024-01-05"),
-  },
-];
+const mockProcedures: DisciplinaryProcedure[] = [];
 
 const statusLabels = {
   ongoing: "En cours",

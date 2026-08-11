@@ -51,30 +51,7 @@ interface Employee {
   contractEndDate?: string; // YYYY-MM-DD for CDD
 }
 
-const mockEmployees: Employee[] = [
-  {
-    employeeId: "1",
-    employeeName: "Jean Dupont",
-    position: "Agent de sécurité",
-    contractType: "CDI",
-    hireDate: "2022-01-15",
-  },
-  {
-    employeeId: "2",
-    employeeName: "Marie Martin",
-    position: "Chef d'équipe",
-    contractType: "CDI",
-    hireDate: "2020-03-10",
-  },
-  {
-    employeeId: "3",
-    employeeName: "Pierre Bernard",
-    position: "Agent de sécurité",
-    contractType: "CDD",
-    hireDate: "2023-06-01",
-    contractEndDate: "2024-08-31",
-  },
-];
+const mockEmployees: Employee[] = [];
 
 // Employee data by employeeId and month
 const mockEmployeeMonthData: Record<

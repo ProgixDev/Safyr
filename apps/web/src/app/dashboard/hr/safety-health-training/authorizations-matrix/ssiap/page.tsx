@@ -42,59 +42,7 @@ import type {
 import { mockEmployees } from "@/data/employees";
 
 // Mock data for SSIAP certifications
-const mockSSIAPCertifications: TrainingCertification[] = [
-  {
-    id: "1",
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    type: "SSIAP1",
-    level: "1",
-    number: "SSIAP1-2024-001",
-    issueDate: new Date("2023-01-15"),
-    expiryDate: new Date("2026-01-15"),
-    issuer: "CNAPS",
-    status: "valid",
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2023-01-15"),
-    createdAt: new Date("2023-01-15"),
-    updatedAt: new Date("2023-01-15"),
-  },
-  {
-    id: "2",
-    employeeId: "EMP002",
-    employeeName: "Marie Martin",
-    type: "SSIAP2",
-    level: "2",
-    number: "SSIAP2-2024-002",
-    issueDate: new Date("2023-06-01"),
-    expiryDate: new Date("2026-06-01"),
-    issuer: "CNAPS",
-    status: "valid",
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2023-06-01"),
-    createdAt: new Date("2023-06-01"),
-    updatedAt: new Date("2023-06-01"),
-  },
-  {
-    id: "3",
-    employeeId: "EMP003",
-    employeeName: "Pierre Durand",
-    type: "SSIAP3",
-    level: "3",
-    number: "SSIAP3-2024-003",
-    issueDate: new Date("2023-03-10"),
-    expiryDate: new Date("2026-03-10"),
-    issuer: "CNAPS",
-    status: "expiring-soon",
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2023-03-10"),
-    createdAt: new Date("2023-03-10"),
-    updatedAt: new Date("2023-03-10"),
-  },
-];
+const mockSSIAPCertifications: TrainingCertification[] = [];
 
 const ssiapLevelLabels: Record<string, string> = {
   "1": "SSIAP 1",

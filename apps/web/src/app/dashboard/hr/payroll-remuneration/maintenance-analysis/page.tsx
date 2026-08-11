@@ -46,53 +46,7 @@ interface SalaryMaintenance {
   status: "En cours" | "Terminé";
 }
 
-const mockMaintenanceData: SalaryMaintenance[] = [
-  {
-    id: "1",
-    employeeId: "emp1",
-    employeeName: "Jean Dupont",
-    type: "Maladie",
-    startDate: "2024-12-01",
-    endDate: "2024-12-15",
-    days: 15,
-    grossSalary: 2400.0,
-    ijss: 42.5,
-    employerMaintenance: 37.5,
-    totalPaid: 1200.0,
-    maintenanceRate: 90,
-    status: "Terminé",
-  },
-  {
-    id: "2",
-    employeeId: "emp2",
-    employeeName: "Marie Martin",
-    type: "Accident de travail",
-    startDate: "2024-11-20",
-    endDate: "2024-12-20",
-    days: 31,
-    grossSalary: 2600.0,
-    ijss: 52.0,
-    employerMaintenance: 34.67,
-    totalPaid: 2686.77,
-    maintenanceRate: 100,
-    status: "En cours",
-  },
-  {
-    id: "3",
-    employeeId: "emp3",
-    employeeName: "Sophie Bernard",
-    type: "Maternité/Paternité",
-    startDate: "2024-10-01",
-    endDate: "2024-12-15",
-    days: 76,
-    grossSalary: 2800.0,
-    ijss: 89.0,
-    employerMaintenance: 4.67,
-    totalPaid: 7116.92,
-    maintenanceRate: 100,
-    status: "Terminé",
-  },
-];
+const mockMaintenanceData: SalaryMaintenance[] = [];
 
 export default function SalaryMaintenanceAnalysisPage() {
   const [maintenances, setMaintenances] =

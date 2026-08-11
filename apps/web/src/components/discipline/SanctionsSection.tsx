@@ -22,70 +22,16 @@ interface MiseAPiedRow {
 }
 
 // Mock employees for selection
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont" },
-  { id: "2", name: "Jean Martin" },
-  { id: "3", name: "Sophie Leroy" },
-  { id: "4", name: "Pierre Durand" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 // Mock data - replace with API call
-const mockMisesAPiedRegisters: MisesAPiedRegister[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    misesAPied: [
-      {
-        id: "1",
-        employeeId: "1",
-        date: new Date("2024-01-15"),
-        type: "Avertissement",
-        reason: "Retard répété",
-        description: "Plusieurs retards non justifiés cette semaine",
-        issuedBy: "Alice Dubois",
-        severity: "minor",
-        createdAt: new Date("2024-01-15"),
-        updatedAt: new Date("2024-01-15"),
-      },
-    ],
-    totalWarnings: 1,
-    totalSuspensions: 0,
-    lastUpdated: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    misesAPied: [
-      {
-        id: "2",
-        employeeId: "2",
-        date: new Date("2024-01-10"),
-        type: "Suspension",
-        reason: "Comportement inapproprié",
-        description: "Incident avec un collègue",
-        issuedBy: "Alice Dubois",
-        severity: "major",
-        createdAt: new Date("2024-01-10"),
-        updatedAt: new Date("2024-01-10"),
-      },
-      {
-        id: "3",
-        employeeId: "2",
-        date: new Date("2024-01-01"),
-        type: "Avertissement",
-        reason: "Violation des règles",
-        description: "Non-respect des protocoles",
-        issuedBy: "Alice Dubois",
-        severity: "minor",
-        createdAt: new Date("2024-01-01"),
-        updatedAt: new Date("2024-01-01"),
-      },
-    ],
-    totalWarnings: 1,
-    totalSuspensions: 1,
-    lastUpdated: new Date("2024-01-10"),
-  },
-];
+const mockMisesAPiedRegisters: MisesAPiedRegister[] = [];
 
 const severityLabels = {
   minor: "Mineure",

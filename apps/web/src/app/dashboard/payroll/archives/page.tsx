@@ -32,82 +32,28 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Mock data for payslips
-const mockPayslips = [
-  {
-    id: "BS-2024-01-001",
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    month: 1,
-    year: 2024,
-    siteId: "SITE01",
-    siteName: "Site Principal",
-    grossSalary: 3500,
-    netSalary: 2650,
-    status: "validated",
-  },
-  {
-    id: "BS-2024-01-002",
-    employeeId: "EMP002",
-    employeeName: "Marie Martin",
-    month: 1,
-    year: 2024,
-    siteId: "SITE01",
-    siteName: "Site Principal",
-    grossSalary: 4200,
-    netSalary: 3150,
-    status: "validated",
-  },
-  {
-    id: "BS-2024-01-003",
-    employeeId: "EMP003",
-    employeeName: "Pierre Durand",
-    month: 1,
-    year: 2024,
-    siteId: "SITE02",
-    siteName: "Site Secondaire",
-    grossSalary: 2800,
-    netSalary: 2100,
-    status: "validated",
-  },
-  {
-    id: "BS-2024-02-001",
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    month: 2,
-    year: 2024,
-    siteId: "SITE01",
-    siteName: "Site Principal",
-    grossSalary: 3500,
-    netSalary: 2650,
-    status: "validated",
-  },
-  {
-    id: "BS-2023-12-001",
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    month: 12,
-    year: 2023,
-    siteId: "SITE01",
-    siteName: "Site Principal",
-    grossSalary: 3400,
-    netSalary: 2580,
-    status: "validated",
-  },
-];
+const mockPayslips: {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  month: number;
+  year: number;
+  siteId: string;
+  siteName: string;
+  grossSalary: number;
+  netSalary: number;
+  status: string;
+}[] = [];
 
-const mockSites = [
-  { id: "SITE01", name: "Site Principal" },
-  { id: "SITE02", name: "Site Secondaire" },
-  { id: "SITE03", name: "Site Tertiaire" },
-];
+const mockSites: { id: string; name: string }[] = [];
 
-const mockEmployees = [
-  { id: "EMP001", name: "Jean Dupont" },
-  { id: "EMP002", name: "Marie Martin" },
-  { id: "EMP003", name: "Pierre Durand" },
-  { id: "EMP004", name: "Sophie Bernard" },
-  { id: "EMP005", name: "Luc Petit" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 const months = [
   { value: "1", label: "Janvier" },

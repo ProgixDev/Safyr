@@ -39,48 +39,16 @@ import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 
 // Mock employees
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont" },
-  { id: "2", name: "Jean Martin" },
-  { id: "3", name: "Sophie Leroy" },
-  { id: "4", name: "Pierre Durand" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 // Mock data
-const mockCDDRegister: CDDRegisterEntry[] = [
-  {
-    id: "1",
-    employeeId: "3",
-    contractNumber: "CDD-2024-001",
-    contractType: "CDD",
-    entryDate: new Date("2024-03-10"),
-    exitDate: new Date("2024-09-10"),
-    expectedEndDate: new Date("2024-09-10"),
-    actualEndDate: new Date("2024-09-10"),
-    position: "Agent de sécurité",
-    reason: "temporary_increase",
-    reasonDetails: "Accroissement temporaire d'activité - Été 2024",
-    renewalCount: 0,
-    exitReason: "end_of_contract",
-    createdAt: new Date("2024-03-01"),
-    updatedAt: new Date("2024-09-11"),
-  },
-  {
-    id: "2",
-    employeeId: "4",
-    contractNumber: "CDD-2024-002",
-    contractType: "CDD",
-    entryDate: new Date("2024-06-01"),
-    expectedEndDate: new Date("2024-12-31"),
-    position: "Agent de sécurité",
-    reason: "replacement",
-    reasonDetails: "Remplacement maladie longue durée",
-    renewalCount: 1,
-    previousContractId: "CDD-2024-002-R0",
-    createdAt: new Date("2024-05-20"),
-    updatedAt: new Date("2024-11-15"),
-  },
-];
+const mockCDDRegister: CDDRegisterEntry[] = [];
 
 const contractTypeLabels = {
   CDD: "CDD",

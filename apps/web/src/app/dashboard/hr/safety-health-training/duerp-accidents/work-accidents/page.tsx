@@ -40,58 +40,16 @@ import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 
 // Mock employees
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont" },
-  { id: "2", name: "Jean Martin" },
-  { id: "3", name: "Sophie Leroy" },
-  { id: "4", name: "Pierre Durand" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 // Mock data
-const mockWorkAccidents: WorkAccident[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    accidentDate: new Date("2024-11-15"),
-    accidentTime: "14:30",
-    location: "Site client A - Parking",
-    description:
-      "Chute sur sol glissant lors d'une ronde de sécurité. Blessure au poignet droit.",
-    injuries: "Entorse du poignet droit",
-    witnesses: ["Jean Martin", "Sophie Leroy"],
-    declarationDate: new Date("2024-11-15"),
-    declarationNumber: "AT-2024-001",
-    workStoppage: true,
-    workStoppageStart: new Date("2024-11-16"),
-    workStoppageEnd: new Date("2024-11-30"),
-    returnToWork: new Date("2024-12-01"),
-    severity: "moderate",
-    status: "closed",
-    cpamNotified: true,
-    cpamNotificationDate: new Date("2024-11-16"),
-    createdAt: new Date("2024-11-15"),
-    updatedAt: new Date("2024-12-01"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    accidentDate: new Date("2024-12-05"),
-    accidentTime: "09:15",
-    location: "Site client B - Hall d'entrée",
-    description:
-      "Incident mineur lors du contrôle d'accès. Coupure superficielle à la main gauche.",
-    injuries: "Coupure superficielle main gauche",
-    declarationDate: new Date("2024-12-05"),
-    declarationNumber: "AT-2024-002",
-    workStoppage: false,
-    severity: "minor",
-    status: "declared",
-    cpamNotified: true,
-    cpamNotificationDate: new Date("2024-12-05"),
-    createdAt: new Date("2024-12-05"),
-    updatedAt: new Date("2024-12-05"),
-  },
-];
+const mockWorkAccidents: WorkAccident[] = [];
 
 const severityLabels = {
   minor: "Bénin",

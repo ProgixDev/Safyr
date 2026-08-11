@@ -112,87 +112,11 @@ const requiredDocuments = [
   { type: "kbis_client", name: "Kbis du client", category: "juridique" },
 ];
 
-const mockContracts: ClientContract[] = [
-  {
-    id: "1",
-    clientId: "1",
-    startDate: new Date("2024-01-15"),
-    endDate: new Date("2025-01-15"),
-    description: "Contrat de surveillance générale",
-    status: "active",
-  },
-  {
-    id: "2",
-    clientId: "1",
-    startDate: new Date("2023-06-01"),
-    endDate: new Date("2024-05-31"),
-    description: "Contrat événementiel",
-    status: "expired",
-  },
-  {
-    id: "3",
-    clientId: "2",
-    startDate: new Date("2024-03-01"),
-    description: "Contrat de gardiennage permanent",
-    status: "active",
-  },
-];
+const mockContracts: ClientContract[] = [];
 
-const mockGifts: ClientGift[] = [
-  {
-    id: "1",
-    clientId: "1",
-    giftDescription: "Panier de Noël",
-    date: new Date("2023-12-20"),
-    valueHT: 125,
-    tva: 25,
-    valueTTC: 150,
-    notes: "Remis au directeur général",
-  },
-  {
-    id: "2",
-    clientId: "2",
-    giftDescription: "Bouteille de champagne",
-    date: new Date("2024-01-15"),
-    valueHT: 67,
-    tva: 13,
-    valueTTC: 80,
-    notes: "Nouvel an - équipe dirigeante",
-  },
-];
+const mockGifts: ClientGift[] = [];
 
-const mockDocuments: Document[] = [
-  {
-    id: "1",
-    clientId: "1",
-    name: "Contrat cadre ABC Industries",
-    type: "contrat_cadre",
-    uploadDate: "2024-01-10",
-    expiryDate: "2025-01-10",
-    status: "valid",
-    required: true,
-  },
-  {
-    id: "2",
-    clientId: "1",
-    name: "Kbis ABC Industries",
-    type: "kbis_client",
-    uploadDate: "2024-10-15",
-    expiryDate: "2025-04-15",
-    status: "expiring",
-    required: true,
-  },
-  {
-    id: "3",
-    clientId: "2",
-    name: "Autorisation CNAPS - XYZ",
-    type: "autorisation_cnaps",
-    uploadDate: "2024-08-20",
-    expiryDate: "2025-02-20",
-    status: "expiring",
-    required: true,
-  },
-];
+const mockDocuments: Document[] = [];
 
 // Champ "lecture / édition" avec cadre — même rendu que Mon entreprise.
 function Field({

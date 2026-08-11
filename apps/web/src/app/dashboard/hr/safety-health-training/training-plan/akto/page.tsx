@@ -66,54 +66,7 @@ interface AKTOOPCODossier {
   documents: DossierDocuments;
 }
 
-const mockDossiers: AKTOOPCODossier[] = [
-  {
-    id: "1",
-    reference: "AKTO-2024-001",
-    type: "AKTO",
-    title: "Formation SSIAP 1 - Jean Dupont",
-    employeeId: "emp1",
-    employeeName: "Jean Dupont",
-    trainingType: "SSIAP 1",
-    amount: 1200,
-    status: "Validé",
-    accountUrl: "https://akto.fr/compte/123456",
-    createdAt: "2024-10-15",
-    submittedAt: "2024-10-20",
-    validatedAt: "2024-11-05",
-    documents: {
-      devis: { name: "devis_ssiap1_dupont.pdf" },
-      convention: { name: "convention_ssiap1_dupont.pdf" },
-      facture: { name: "facture_ssiap1_dupont.pdf" },
-    },
-  },
-  {
-    id: "2",
-    reference: "OPCO-2024-002",
-    type: "OPCO",
-    title: "Formation SST - Marie Martin",
-    employeeId: "emp2",
-    employeeName: "Marie Martin",
-    trainingType: "SST",
-    amount: 800,
-    status: "En cours",
-    accountUrl: "https://opco.fr/compte/789012",
-    createdAt: "2024-11-10",
-    submittedAt: "2024-11-15",
-    documents: { devis: { name: "devis_sst_martin.pdf" } },
-  },
-  {
-    id: "3",
-    reference: "AKTO-2024-003",
-    type: "AKTO",
-    title: "Formation H0B0 - Groupe",
-    trainingType: "H0B0",
-    amount: 3500,
-    status: "À créer",
-    createdAt: "2024-12-01",
-    documents: {},
-  },
-];
+const mockDossiers: AKTOOPCODossier[] = [];
 
 const AKTO_URL = "https://www.akto.fr";
 

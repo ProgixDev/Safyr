@@ -53,8 +53,15 @@ import {
   type DateFilterPreset,
 } from "@/lib/date-range";
 
-const CURRENT_AGENT = mockAgents[0];
-const CURRENT_SITE = mockSites.find((s) => s.id === CURRENT_AGENT.siteId)!;
+// Agent et site de l'utilisateur courant. Les listes de démonstration ayant
+// été retirées, on retombe sur des valeurs neutres tant que la session n'est
+// pas branchée sur le module (sinon `mockAgents[0]` plantait la page).
+const CURRENT_AGENT = mockAgents[0] ?? { id: "", name: "—", role: "" };
+const CURRENT_SITE = mockSites.find((s) => s.id === CURRENT_AGENT.siteId) ?? {
+  id: "",
+  name: "—",
+  city: "",
+};
 
 export default function EventsListPage() {
   const [searchTerm, setSearchTerm] = useState("");

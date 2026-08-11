@@ -38,80 +38,19 @@ import {
 import Link from "next/link";
 
 // Mock employees
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont", department: "Sécurité" },
-  { id: "2", name: "Jean Martin", department: "Surveillance" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 // Mock data - Bank Details Changes
-const mockBankDetailsRequests: PersonalInfoChangeRequest[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    employeeName: "Marie Dupont",
-    employeeNumber: "EMP-001",
-    department: "Sécurité",
-    type: "bank_details",
-    changeType: "bank_details",
-    currentBankDetails: {
-      iban: "FR76 1234 5678 9012 3456 7890 123",
-      bic: "BNPAFRPP",
-      bankName: "BNP Paribas",
-    },
-    newBankDetails: {
-      iban: "FR76 9876 5432 1098 7654 3210 987",
-      bic: "SOGEFRPP",
-      bankName: "Société Générale",
-    },
-    ribDocument: "/documents/rib-marie.pdf",
-    status: "validated",
-    submittedAt: new Date("2024-12-15T10:00:00"),
-    processedAt: new Date("2024-12-16T14:30:00"),
-    processedBy: "hr-manager",
-    processedByName: "Alice Dubois",
-    approvalRequired: true,
-    appliedToSystem: true,
-    appliedAt: new Date("2024-12-16T14:30:00"),
-    priority: "normal",
-    history: [],
-    createdAt: new Date("2024-12-15T10:00:00"),
-    updatedAt: new Date("2024-12-16T14:30:00"),
-  },
-];
+const mockBankDetailsRequests: PersonalInfoChangeRequest[] = [];
 
 // Mock data - Address Changes
-const mockAddressRequests: PersonalInfoChangeRequest[] = [
-  {
-    id: "2",
-    employeeId: "2",
-    employeeName: "Jean Martin",
-    employeeNumber: "EMP-002",
-    department: "Surveillance",
-    type: "address",
-    changeType: "address",
-    currentAddress: {
-      street: "123 Rue de la Paix",
-      city: "Paris",
-      postalCode: "75001",
-      country: "France",
-    },
-    newAddress: {
-      street: "456 Avenue des Champs-Élysées",
-      city: "Paris",
-      postalCode: "75008",
-      country: "France",
-    },
-    proofOfAddress: "/documents/proof-address-jean.pdf",
-    status: "pending",
-    submittedAt: new Date("2024-12-20T09:00:00"),
-    approvalRequired: true,
-    appliedToSystem: false,
-    priority: "normal",
-    history: [],
-    createdAt: new Date("2024-12-20T09:00:00"),
-    updatedAt: new Date("2024-12-20T09:00:00"),
-  },
-];
+const mockAddressRequests: PersonalInfoChangeRequest[] = [];
 
 // Mock data - Civil Status Changes
 const mockCivilStatusRequests: PersonalInfoChangeRequest[] = [];
@@ -263,7 +202,7 @@ export default function PersonalInfoChangePage() {
       employeeId: formData.employeeId,
       employeeName: employee.name,
       employeeNumber: `EMP-${formData.employeeId.padStart(3, "0")}`,
-      department: employee.department,
+      department: employee.department ?? "",
       status: "pending" as HRRequestStatus,
       submittedAt: new Date(),
       approvalRequired: true,

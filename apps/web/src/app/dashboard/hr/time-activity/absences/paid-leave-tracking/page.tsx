@@ -60,89 +60,9 @@ interface LeaveHistory {
   status: "approved" | "pending" | "cancelled";
 }
 
-const mockLeaveData: PaidLeaveData[] = [
-  {
-    id: "1",
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    position: "Agent de sécurité",
-    cpN2Acquired: 25,
-    cpN2Taken: 25,
-    cpN2Balance: 0,
-    cpN1Acquired: 25,
-    cpN1Taken: 20,
-    cpN1Balance: 5,
-    cpNAcquired: 12.5,
-    cpNTaken: 5,
-    cpNBalance: 7.5,
-    totalBalance: 12.5,
-    dataSource: "payroll",
-  },
-  {
-    id: "2",
-    employeeId: "EMP002",
-    employeeName: "Marie Martin",
-    position: "Chef d'équipe",
-    cpN2Acquired: 25,
-    cpN2Taken: 23,
-    cpN2Balance: 2,
-    cpN1Acquired: 25,
-    cpN1Taken: 22,
-    cpN1Balance: 3,
-    cpNAcquired: 15,
-    cpNTaken: 8,
-    cpNBalance: 7,
-    totalBalance: 12,
-    dataSource: "payroll",
-  },
-  {
-    id: "3",
-    employeeId: "EMP003",
-    employeeName: "Pierre Bernard",
-    position: "Agent de sécurité",
-    cpN2Acquired: 25,
-    cpN2Taken: 25,
-    cpN2Balance: 0,
-    cpN1Acquired: 25,
-    cpN1Taken: 18,
-    cpN1Balance: 7,
-    cpNAcquired: 10,
-    cpNTaken: 3,
-    cpNBalance: 7,
-    totalBalance: 14,
-    dataSource: "manual",
-  },
-];
+const mockLeaveData: PaidLeaveData[] = [];
 
-const mockLeaveHistory: LeaveHistory[] = [
-  {
-    id: "h1",
-    employeeId: "EMP001",
-    startDate: new Date("2024-08-01"),
-    endDate: new Date("2024-08-15"),
-    days: 10,
-    year: "N (2024)",
-    status: "approved",
-  },
-  {
-    id: "h2",
-    employeeId: "EMP001",
-    startDate: new Date("2023-12-20"),
-    endDate: new Date("2024-01-05"),
-    days: 10,
-    year: "N-1 (2023)",
-    status: "approved",
-  },
-  {
-    id: "h3",
-    employeeId: "EMP002",
-    startDate: new Date("2024-07-10"),
-    endDate: new Date("2024-07-20"),
-    days: 8,
-    year: "N (2024)",
-    status: "approved",
-  },
-];
+const mockLeaveHistory: LeaveHistory[] = [];
 
 export default function PaidLeaveTrackingPage() {
   const [leaveData, setLeaveData] = useState<PaidLeaveData[]>(mockLeaveData);

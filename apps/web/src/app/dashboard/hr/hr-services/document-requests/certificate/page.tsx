@@ -42,80 +42,16 @@ import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 
 // Mock employees
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont", department: "Sécurité" },
-  { id: "2", name: "Jean Martin", department: "Surveillance" },
-  { id: "3", name: "Sophie Leroy", department: "Administration" },
-  { id: "4", name: "Pierre Durand", department: "Sécurité" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 // Mock data
-const mockCertificateRequests: CertificateRequest[] = [
-  {
-    id: "1",
-    employeeId: "1",
-    employeeName: "Marie Dupont",
-    employeeNumber: "EMP-001",
-    department: "Sécurité",
-    type: "certificate",
-    certificateType: "employment",
-    reason: "Demande de prêt bancaire",
-    quantity: 2,
-    language: "fr",
-    deliveryMethod: "email",
-    status: "validated",
-    submittedAt: new Date("2024-12-18T10:30:00"),
-    processedAt: new Date("2024-12-18T14:20:00"),
-    processedBy: "hr-manager",
-    processedByName: "Alice Dubois",
-    generatedCertificateUrl: "/documents/cert-emp-001.pdf",
-    generatedAt: new Date("2024-12-18T14:20:00"),
-    priority: "normal",
-    history: [],
-    createdAt: new Date("2024-12-18T10:30:00"),
-    updatedAt: new Date("2024-12-18T14:20:00"),
-  },
-  {
-    id: "2",
-    employeeId: "2",
-    employeeName: "Jean Martin",
-    employeeNumber: "EMP-002",
-    department: "Surveillance",
-    type: "certificate",
-    certificateType: "salary",
-    reason: "Dossier location appartement",
-    quantity: 1,
-    language: "fr",
-    deliveryMethod: "email",
-    status: "pending",
-    submittedAt: new Date("2024-12-20T09:15:00"),
-    priority: "high",
-    history: [],
-    createdAt: new Date("2024-12-20T09:15:00"),
-    updatedAt: new Date("2024-12-20T09:15:00"),
-  },
-  {
-    id: "3",
-    employeeId: "3",
-    employeeName: "Sophie Leroy",
-    employeeNumber: "EMP-003",
-    department: "Administration",
-    type: "certificate",
-    certificateType: "work",
-    reason: "Constitution dossier retraite",
-    quantity: 1,
-    language: "fr",
-    deliveryMethod: "pickup",
-    status: "in_progress",
-    submittedAt: new Date("2024-12-19T16:45:00"),
-    assignedTo: "hr-manager",
-    assignedToName: "Alice Dubois",
-    priority: "normal",
-    history: [],
-    createdAt: new Date("2024-12-19T16:45:00"),
-    updatedAt: new Date("2024-12-20T08:30:00"),
-  },
-];
+const mockCertificateRequests: CertificateRequest[] = [];
 
 const certificateTypeLabels: Record<CertificateType, string> = {
   employment: "Certificat d'emploi",

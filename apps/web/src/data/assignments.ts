@@ -114,61 +114,7 @@ const generateMockAssignments = (): Assignment[] => {
 export const mockAssignments = generateMockAssignments();
 
 // Generate mock alerts
-export const mockScheduleAlerts: ScheduleAlert[] = [
-  {
-    id: "ALERT-001",
-    type: "double_booking",
-    severity: "error",
-    title: "Double affectation détectée",
-    message:
-      "Jean Dupont est affecté à deux postes simultanément le 15/01/2025",
-    assignmentId: mockAssignments[5]?.id,
-    agentId: mockAssignments[5]?.agentId,
-    timestamp: new Date(),
-    resolved: false,
-  },
-  {
-    id: "ALERT-002",
-    type: "missing_qualification",
-    severity: "warning",
-    title: "Qualification manquante",
-    message: "L'agent affecté ne possède pas le SSIAP 1 requis pour ce poste",
-    assignmentId: mockAssignments[8]?.id,
-    posteId: mockAssignments[8]?.posteId,
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    resolved: false,
-  },
-  {
-    id: "ALERT-003",
-    type: "hours_exceeded",
-    severity: "critical",
-    title: "Dépassement horaire",
-    message: "Marie Martin dépasse les 48h hebdomadaires légales",
-    agentId: mockEmployees[2]?.id,
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    resolved: false,
-  },
-  {
-    id: "ALERT-004",
-    type: "workload_exceeded",
-    severity: "warning",
-    title: "Surcharge de travail",
-    message: "Paul Bernard a 6 jours consécutifs sans repos",
-    agentId: mockEmployees[5]?.id,
-    timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    resolved: false,
-  },
-  {
-    id: "ALERT-005",
-    type: "missing_qualification",
-    severity: "info",
-    title: "Certification bientôt expirée",
-    message: "Le CQP APS de Sophie Petit expire dans 15 jours",
-    agentId: mockEmployees[3]?.id,
-    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    resolved: false,
-  },
-];
+export const mockScheduleAlerts: ScheduleAlert[] = [];
 
 // Calculate schedule stats
 export const mockScheduleStats: ScheduleStats = {

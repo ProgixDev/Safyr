@@ -39,12 +39,13 @@ import Link from "next/link";
 import { mockDocumentRequests } from "@/data/hr-workflows";
 
 // Mock employees for dropdown (simplified) - use inline for compatibility
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont", department: "Sécurité" },
-  { id: "2", name: "Jean Martin", department: "Surveillance" },
-  { id: "3", name: "Sophie Leroy", department: "Administration" },
-  { id: "4", name: "Pierre Durand", department: "Sécurité" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 // Mock data - use data from file, convert dates
 const mockDocumentRequestsData: DocumentRequest[] = mockDocumentRequests.map(

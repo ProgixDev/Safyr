@@ -54,64 +54,7 @@ function downloadMock(filename: string) {
 }
 
 // Mock data - replace with API call
-const mockContracts: Contract[] = [
-  {
-    id: "1",
-    type: "CDI",
-    startDate: new Date("2024-02-01"),
-    position: "Agent de sécurité",
-    department: "Sécurité",
-    salary: {
-      gross: 2200,
-      net: 1800,
-      currency: "EUR",
-    },
-    workingHours: 35,
-    signedByEmployee: false,
-    signedByEmployer: true,
-    amendments: [],
-    status: "pending-signature",
-    probationPeriod: {
-      duration: 2,
-      unit: "months",
-    },
-    probationStartDate: new Date("2024-02-01"),
-    probationEndDate: new Date("2024-04-01"),
-    probationRenewed: false,
-    probationStatus: "active",
-    createdAt: new Date("2024-01-20"),
-    updatedAt: new Date("2024-01-20"),
-  },
-  {
-    id: "2",
-    type: "CDD",
-    startDate: new Date("2024-01-15"),
-    endDate: new Date("2024-06-15"),
-    position: "Chef d'équipe",
-    department: "Sécurité",
-    salary: {
-      gross: 2800,
-      net: 2300,
-      currency: "EUR",
-    },
-    workingHours: 35,
-    signedByEmployee: true,
-    signedByEmployer: true,
-    signedAt: new Date("2024-01-12"),
-    amendments: [],
-    status: "active",
-    probationPeriod: {
-      duration: 2,
-      unit: "weeks",
-    },
-    probationStartDate: new Date("2024-01-15"),
-    probationEndDate: new Date("2024-01-29"),
-    probationRenewed: false,
-    probationStatus: "completed",
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-12"),
-  },
-];
+const mockContracts: Contract[] = [];
 
 const statusLabels = {
   draft: "Brouillon",

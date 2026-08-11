@@ -25,54 +25,7 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 
 // Mock data - replace with API call
-const mockApplications: JobApplication[] = [
-  {
-    id: "1",
-    applicantName: "Marie Dupont",
-    email: "marie.dupont@email.com",
-    phone: "+33123456789",
-    position: "Agent de sécurité",
-    cv: "/files/cv_marie.pdf",
-    coverLetter: "/files/lettre_marie.pdf",
-    status: "pending",
-    appliedAt: new Date("2024-01-15"),
-    notes: "Expérience de 3 ans en sécurité",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    applicantName: "Jean Martin",
-    email: "jean.martin@email.com",
-    phone: "+33123456790",
-    position: "Chef d'équipe",
-    cv: "/files/cv_jean.pdf",
-    status: "reviewed",
-    appliedAt: new Date("2024-01-10"),
-    reviewedAt: new Date("2024-01-12"),
-    reviewedBy: "Alice Dubois",
-    notes: "Très bon profil technique",
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-12"),
-  },
-  {
-    id: "3",
-    employeeId: "3",
-    applicantName: "Sophie Leroy",
-    email: "sophie.leroy@email.com",
-    phone: "+33123456791",
-    position: "Agent de sécurité",
-    cv: "/files/cv_sophie.pdf",
-    coverLetter: "/files/lettre_sophie.pdf",
-    status: "accepted",
-    appliedAt: new Date("2024-01-08"),
-    reviewedAt: new Date("2024-01-10"),
-    reviewedBy: "Alice Dubois",
-    notes: "Acceptée - début le 15/01",
-    createdAt: new Date("2024-01-08"),
-    updatedAt: new Date("2024-01-10"),
-  },
-];
+const mockApplications: JobApplication[] = [];
 
 const statusLabels = {
   pending: "En attente",

@@ -80,11 +80,7 @@ export interface KPIData {
 
 // ── Constants ─────────────────────────────────────────────────────
 
-export const SITES = [
-  "Centre Commercial Rosny 2",
-  "Siège Social La Défense",
-  "Entrepôt Logistique Gennevilliers",
-] as const;
+export const SITES: string[] = [];
 
 const SITE_SHORT_NAMES: Record<(typeof SITES)[number], string> = {
   "Centre Commercial Rosny 2": "Rosny 2",
@@ -114,11 +110,7 @@ export const CHART_COLORS = {
   pink: "#ec4899",
 } as const;
 
-export const PERIOD_OPTIONS: { value: KPIPeriod; label: string }[] = [
-  { value: "today", label: "Aujourd'hui" },
-  { value: "week", label: "Cette semaine" },
-  { value: "month", label: "Ce mois" },
-];
+export const PERIOD_OPTIONS: { value: KPIPeriod; label: string }[] = [];
 
 // ── Helpers ───────────────────────────────────────────────────────
 

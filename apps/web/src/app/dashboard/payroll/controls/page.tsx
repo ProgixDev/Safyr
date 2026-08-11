@@ -47,11 +47,7 @@ import {
 } from "@/data/payroll-controls";
 import { PayrollAnomaly, ControlExecution } from "@/lib/types";
 
-const mockPeriods: PeriodType[] = [
-  { id: "2024-12", month: 12, year: 2024, label: "Décembre 2024" },
-  { id: "2024-11", month: 11, year: 2024, label: "Novembre 2024" },
-  { id: "2024-10", month: 10, year: 2024, label: "Octobre 2024" },
-];
+const mockPeriods: PeriodType[] = [];
 
 // Mock last run status for each control
 const mockControlLastRun: Record<
@@ -126,7 +122,7 @@ const mockControlLastRun: Record<
 
 export default function PayrollControlsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>(
-    mockPeriods[0],
+    mockPeriods[0] ?? null,
   );
   const [selectedControls, setSelectedControls] = useState<string[]>(
     PAYROLL_CONTROLS.map((c) => c.id),

@@ -32,83 +32,11 @@ export interface ImmobilityAlert {
   durationMinutes: number;
 }
 
-export const mockActiveSOSEvents: SOSEvent[] = [
-  {
-    id: "sos-1",
-    agentId: "3",
-    agentName: "Pierre Bernard",
-    site: "Entrepôt Logistique Gennevilliers",
-    latitude: 48.9333,
-    longitude: 2.2978,
-    triggeredAt: "2026-03-17T09:57:00Z",
-    status: "active",
-  },
-];
+export const mockActiveSOSEvents: SOSEvent[] = [];
 
-export const mockSOSHistory: SOSEvent[] = [
-  {
-    id: "sos-2",
-    agentId: "5",
-    agentName: "Lucas Moreau",
-    site: "Centre Commercial Rosny 2",
-    latitude: 48.8615,
-    longitude: 2.3475,
-    triggeredAt: "2026-03-17T09:15:00Z",
-    status: "dismissed",
-    acknowledgedAt: "2026-03-17T09:17:00Z",
-    dismissedAt: "2026-03-17T09:30:00Z",
-    dismissReason: "Fausse alerte",
-  },
-  {
-    id: "sos-3",
-    agentId: "1",
-    agentName: "Jean Dupont",
-    site: "Centre Commercial Rosny 2",
-    latitude: 48.8566,
-    longitude: 2.3522,
-    triggeredAt: "2026-03-17T08:00:00Z",
-    status: "dismissed",
-    dismissedAt: "2026-03-17T08:10:00Z",
-    dismissReason: "Test de système",
-  },
-  {
-    id: "sos-4",
-    agentId: "4",
-    agentName: "Sophie Dubois",
-    site: "Siège Social La Défense",
-    latitude: 48.8922,
-    longitude: 2.2365,
-    triggeredAt: "2026-03-17T05:00:00Z",
-    status: "dismissed",
-    dismissedAt: "2026-03-17T05:10:00Z",
-    dismissReason: "Problème technique",
-  },
-  {
-    id: "sos-5",
-    agentId: "2",
-    agentName: "Marie Martin",
-    site: "Siège Social La Défense",
-    latitude: 48.8953,
-    longitude: 2.2312,
-    triggeredAt: "2026-03-16T10:00:00Z",
-    status: "dismissed",
-    dismissedAt: "2026-03-16T11:00:00Z",
-    dismissReason: "Agent confirme sécurité",
-  },
-];
+export const mockSOSHistory: SOSEvent[] = [];
 
-export const mockImmobilityAlerts: ImmobilityAlert[] = [
-  {
-    id: "immo-1",
-    agentId: "6",
-    agentName: "Camille Leroy",
-    site: "Siège Social La Défense",
-    latitude: 48.8953,
-    longitude: 2.2312,
-    lastMovement: "2026-03-17T09:42:00Z",
-    durationMinutes: 18,
-  },
-];
+export const mockImmobilityAlerts: ImmobilityAlert[] = [];
 
 export const DISMISS_REASONS = [
   "Fausse alerte",

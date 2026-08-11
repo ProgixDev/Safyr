@@ -27,47 +27,9 @@ interface EmailRecipient {
   type: "employee" | "client" | "partner";
 }
 
-const mockClients: EmailRecipient[] = [
-  {
-    id: "c1",
-    name: "Centre Commercial Rosny 2",
-    email: "contact@rosny2.fr",
-    type: "client",
-  },
-  {
-    id: "c2",
-    name: "Siège Social La Défense",
-    email: "rh@ladefense-corp.fr",
-    type: "client",
-  },
-  {
-    id: "c3",
-    name: "Hôpital Saint-Antoine",
-    email: "securite@hopital-saint-antoine.fr",
-    type: "client",
-  },
-];
+const mockClients: EmailRecipient[] = [];
 
-const mockPartners: EmailRecipient[] = [
-  {
-    id: "p1",
-    name: "Centre de Formation SSIAP",
-    email: "contact@formation-ssiap.fr",
-    type: "partner",
-  },
-  {
-    id: "p2",
-    name: "Médecine du Travail Paris",
-    email: "contact@medecine-travail-paris.fr",
-    type: "partner",
-  },
-  {
-    id: "p3",
-    name: "AKTO - Organisme de Formation",
-    email: "contact@akto.fr",
-    type: "partner",
-  },
-];
+const mockPartners: EmailRecipient[] = [];
 
 export default function SendEmailPage() {
   const [recipientType, setRecipientType] = useState<

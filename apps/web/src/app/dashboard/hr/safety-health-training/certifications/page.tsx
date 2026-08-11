@@ -42,56 +42,7 @@ import type {
 import { mockEmployees } from "@/data/employees";
 
 // Mock data for other certifications (H0B0, FIRE, etc.)
-const mockCertifications: TrainingCertification[] = [
-  {
-    id: "1",
-    employeeId: "EMP001",
-    employeeName: "Jean Dupont",
-    type: "H0B0",
-    number: "H0B0-2024-001",
-    issueDate: new Date("2023-01-15"),
-    expiryDate: new Date("2026-01-15"),
-    issuer: "Organisme habilité",
-    status: "valid",
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2023-01-15"),
-    createdAt: new Date("2023-01-15"),
-    updatedAt: new Date("2023-01-15"),
-  },
-  {
-    id: "2",
-    employeeId: "EMP002",
-    employeeName: "Marie Martin",
-    type: "FIRE",
-    number: "FIRE-2024-002",
-    issueDate: new Date("2023-06-01"),
-    expiryDate: new Date("2026-06-01"),
-    issuer: "SDIS",
-    status: "valid",
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2023-06-01"),
-    createdAt: new Date("2023-06-01"),
-    updatedAt: new Date("2023-06-01"),
-  },
-  {
-    id: "3",
-    employeeId: "EMP003",
-    employeeName: "Pierre Durand",
-    type: "H0B0",
-    number: "H0B0-2024-003",
-    issueDate: new Date("2023-03-10"),
-    expiryDate: new Date("2025-03-10"),
-    issuer: "Organisme habilité",
-    status: "expiring-soon",
-    validated: true,
-    validatedBy: "Admin",
-    validatedAt: new Date("2023-03-10"),
-    createdAt: new Date("2023-03-10"),
-    updatedAt: new Date("2023-03-10"),
-  },
-];
+const mockCertifications: TrainingCertification[] = [];
 
 const certificationTypeLabels: Record<CertificationType, string> = {
   SSIAP1: "SSIAP 1",

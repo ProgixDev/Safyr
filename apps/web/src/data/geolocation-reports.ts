@@ -7,13 +7,7 @@ export type ReportType =
   | "incidents"
   | "zones";
 
-export const REPORT_TYPES: ReportType[] = [
-  "presences",
-  "rondes",
-  "deplacements",
-  "incidents",
-  "zones",
-];
+export const REPORT_TYPES: ReportType[] = [];
 
 export const REPORT_TYPE_CONFIG: Record<
   ReportType,

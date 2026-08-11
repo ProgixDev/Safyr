@@ -36,11 +36,13 @@ import { SignatureWorkflow, SignatureStatus, SignatureType } from "@/lib/types";
 import Link from "next/link";
 
 // Mock employees
-const mockEmployees = [
-  { id: "1", name: "Marie Dupont", email: "marie.dupont@example.com" },
-  { id: "2", name: "Jean Martin", email: "jean.martin@example.com" },
-  { id: "3", name: "Sophie Leroy", email: "sophie.leroy@example.com" },
-];
+const mockEmployees: {
+  id: string;
+  name: string;
+  department?: string;
+  email?: string;
+  hiringDate?: string;
+}[] = [];
 
 const statusLabels: Record<SignatureStatus, string> = {
   pending: "En attente",

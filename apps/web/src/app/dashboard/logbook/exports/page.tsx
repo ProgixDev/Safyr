@@ -38,62 +38,9 @@ interface Archive {
   retentionUntil: string;
 }
 
-const mockExports: Export[] = [
-  {
-    id: "1",
-    type: "PDF",
-    format: "daily",
-    createdAt: "2024-12-24T08:00:00Z",
-    status: "completed",
-    fileSize: "2.3 MB",
-    downloadUrl: "#",
-  },
-  {
-    id: "2",
-    type: "Excel",
-    format: "weekly",
-    createdAt: "2024-12-23T18:00:00Z",
-    status: "completed",
-    fileSize: "1.8 MB",
-    downloadUrl: "#",
-  },
-  {
-    id: "3",
-    type: "CSV",
-    format: "monthly",
-    createdAt: "2024-12-20T00:00:00Z",
-    status: "completed",
-    fileSize: "5.2 MB",
-    downloadUrl: "#",
-  },
-];
+const mockExports: Export[] = [];
 
-const mockArchives: Archive[] = [
-  {
-    id: "1",
-    name: "Archive 2024 - Q1",
-    period: "Janvier - Mars 2024",
-    eventCount: 1247,
-    archivedAt: "2024-04-01T00:00:00Z",
-    retentionUntil: "2034-04-01T00:00:00Z",
-  },
-  {
-    id: "2",
-    name: "Archive 2024 - Q2",
-    period: "Avril - Juin 2024",
-    eventCount: 1356,
-    archivedAt: "2024-07-01T00:00:00Z",
-    retentionUntil: "2034-07-01T00:00:00Z",
-  },
-  {
-    id: "3",
-    name: "Archive 2024 - Q3",
-    period: "Juillet - Septembre 2024",
-    eventCount: 1423,
-    archivedAt: "2024-10-01T00:00:00Z",
-    retentionUntil: "2034-10-01T00:00:00Z",
-  },
-];
+const mockArchives: Archive[] = [];
 
 function getDateRange(period: string): { from: Date | null; to: Date | null } {
   const now = new Date();
