@@ -22,11 +22,6 @@ const navItems: NavItem[] = [
     href: "/dashboard/logbook/events",
   },
   {
-    label: "Live (réel)",
-    icon: BookOpen,
-    href: "/dashboard/logbook/events-api",
-  },
-  {
     label: "Validation",
     icon: CheckCircle,
     href: "/dashboard/logbook/validation",

@@ -116,7 +116,7 @@ const MODULE_LINKS: {
     items: [
       {
         label: "Événements + validation",
-        href: "/dashboard/logbook/events-api",
+        href: "/dashboard/logbook/events",
         icon: ClipboardList,
       },
     ],
