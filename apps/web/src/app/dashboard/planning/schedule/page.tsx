@@ -296,7 +296,7 @@ export function ScheduleView({
         return false;
       return true;
     });
-  }, [selectedClientIds, selectedSiteIds]);
+  }, [mockSites, selectedClientIds, selectedSiteIds]);
 
   // Agents per site: union of assigned + explicitly selected (per filter edge case)
   const agentsBySite = useMemo(() => {
