@@ -254,6 +254,37 @@ export function ScheduleView({
   if (!forceSimulation && cleVacations !== vacationsChargees) {
     setVacationsChargees(cleVacations);
     setLiveAgentShifts(vacationsApi.map(versGrille));
+
+    // La grille affiche une ligne par agent rattaché à un site. Sans ce
+    // rattachement, les vacations enregistrées n'avaient aucune ligne où
+    // s'afficher et chaque site restait à « 0 agent ». On le déduit donc des
+    // vacations elles-mêmes, tout en conservant les affectations manuelles.
+    const deduites = new Map<string, SiteAgentAssignment>();
+    for (const v of vacationsApi) {
+      const siteId = v.post?.site.id;
+      const agentId = v.memberId;
+      if (!siteId || !agentId) continue;
+      const cle = `${siteId}:${agentId}`;
+      if (deduites.has(cle)) continue;
+      const agent = planningAgents.find((a) => a.id === agentId);
+      deduites.set(cle, {
+        id: cle,
+        siteId,
+        agentId,
+        agentName: agent?.name ?? "Agent",
+        assignedAt: new Date(v.createdAt),
+        active: true,
+      });
+    }
+    setLiveSiteAgents((precedentes) => {
+      const connues = new Set(
+        precedentes.map((sa) => `${sa.siteId}:${sa.agentId}`),
+      );
+      const ajouts = [...deduites.values()].filter(
+        (sa) => !connues.has(`${sa.siteId}:${sa.agentId}`),
+      );
+      return ajouts.length > 0 ? [...precedentes, ...ajouts] : precedentes;
+    });
   }
 
   /** Construit une date ISO à partir du jour et de l'heure de la grille. */

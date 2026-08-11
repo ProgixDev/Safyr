@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEvenementsMainCourante } from "./evenements-reels";
 import Link from "next/link";
 import { MapPin, Camera, Video, Mic } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Modal } from "@/components/ui/modal";
 import { Label } from "@/components/ui/label";
 import {
-  mockLogbookEvents,
   mockSites,
   mockAgents,
   type LogbookEvent,
@@ -54,7 +54,9 @@ export function EventFeedWidget({ isLoading }: EventFeedWidgetProps) {
   const [viewingEvent, setViewingEvent] = useState<LogbookEvent | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  const sortedEvents = [...mockLogbookEvents]
+  const evenements = useEvenementsMainCourante();
+
+  const sortedEvents = [...evenements]
     .sort(
       (a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),

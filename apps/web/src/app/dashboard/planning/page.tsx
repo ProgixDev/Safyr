@@ -502,15 +502,58 @@ function QuickActionsModal({
 }
 
 function AlertsWidget({ isLoading }: { isLoading: boolean }) {
-  const alerts = [
-    {
-      type: "warning",
-      message: "5 agents sans certification à jour",
-      count: 5,
-    },
-    { type: "info", message: "12 demandes de congé en attente", count: 12 },
-    { type: "urgent", message: "3 postes non pourvus cette semaine", count: 3 },
-  ];
+  const { agents } = usePlanningAgents();
+  const { sites } = usePlanningSites();
+  const { data: vacations = [] } = useShifts({});
+
+  // Alertes calculées sur les données réelles de l'organisation.
+  const alerts = useMemo(() => {
+    const debutSemaine = new Date();
+    debutSemaine.setDate(
+      debutSemaine.getDate() - ((debutSemaine.getDay() + 6) % 7),
+    );
+    debutSemaine.setHours(0, 0, 0, 0);
+    const finSemaine = new Date(debutSemaine);
+    finSemaine.setDate(debutSemaine.getDate() + 7);
+
+    const vacationsSemaine = vacations.filter((v) => {
+      const debut = new Date(v.startAt);
+      return debut >= debutSemaine && debut < finSemaine;
+    });
+
+    const sansQualification = agents.filter(
+      (a) => a.qualifications.length === 0,
+    ).length;
+    const nonAffectees = vacationsSemaine.filter((v) => !v.memberId).length;
+    const postes = sites.flatMap((s) => s.postes ?? []);
+    const postesCouverts = new Set(
+      vacationsSemaine.map((v) => v.postId).filter(Boolean),
+    );
+    const postesSansVacation = postes.filter(
+      (p) => !postesCouverts.has(p.id),
+    ).length;
+
+    const liste: { type: string; message: string }[] = [];
+    if (sansQualification > 0) {
+      liste.push({
+        type: "warning",
+        message: `${sansQualification} agent${sansQualification > 1 ? "s" : ""} sans qualification enregistrée`,
+      });
+    }
+    if (nonAffectees > 0) {
+      liste.push({
+        type: "urgent",
+        message: `${nonAffectees} vacation${nonAffectees > 1 ? "s" : ""} sans agent cette semaine`,
+      });
+    }
+    if (postesSansVacation > 0) {
+      liste.push({
+        type: "info",
+        message: `${postesSansVacation} poste${postesSansVacation > 1 ? "s" : ""} sans vacation planifiée cette semaine`,
+      });
+    }
+    return liste;
+  }, [agents, sites, vacations]);
 
   if (isLoading) {
     return (
@@ -535,6 +578,11 @@ function AlertsWidget({ isLoading }: { isLoading: boolean }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
+          {alerts.length === 0 && (
+            <p className="text-xs text-muted-foreground py-2">
+              Aucune alerte sur le planning de la semaine.
+            </p>
+          )}
           {alerts.map((alert, idx) => (
             <div
               key={idx}

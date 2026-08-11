@@ -29,8 +29,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMemo } from "react";
 import type { LogbookEvent } from "@/data/logbook-events";
-import { mockLogbookEvents } from "@/data/logbook-events";
+import { useEvenementsMainCourante } from "./evenements-reels";
 
 interface KpiWidgetProps {
   isLoading: boolean;
@@ -87,6 +88,37 @@ const TYPE_LABELS: Record<string, string> = {
   control: "Contrôle",
   critical: "Critique",
 };
+
+/** Delai moyen entre la survenue d'un evenement et sa validation. */
+function delaiMoyenValidation(events: LogbookEvent[]): string {
+  const delais = events
+    .map((e) => {
+      const valide = (e as unknown as { validatedAt?: string | null })
+        .validatedAt;
+      if (!valide) return null;
+      return new Date(valide).getTime() - new Date(e.timestamp).getTime();
+    })
+    .filter((v): v is number => v !== null && v >= 0);
+  if (delais.length === 0) return "—";
+  const heures = delais.reduce((s, v) => s + v, 0) / delais.length / 3_600_000;
+  return heures < 1
+    ? `${Math.round(heures * 60)} min`
+    : `${heures.toFixed(1)} h`;
+}
+
+/** Intervalle moyen entre deux rondes consecutives. */
+function intervalleMoyenRondes(events: LogbookEvent[]): string {
+  const rondes = events
+    .filter((e) => e.title.toLowerCase().includes("ronde"))
+    .map((e) => new Date(e.timestamp).getTime())
+    .sort((a, b) => a - b);
+  if (rondes.length < 2) return "—";
+  const total = rondes[rondes.length - 1] - rondes[0];
+  const minutes = total / (rondes.length - 1) / 60_000;
+  return minutes < 90
+    ? `${Math.round(minutes)} min`
+    : `${(minutes / 60).toFixed(1)} h`;
+}
 
 function computeAnalytics(events: LogbookEvent[]): AnalyticsData {
   const totalIncidents = events.filter((e) => e.type === "incident").length;
@@ -223,9 +255,9 @@ function computeAnalytics(events: LogbookEvent[]): AnalyticsData {
     criticalIncidents,
     resolvedIncidents,
     resolutionRate,
-    avgResolutionTime: "2.5h",
+    avgResolutionTime: delaiMoyenValidation(events),
     totalRounds,
-    avgRoundInterval: "45 min",
+    avgRoundInterval: intervalleMoyenRondes(events),
     agentsInvolved,
     hseIncidents,
     topZones,
@@ -238,7 +270,11 @@ function computeAnalytics(events: LogbookEvent[]): AnalyticsData {
   };
 }
 
-const analytics = computeAnalytics(mockLogbookEvents);
+/** Indicateurs de la main courante calcules sur les evenements enregistres. */
+function useAnalytique(): AnalyticsData {
+  const evenements = useEvenementsMainCourante();
+  return useMemo(() => computeAnalytics(evenements), [evenements]);
+}
 
 function SmallSkeletonCard() {
   return (
@@ -254,6 +290,7 @@ function SmallSkeletonCard() {
 }
 
 export function SecurityIncidentsWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -275,6 +312,7 @@ export function SecurityIncidentsWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function CriticalEventsWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -296,6 +334,7 @@ export function CriticalEventsWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function ResolutionRateWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -319,6 +358,7 @@ export function ResolutionRateWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function PatrolRoundsWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -342,6 +382,7 @@ export function PatrolRoundsWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function RHImpactWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -367,6 +408,7 @@ export function RHImpactWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function ClientPerformanceWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -379,19 +421,27 @@ export function ClientPerformanceWidget({ isLoading }: KpiWidgetProps) {
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Performance sécurité</span>
-          <span className="font-light text-lg">92%</span>
+          <span className="text-muted-foreground">Événements traités</span>
+          <span className="font-light text-lg">
+            {analytics.resolutionRate}%
+          </span>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Satisfaction</span>
-          <span className="font-light text-lg">4.8/5</span>
+          <span className="text-muted-foreground">Incidents critiques</span>
+          <span className="font-light text-lg">
+            {analytics.criticalIncidents}
+          </span>
         </div>
+        <p className="text-xs text-muted-foreground pt-1">
+          La satisfaction client n’est pas encore collectée dans Safyr.
+        </p>
       </CardContent>
     </Card>
   );
 }
 
 export function TrendChartWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -457,6 +507,7 @@ export function TrendChartWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function SeverityDistributionWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -518,6 +569,7 @@ export function SeverityDistributionWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function EventTypesWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -573,6 +625,7 @@ export function EventTypesWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function TopZonesWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -610,6 +663,7 @@ export function TopZonesWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function SiteComparisonWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -666,6 +720,7 @@ export function SiteComparisonWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function AgentActivityHeatmapWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -751,6 +806,7 @@ export function AgentActivityHeatmapWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function ResolutionTrendWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (
@@ -811,6 +867,7 @@ export function ResolutionTrendWidget({ isLoading }: KpiWidgetProps) {
 }
 
 export function CriticalSplitWidget({ isLoading }: KpiWidgetProps) {
+  const analytics = useAnalytique();
   if (isLoading) return <SmallSkeletonCard />;
 
   return (

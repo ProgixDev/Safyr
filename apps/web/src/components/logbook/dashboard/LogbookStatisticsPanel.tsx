@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
-import { mockLogbookEvents } from "@/data/logbook-events";
+import { useEvenementsMainCourante } from "./evenements-reels";
 import {
   buildDateRange,
   isDateInRange,
@@ -85,7 +85,8 @@ export function LogbookStatisticsPanel({
 
   const dateRange = buildDateRange(dateFilter, customStartDate, customEndDate);
 
-  const filteredEvents = mockLogbookEvents.filter((event) =>
+  const evenements = useEvenementsMainCourante();
+  const filteredEvents = evenements.filter((event) =>
     isDateInRange(event.timestamp, dateRange),
   );
 
