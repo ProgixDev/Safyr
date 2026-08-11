@@ -60,6 +60,36 @@ import { getSiteColorClasses } from "@/lib/site-colors";
  * Elles partaient d'une liste de demonstration : le tableau de bord du
  * planning affichait donc des effectifs sans rapport avec l'entreprise.
  */
+/** Bornes de la semaine civile en cours (lundi → dimanche). */
+function semaineCourante() {
+  const debut = new Date();
+  debut.setDate(debut.getDate() - ((debut.getDay() + 6) % 7));
+  debut.setHours(0, 0, 0, 0);
+  const fin = new Date(debut);
+  fin.setDate(debut.getDate() + 7);
+  return { debut, fin };
+}
+
+/** Vacations planifiées sur la semaine en cours, et heures correspondantes. */
+function useVacationsSemaine() {
+  const { data: vacations = [] } = useShifts({});
+  return useMemo(() => {
+    const { debut, fin } = semaineCourante();
+    const semaine = vacations.filter((v) => {
+      const d = new Date(v.startAt);
+      return d >= debut && d < fin;
+    });
+    const heures = semaine.reduce(
+      (total, v) =>
+        total +
+        (new Date(v.endAt).getTime() - new Date(v.startAt).getTime()) /
+          3_600_000,
+      0,
+    );
+    return { semaine, heures };
+  }, [vacations]);
+}
+
 function useAgentStats() {
   const { agents } = usePlanningAgents();
   const disponibles = agents.filter(
@@ -182,8 +212,11 @@ function AvailabilityWidget({ isLoading }: { isLoading: boolean }) {
 
 function MissionStatusWidget({ isLoading }: { isLoading: boolean }) {
   const stats = useAgentStats();
-  const onMission = 45; // Mock data
-  const missionRate = (onMission / stats.total) * 100;
+  const { semaine } = useVacationsSemaine();
+  // Agents réellement affectés à au moins une vacation cette semaine.
+  const onMission = new Set(semaine.map((v) => v.memberId).filter(Boolean))
+    .size;
+  const missionRate = stats.total > 0 ? (onMission / stats.total) * 100 : 0;
 
   if (isLoading) {
     return (
@@ -228,12 +261,27 @@ function MissionStatusWidget({ isLoading }: { isLoading: boolean }) {
 
 function QualificationsWidget({ isLoading }: { isLoading: boolean }) {
   const stats = useAgentStats();
-  const qualifications = [
-    { name: "CQP APS", count: 67, color: "bg-blue-500" },
-    { name: "SSIAP", count: 34, color: "bg-green-500" },
-    { name: "SST", count: 45, color: "bg-yellow-500" },
-    { name: "Carte Pro", count: 72, color: "bg-purple-500" },
-  ];
+  const { agents } = usePlanningAgents();
+
+  // Nombre d'agents détenant chaque qualification, d'après leur dossier.
+  const qualifications = useMemo(() => {
+    const compte = (motif: string) =>
+      agents.filter((a) =>
+        a.qualifications.some((q) =>
+          q.toLowerCase().includes(motif.toLowerCase()),
+        ),
+      ).length;
+    return [
+      { name: "CQP APS", count: compte("CQP"), color: "bg-blue-500" },
+      { name: "SSIAP", count: compte("SSIAP"), color: "bg-green-500" },
+      { name: "SST", count: compte("SST"), color: "bg-yellow-500" },
+      {
+        name: "Carte Pro",
+        count: compte("Carte Professionnelle"),
+        color: "bg-purple-500",
+      },
+    ];
+  }, [agents]);
 
   if (isLoading) {
     return (
@@ -330,9 +378,13 @@ function ContractTypesWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function WeeklyHoursWidget({ isLoading }: { isLoading: boolean }) {
-  const totalHours = 1456; // Mock data
-  const plannedHours = 1320;
-  const utilizationRate = (plannedHours / totalHours) * 100;
+  const { agents } = usePlanningAgents();
+  const { heures } = useVacationsSemaine();
+  // Capacité de l'effectif : somme des heures contractuelles hebdomadaires.
+  const totalHours = agents.reduce((t, a) => t + (a.contractHours || 0), 0);
+  const plannedHours = Math.round(heures);
+  const utilizationRate =
+    totalHours > 0 ? (plannedHours / totalHours) * 100 : 0;
 
   if (isLoading) {
     return (
@@ -376,11 +428,38 @@ function WeeklyHoursWidget({ isLoading }: { isLoading: boolean }) {
 }
 
 function UpcomingMissionsWidget({ isLoading }: { isLoading: boolean }) {
-  const missions = [
-    { site: "Centre Commercial Rosny", agents: 4, date: "Lun 23 Déc" },
-    { site: "Tour La Défense", agents: 6, date: "Mar 24 Déc" },
-    { site: "Hôpital Saint-Louis", agents: 3, date: "Mer 25 Déc" },
-  ];
+  const { data: vacations = [] } = useShifts({});
+
+  // Prochaines vacations planifiées, regroupées par site et par jour.
+  const missions = useMemo(() => {
+    const maintenant = new Date();
+    const groupes = new Map<
+      string,
+      { site: string; date: string; agents: Set<string>; tri: number }
+    >();
+    for (const v of vacations) {
+      const debut = new Date(v.startAt);
+      if (debut < maintenant) continue;
+      const site = v.post?.site.name ?? "Site non renseigné";
+      const cle = `${site}|${debut.toDateString()}`;
+      const groupe = groupes.get(cle) ?? {
+        site,
+        date: debut.toLocaleDateString("fr-FR", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        }),
+        agents: new Set<string>(),
+        tri: debut.getTime(),
+      };
+      if (v.memberId) groupe.agents.add(v.memberId);
+      groupes.set(cle, groupe);
+    }
+    return [...groupes.values()]
+      .sort((a, b) => a.tri - b.tri)
+      .slice(0, 4)
+      .map((g) => ({ site: g.site, date: g.date, agents: g.agents.size }));
+  }, [vacations]);
 
   if (isLoading) {
     return (
@@ -410,6 +489,11 @@ function UpcomingMissionsWidget({ isLoading }: { isLoading: boolean }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
+          {missions.length === 0 && (
+            <p className="text-xs text-muted-foreground py-2">
+              Aucune vacation planifiée à venir.
+            </p>
+          )}
           {missions.map((mission, idx) => (
             <div
               key={idx}
