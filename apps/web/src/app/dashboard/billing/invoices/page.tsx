@@ -6,7 +6,6 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { HoursInput } from "@/components/ui/hours-input";
 import {
   Select,
   SelectContent,
@@ -15,215 +14,161 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Send, CheckCircle } from "lucide-react";
-import { mockBillingInvoices, BillingInvoice } from "@/data/billing-invoices";
-import { mockBillingClients } from "@/data/billing-clients";
-import Link from "next/link";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
+import { CalendarClock, CheckCircle, Send } from "lucide-react";
+import { useClients } from "@/hooks/clients";
+import {
+  useInvoices,
+  useGenerateInvoice,
+  useUpdateInvoice,
+  useDeleteInvoice,
+} from "@/hooks/billing";
+import type { Invoice, InvoiceStatus } from "@safyr/api-client";
+
+const LIBELLE_STATUT: Record<InvoiceStatus, string> = {
+  draft: "Brouillon",
+  sent: "Envoyée",
+  paid: "Payée",
+  cancelled: "Annulée",
+};
+
+const VARIANTE_STATUT: Record<
+  InvoiceStatus,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  draft: "outline",
+  sent: "secondary",
+  paid: "default",
+  cancelled: "destructive",
+};
+
+function euros(montant: number): string {
+  return `${montant.toLocaleString("fr-FR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} €`;
+}
+
+function jour(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
+}
+
+/** Premier et dernier jour du mois précédent, au format AAAA-MM-JJ. */
+function moisPrecedent(): { debut: string; fin: string } {
+  const maintenant = new Date();
+  const debut = new Date(maintenant.getFullYear(), maintenant.getMonth() - 1, 1);
+  const fin = new Date(maintenant.getFullYear(), maintenant.getMonth(), 0);
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate(),
+    ).padStart(2, "0")}`;
+  return { debut: iso(debut), fin: iso(fin) };
+}
 
 export default function BillingInvoicesPage() {
-  const [invoices, setInvoices] =
-    useState<BillingInvoice[]>(mockBillingInvoices);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<BillingInvoice | null>(
-    null,
-  );
-  const [formData, setFormData] = useState<Partial<BillingInvoice>>({});
+  const { data: invoices = [], isLoading } = useInvoices();
+  const { data: clients = [] } = useClients();
+  const generer = useGenerateInvoice();
+  const modifier = useUpdateInvoice();
+  const supprimer = useDeleteInvoice();
 
-  const columns: ColumnDef<BillingInvoice>[] = [
+  const [generationOuverte, setGenerationOuverte] = useState(false);
+  const [detailOuvert, setDetailOuvert] = useState(false);
+  const [facture, setFacture] = useState<Invoice | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const periode = moisPrecedent();
+  const [clientName, setClientName] = useState("");
+  const [periodStart, setPeriodStart] = useState(periode.debut);
+  const [periodEnd, setPeriodEnd] = useState(periode.fin);
+  const [hourlyRate, setHourlyRate] = useState("22");
+  const [vatRate, setVatRate] = useState("20");
+
+  const columns: ColumnDef<Invoice>[] = [
+    { key: "invoiceNumber", label: "N° Facture", sortable: true },
+    { key: "clientName", label: "Client", sortable: true },
     {
-      key: "invoiceNumber",
-      label: "N° Facture",
-      sortable: true,
-    },
-    {
-      key: "clientName",
-      label: "Client",
-      sortable: true,
-    },
-    {
-      key: "period",
+      key: "periodStart",
       label: "Période",
-      render: (invoice) => (
+      render: (f) => (
         <span className="text-sm">
-          {new Date(invoice.period.start).toLocaleDateString("fr-FR", {
-            day: "2-digit",
-            month: "2-digit",
-          })}{" "}
-          -{" "}
-          {new Date(invoice.period.end).toLocaleDateString("fr-FR", {
-            day: "2-digit",
-            month: "2-digit",
-          })}
+          {jour(f.periodStart)} – {jour(f.periodEnd)}
         </span>
       ),
+    },
+    {
+      key: "planningHours",
+      label: "Heures planning",
+      render: (f) => <span className="text-sm">{f.planningHours} h</span>,
     },
     {
       key: "total",
       label: "Montant TTC",
-      render: (invoice) => (
-        <span className="font-semibold">
-          {invoice.total.toLocaleString("fr-FR")} €
-        </span>
-      ),
+      render: (f) => <span className="font-semibold">{euros(f.total)}</span>,
     },
     {
       key: "status",
       label: "Statut",
-      render: (invoice) => {
-        const variants: Record<
-          string,
-          "default" | "secondary" | "outline" | "destructive"
-        > = {
-          Payée: "default",
-          Envoyée: "secondary",
-          Validée: "secondary",
-          "En attente": "outline",
-          Brouillon: "outline",
-          Annulée: "destructive",
-        };
-        return (
-          <Badge variant={variants[invoice.status] || "outline"}>
-            {invoice.status}
-          </Badge>
-        );
-      },
-    },
-    {
-      key: "validatedHours",
-      label: "Heures",
-      render: (invoice) => (
-        <span className="text-sm">
-          {invoice.validatedHours ||
-            invoice.realizedHours ||
-            invoice.planningHours ||
-            0}{" "}
-          h
-        </span>
+      render: (f) => (
+        <Badge variant={VARIANTE_STATUT[f.status]}>
+          {LIBELLE_STATUT[f.status]}
+        </Badge>
       ),
     },
   ];
 
-  const handleGenerate = () => {
-    // Simulation de génération automatique
-    const client = mockBillingClients.find((c) => c.id === formData.clientId);
-    if (!client) return;
-
-    const hours =
-      formData.validatedHours ||
-      formData.realizedHours ||
-      formData.planningHours ||
-      0;
-    const subtotal = hours * client.hourlyRate;
-    const vatAmount = (subtotal * (formData.vatRate || 20)) / 100;
-    const total = subtotal + vatAmount;
-
-    setFormData({
-      ...formData,
-      subtotal,
-      vatAmount,
-      total,
-      normalHours: hours,
-    });
-  };
-
-  const handleSave = () => {
-    if (formData.id) {
-      setInvoices(
-        invoices.map((i) => (i.id === formData.id ? { ...i, ...formData } : i)),
-      );
-    } else {
-      const newInvoice: BillingInvoice = {
-        id: (invoices.length + 1).toString(),
-        invoiceNumber: `FAC-2024-${String(invoices.length + 1).padStart(3, "0")}`,
-        clientId: formData.clientId || "",
-        clientName:
-          mockBillingClients.find((c) => c.id === formData.clientId)?.name ||
-          "",
-        period: formData.period || {
-          start: new Date().toISOString().split("T")[0],
-          end: new Date().toISOString().split("T")[0],
-        },
-        status: formData.status || "Brouillon",
-        planningHours: formData.planningHours,
-        realizedHours: formData.realizedHours,
-        validatedHours: formData.validatedHours,
-        normalHours: formData.normalHours || 0,
-        overtimeHours: formData.overtimeHours || 0,
-        replacements: formData.replacements || 0,
-        subtotal: formData.subtotal || 0,
-        vatRate: formData.vatRate || 20,
-        vatAmount: formData.vatAmount || 0,
-        total: formData.total || 0,
-        previewed: formData.previewed || false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setInvoices([...invoices, newInvoice]);
+  const lancerGeneration = async () => {
+    setErreur(null);
+    if (!clientName) {
+      setErreur("Sélectionnez un client.");
+      return;
     }
-    setIsCreateModalOpen(false);
-    setFormData({});
+    try {
+      const creee = await generer.mutateAsync({
+        clientName,
+        periodStart,
+        periodEnd,
+        hourlyRate: Number(hourlyRate) || 0,
+        vatRate: Number(vatRate) || 0,
+      });
+      setGenerationOuverte(false);
+      setFacture(creee);
+      setDetailOuvert(true);
+    } catch (e) {
+      setErreur(
+        e instanceof Error
+          ? e.message
+          : "La génération a échoué. Vérifiez la période et le planning du client.",
+      );
+    }
   };
 
-  const handleRowClick = (invoice: BillingInvoice) => {
-    setSelectedInvoice(invoice);
-    setIsViewModalOpen(true);
-  };
-
-  const handlePreview = (invoice: BillingInvoice) => {
-    setSelectedInvoice(invoice);
-    setIsPreviewModalOpen(true);
-  };
-
-  const handleValidate = (invoice: BillingInvoice) => {
-    setInvoices(
-      invoices.map((i) =>
-        i.id === invoice.id
-          ? {
-              ...i,
-              status: "Validée" as const,
-              validatedBy: "Admin",
-              validatedAt: new Date().toISOString(),
-              previewed: true,
-            }
-          : i,
-      ),
-    );
-  };
-
-  const handleSend = (invoice: BillingInvoice) => {
-    setInvoices(
-      invoices.map((i) =>
-        i.id === invoice.id
-          ? {
-              ...i,
-              status: "Envoyée" as const,
-              issuedAt: new Date().toISOString(),
-              sentAt: new Date().toISOString(),
-            }
-          : i,
-      ),
-    );
+  const changerStatut = (f: Invoice, status: InvoiceStatus) => {
+    modifier.mutate({
+      invoiceId: f.id,
+      payload:
+        status === "paid"
+          ? { status, paidAt: new Date().toISOString() }
+          : { status },
+    });
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold">
-            Génération Automatique des Factures
-          </h1>
+          <h1 className="text-3xl font-bold">Factures</h1>
           <p className="text-muted-foreground">
-            Création et gestion des factures à partir des données Planning,
-            Géolocalisation, Paie et RH
+            Factures générées à partir des vacations réellement planifiées.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/billing/invoices/new">
-            <Plus className="h-4 w-4 mr-2" />
-            Nouvelle Facture
-          </Link>
+        <Button onClick={() => setGenerationOuverte(true)}>
+          <CalendarClock className="h-4 w-4 mr-2" />
+          Générer depuis le planning
         </Button>
       </div>
 
@@ -232,545 +177,231 @@ export default function BillingInvoicesPage() {
         columns={columns}
         searchKey="invoiceNumber"
         searchPlaceholder="Rechercher une facture..."
-        onRowClick={handleRowClick}
-        actions={(invoice) => (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePreview(invoice);
-              }}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            {invoice.status === "Brouillon" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleValidate(invoice);
-                }}
-              >
-                <CheckCircle className="h-4 w-4" />
-              </Button>
-            )}
-            {invoice.status === "Validée" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSend(invoice);
-                }}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+        onRowClick={(f) => {
+          setFacture(f);
+          setDetailOuvert(true);
+        }}
+        isLoading={isLoading}
+        actions={(f) => (
+          <RowActionsMenu
+            onView={() => {
+              setFacture(f);
+              setDetailOuvert(true);
+            }}
+            onDelete={() => supprimer.mutate(f.id)}
+            extraItems={[
+              ...(f.status === "draft"
+                ? [
+                    {
+                      label: "Marquer comme envoyée",
+                      icon: Send,
+                      tone: "send" as const,
+                      onClick: () => changerStatut(f, "sent"),
+                    },
+                  ]
+                : []),
+              ...(f.status !== "paid" && f.status !== "cancelled"
+                ? [
+                    {
+                      label: "Marquer comme payée",
+                      icon: CheckCircle,
+                      tone: "validate" as const,
+                      onClick: () => changerStatut(f, "paid"),
+                    },
+                  ]
+                : []),
+            ]}
+          />
         )}
       />
 
-      {/* Create/Edit Modal */}
       <Modal
-        open={isCreateModalOpen}
-        onOpenChange={setIsCreateModalOpen}
+        open={generationOuverte}
+        onOpenChange={setGenerationOuverte}
         type="form"
-        title={formData.id ? "Modifier la facture" : "Nouvelle facture"}
+        title="Générer une facture depuis le planning"
         size="lg"
         actions={{
           primary: {
-            label: formData.id ? "Modifier" : "Générer",
-            onClick: formData.id ? handleSave : handleGenerate,
+            label: generer.isPending ? "Génération…" : "Générer",
+            onClick: lancerGeneration,
+            disabled: generer.isPending,
           },
           secondary: {
             label: "Annuler",
-            onClick: () => setIsCreateModalOpen(false),
+            onClick: () => setGenerationOuverte(false),
             variant: "outline",
           },
         }}
       >
         <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Les heures sont calculées à partir des vacations affectées aux
+            postes des sites du client sur la période. Au-delà de 35 h par
+            semaine, les heures sont facturées en majoration de 25 %.
+          </p>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <Label htmlFor="clientId">Client</Label>
-              <Select
-                value={formData.clientId}
-                onValueChange={(value) => {
-                  const client = mockBillingClients.find((c) => c.id === value);
-                  setFormData({
-                    ...formData,
-                    clientId: value,
-                    clientName: client?.name,
-                  });
-                }}
-              >
-                <SelectTrigger>
+              <Label htmlFor="client">Client</Label>
+              <Select value={clientName} onValueChange={setClientName}>
+                <SelectTrigger id="client">
                   <SelectValue placeholder="Sélectionner un client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockBillingClients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>
+                      {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {clients.length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Aucun client enregistré — créez-en un dans Entreprise ›
+                  Clients.
+                </p>
+              )}
             </div>
 
             <div>
-              <Label htmlFor="periodStart">Date début période</Label>
+              <Label htmlFor="debut">Début de période</Label>
               <Input
-                id="periodStart"
+                id="debut"
                 type="date"
-                value={formData.period?.start || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    period: {
-                      ...formData.period,
-                      start: e.target.value,
-                      end: formData.period?.end || e.target.value,
-                    },
-                  })
-                }
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
               />
             </div>
-
             <div>
-              <Label htmlFor="periodEnd">Date fin période</Label>
+              <Label htmlFor="fin">Fin de période</Label>
               <Input
-                id="periodEnd"
+                id="fin"
                 type="date"
-                value={formData.period?.end || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    period: {
-                      ...formData.period,
-                      start: formData.period?.start || e.target.value,
-                      end: e.target.value,
-                    },
-                  })
-                }
-              />
-            </div>
-
-            <div className="col-span-2 border-t pt-4">
-              <Label className="text-base font-semibold mb-2 block">
-                Sources de données
-              </Label>
-            </div>
-
-            <div>
-              <Label htmlFor="planningHours">
-                Heures planifiées (Planning)
-              </Label>
-              <HoursInput
-                value={formData.planningHours || 0}
-                onChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    planningHours: value,
-                  })
-                }
-                step={0.5}
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
               />
             </div>
 
             <div>
-              <Label htmlFor="realizedHours">
-                Heures réalisées (Géoloc/Main courante)
-              </Label>
-              <HoursInput
-                value={formData.realizedHours || 0}
-                onChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    realizedHours: value,
-                  })
-                }
-                step={0.5}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="validatedHours">Heures validées (Paie)</Label>
-              <HoursInput
-                value={formData.validatedHours || 0}
-                onChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    validatedHours: value,
-                  })
-                }
-                step={0.5}
-              />
-            </div>
-
-            <div className="col-span-2 border-t pt-4">
-              <Label className="text-base font-semibold mb-2 block">
-                Facturation
-              </Label>
-            </div>
-
-            <div>
-              <Label htmlFor="normalHours">Heures normales</Label>
-              <HoursInput
-                value={formData.normalHours || 0}
-                onChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    normalHours: value,
-                  })
-                }
-                step={0.5}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="overtimeHours">Heures supplémentaires</Label>
-              <HoursInput
-                value={formData.overtimeHours || 0}
-                onChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    overtimeHours: value,
-                  })
-                }
-                step={0.5}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="replacements">Remplacements</Label>
+              <Label htmlFor="taux">Taux horaire (€ HT)</Label>
               <Input
-                id="replacements"
+                id="taux"
                 type="number"
-                value={formData.replacements || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    replacements: parseInt(e.target.value) || 0,
-                  })
-                }
+                min="0"
+                step="0.5"
+                value={hourlyRate}
+                onChange={(e) => setHourlyRate(e.target.value)}
               />
             </div>
-
             <div>
-              <Label htmlFor="vatRate">Taux TVA (%)</Label>
+              <Label htmlFor="tva">TVA (%)</Label>
               <Input
-                id="vatRate"
+                id="tva"
                 type="number"
+                min="0"
                 step="0.1"
-                value={formData.vatRate || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    vatRate: parseFloat(e.target.value) || 20,
-                  })
-                }
+                value={vatRate}
+                onChange={(e) => setVatRate(e.target.value)}
               />
             </div>
-
-            {formData.subtotal !== undefined && formData.subtotal > 0 && (
-              <>
-                <div>
-                  <Label>Montant HT</Label>
-                  <p className="text-sm font-semibold">
-                    {formData.subtotal.toLocaleString("fr-FR")} €
-                  </p>
-                </div>
-                <div>
-                  <Label>TVA</Label>
-                  <p className="text-sm font-semibold">
-                    {formData.vatAmount?.toLocaleString("fr-FR")} €
-                  </p>
-                </div>
-                <div>
-                  <Label>Montant TTC</Label>
-                  <p className="text-lg font-bold text-green-600">
-                    {formData.total?.toLocaleString("fr-FR")} €
-                  </p>
-                </div>
-              </>
-            )}
           </div>
+
+          {erreur && <p className="text-sm text-red-500">{erreur}</p>}
         </div>
       </Modal>
 
-      {/* View Modal */}
       <Modal
-        open={isViewModalOpen}
-        onOpenChange={setIsViewModalOpen}
-        type="details"
-        title="Détails de la facture"
+        open={detailOuvert}
+        onOpenChange={setDetailOuvert}
+        type="form"
+        title={facture ? `Facture ${facture.invoiceNumber}` : "Facture"}
         size="lg"
         actions={{
           secondary: {
             label: "Fermer",
-            onClick: () => setIsViewModalOpen(false),
+            onClick: () => setDetailOuvert(false),
+            variant: "outline",
           },
         }}
       >
-        {selectedInvoice && (
+        {facture && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label>Numéro de facture</Label>
-                <p className="text-sm font-mono font-semibold">
-                  {selectedInvoice.invoiceNumber}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Client</p>
+                <p className="font-medium">{facture.clientName}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Période</p>
+                <p className="font-medium">
+                  {jour(facture.periodStart)} – {jour(facture.periodEnd)}
                 </p>
               </div>
-
               <div>
-                <Label>Client</Label>
-                <p className="text-sm font-medium">
-                  {selectedInvoice.clientName}
+                <p className="text-muted-foreground">Heures planifiées</p>
+                <p className="font-medium">
+                  {facture.planningHours} h ({facture.normalHours} h normales,{" "}
+                  {facture.overtimeHours} h majorées)
                 </p>
               </div>
-
               <div>
-                <Label>Statut</Label>
-                <Badge>{selectedInvoice.status}</Badge>
-              </div>
-
-              <div>
-                <Label>Période</Label>
-                <p className="text-sm">
-                  {new Date(selectedInvoice.period.start).toLocaleDateString(
-                    "fr-FR",
-                  )}{" "}
-                  -{" "}
-                  {new Date(selectedInvoice.period.end).toLocaleDateString(
-                    "fr-FR",
-                  )}
-                </p>
-              </div>
-
-              {selectedInvoice.paymentDueDate && (
-                <div>
-                  <Label>Date d&apos;échéance</Label>
-                  <p className="text-sm font-medium">
-                    {new Date(
-                      selectedInvoice.paymentDueDate,
-                    ).toLocaleDateString("fr-FR")}
-                  </p>
-                </div>
-              )}
-
-              <div className="col-span-2 border-t pt-4">
-                <Label className="text-base font-semibold mb-2 block">
-                  Sources de données
-                </Label>
-              </div>
-
-              {selectedInvoice.planningHours && (
-                <div>
-                  <Label>Heures planifiées (Planning)</Label>
-                  <p className="text-sm">{selectedInvoice.planningHours} h</p>
-                </div>
-              )}
-
-              {selectedInvoice.realizedHours && (
-                <div>
-                  <Label>Heures réalisées (Géoloc/Main courante)</Label>
-                  <p className="text-sm">{selectedInvoice.realizedHours} h</p>
-                </div>
-              )}
-
-              {selectedInvoice.validatedHours && (
-                <div>
-                  <Label>Heures validées (Paie)</Label>
-                  <p className="text-sm">{selectedInvoice.validatedHours} h</p>
-                </div>
-              )}
-
-              {selectedInvoice.variance && (
-                <div>
-                  <Label>Écart (prévu/réalisé)</Label>
-                  <p
-                    className={`text-sm font-semibold ${
-                      selectedInvoice.variance.difference >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {selectedInvoice.variance.difference > 0 ? "+" : ""}
-                    {selectedInvoice.variance.difference} h
-                  </p>
-                </div>
-              )}
-
-              <div className="col-span-2 border-t pt-4">
-                <Label className="text-base font-semibold mb-2 block">
-                  Détails de facturation
-                </Label>
-              </div>
-
-              <div>
-                <Label>Heures normales</Label>
-                <p className="text-sm">{selectedInvoice.normalHours} h</p>
-              </div>
-
-              <div>
-                <Label>Heures supplémentaires</Label>
-                <p className="text-sm">{selectedInvoice.overtimeHours} h</p>
-              </div>
-
-              <div>
-                <Label>Remplacements</Label>
-                <p className="text-sm">{selectedInvoice.replacements}</p>
-              </div>
-
-              <div>
-                <Label>Montant HT</Label>
-                <p className="text-sm font-semibold">
-                  {selectedInvoice.subtotal.toLocaleString("fr-FR")} €
-                </p>
-              </div>
-
-              <div>
-                <Label>TVA ({selectedInvoice.vatRate}%</Label>
-                <p className="text-sm font-semibold">
-                  {selectedInvoice.vatAmount.toLocaleString("fr-FR")} €
-                </p>
-              </div>
-
-              <div className="col-span-2">
-                <Label>Montant TTC</Label>
-                <p className="text-2xl font-bold text-green-600">
-                  {selectedInvoice.total.toLocaleString("fr-FR")} €
-                </p>
+                <p className="text-muted-foreground">Statut</p>
+                <Badge variant={VARIANTE_STATUT[facture.status]}>
+                  {LIBELLE_STATUT[facture.status]}
+                </Badge>
               </div>
             </div>
-          </div>
-        )}
-      </Modal>
 
-      {/* Preview Modal */}
-      <Modal
-        open={isPreviewModalOpen}
-        onOpenChange={setIsPreviewModalOpen}
-        type="details"
-        title="Prévisualisation de la facture"
-        size="lg"
-        actions={{
-          primary: {
-            label: "Valider",
-            onClick: () => {
-              if (selectedInvoice) handleValidate(selectedInvoice);
-              setIsPreviewModalOpen(false);
-            },
-          },
-          secondary: {
-            label: "Fermer",
-            onClick: () => setIsPreviewModalOpen(false),
-          },
-        }}
-      >
-        {selectedInvoice && (
-          <div className="space-y-4">
-            <div className="border rounded-lg p-6">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold">FACTURE</h2>
-                <p className="text-sm text-muted-foreground">
-                  {selectedInvoice.invoiceNumber}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div>
-                  <h3 className="font-semibold mb-2">Client</h3>
-                  <p className="text-sm">{selectedInvoice.clientName}</p>
-                  {selectedInvoice.siteName && (
-                    <p className="text-sm text-muted-foreground">
-                      {selectedInvoice.siteName}
-                    </p>
+            <div className="rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="p-2 text-left font-medium">Désignation</th>
+                    <th className="p-2 text-right font-medium">Quantité</th>
+                    <th className="p-2 text-right font-medium">P.U. HT</th>
+                    <th className="p-2 text-right font-medium">Montant HT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {facture.lines.map((ligne) => (
+                    <tr key={ligne.id} className="border-t">
+                      <td className="p-2">{ligne.label}</td>
+                      <td className="p-2 text-right">{ligne.quantity} h</td>
+                      <td className="p-2 text-right">
+                        {euros(ligne.unitPrice)}
+                      </td>
+                      <td className="p-2 text-right">{euros(ligne.amount)}</td>
+                    </tr>
+                  ))}
+                  {facture.lines.length === 0 && (
+                    <tr className="border-t">
+                      <td
+                        className="p-3 text-center text-muted-foreground"
+                        colSpan={4}
+                      >
+                        Aucune ligne sur cette facture.
+                      </td>
+                    </tr>
                   )}
-                </div>
-                <div className="text-right">
-                  <p className="text-sm">
-                    <strong>Date:</strong>{" "}
-                    {selectedInvoice.issuedAt
-                      ? new Date(selectedInvoice.issuedAt).toLocaleDateString(
-                          "fr-FR",
-                        )
-                      : new Date().toLocaleDateString("fr-FR")}
-                  </p>
-                  <p className="text-sm">
-                    <strong>Période:</strong>{" "}
-                    {new Date(selectedInvoice.period.start).toLocaleDateString(
-                      "fr-FR",
-                    )}{" "}
-                    -{" "}
-                    {new Date(selectedInvoice.period.end).toLocaleDateString(
-                      "fr-FR",
-                    )}
-                  </p>
-                </div>
-              </div>
+                </tbody>
+              </table>
+            </div>
 
-              <div className="border-t pt-4 mb-4">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">Description</th>
-                      <th className="text-right py-2">Quantité</th>
-                      <th className="text-right py-2">Prix unitaire</th>
-                      <th className="text-right py-2">Total HT</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="py-2">Heures normales</td>
-                      <td className="text-right py-2">
-                        {selectedInvoice.normalHours} h
-                      </td>
-                      <td className="text-right py-2">-</td>
-                      <td className="text-right py-2">
-                        {selectedInvoice.subtotal.toLocaleString("fr-FR")} €
-                      </td>
-                    </tr>
-                    {selectedInvoice.overtimeHours > 0 && (
-                      <tr>
-                        <td className="py-2">Heures supplémentaires</td>
-                        <td className="text-right py-2">
-                          {selectedInvoice.overtimeHours} h
-                        </td>
-                        <td className="text-right py-2">-</td>
-                        <td className="text-right py-2">-</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+            <div className="ml-auto w-64 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total HT</span>
+                <span>{euros(facture.subtotal)}</span>
               </div>
-
-              <div className="border-t pt-4">
-                <div className="flex justify-end">
-                  <div className="w-64 space-y-2">
-                    <div className="flex justify-between">
-                      <span>Total HT:</span>
-                      <span>
-                        {selectedInvoice.subtotal.toLocaleString("fr-FR")} €
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>TVA ({selectedInvoice.vatRate}%):</span>
-                      <span>
-                        {selectedInvoice.vatAmount.toLocaleString("fr-FR")} €
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-lg font-bold">
-                      <span>Total TTC:</span>
-                      <span>
-                        {selectedInvoice.total.toLocaleString("fr-FR")} €
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  TVA {facture.vatRate} %
+                </span>
+                <span>{euros(facture.vatAmount)}</span>
+              </div>
+              <div className="flex justify-between border-t pt-1 font-semibold">
+                <span>Total TTC</span>
+                <span>{euros(facture.total)}</span>
               </div>
             </div>
           </div>

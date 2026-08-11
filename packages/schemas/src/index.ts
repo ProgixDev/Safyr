@@ -7,3 +7,4 @@ export * from "./logbook";
 export * from "./client";
 export * from "./payroll";
 export * from "./contract";
+export * from "./billing";

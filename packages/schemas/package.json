@@ -44,6 +44,10 @@
     "./contract": {
       "types": "./dist/contract.d.ts",
       "default": "./dist/contract.js"
+    },
+    "./billing": {
+      "types": "./dist/billing.d.ts",
+      "default": "./dist/billing.js"
     }
   },
   "scripts": {

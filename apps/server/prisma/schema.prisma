@@ -336,6 +336,67 @@ model Document {
   @@map("document")
 }
 
+/// Facture emise a un client, alimentee par les vacations du planning.
+model Invoice {
+  id             String @id @default(cuid())
+  organizationId String
+
+  invoiceNumber String
+  clientId      String
+  clientName    String
+  siteId        String?
+  siteName      String?
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  status String @default("draft") // draft | sent | paid | cancelled
+
+  // Heures relevees dans le planning sur la periode
+  planningHours Float @default(0)
+  normalHours   Float @default(0)
+  overtimeHours Float @default(0)
+
+  hourlyRate Float @default(0)
+  subtotal   Float @default(0)
+  vatRate    Float @default(20)
+  vatAmount  Float @default(0)
+  total      Float @default(0)
+
+  notes          String?
+  issuedAt       DateTime?
+  paymentDueDate DateTime?
+  paidAt         DateTime?
+
+  lines InvoiceLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId])
+  @@index([clientId])
+  @@map("invoice")
+}
+
+/// Ligne de facture : une prestation, un site ou un type d'heures.
+model InvoiceLine {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  label     String
+  quantity  Float  @default(0)
+  unitPrice Float  @default(0)
+  amount    Float  @default(0)
+  siteId    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+  @@map("invoice_line")
+}
+
 /// Modele de vacation d'un site : horaires types reutilisables dans le planning.
 model ShiftTemplate {
   id             String @id @default(cuid())

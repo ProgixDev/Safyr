@@ -1,1180 +1,177 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useMemo } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
-import { Modal } from "@/components/ui/modal";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { HoursInput } from "@/components/ui/hours-input";
-import { PhoneInput } from "@/components/ui/PhoneInput";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus } from "lucide-react";
-import { Stepper } from "@/components/ui/stepper";
-import { mockBillingClients, BillingClient } from "@/data/billing-clients";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, CalendarClock, Info } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useClients } from "@/hooks/clients";
+import { useSites } from "@/hooks/sites";
+import { useInvoices } from "@/hooks/billing";
+import type { Client } from "@safyr/api-client";
 
-// `recherche-entreprises.api.gouv.fr` is a free, no-auth public endpoint
-// (CORS-enabled), so the browser can call it directly. We pull whatever
-// fields the API exposes and map them onto the BillingClient form.
-type RechercheEntrepriseHit = {
-  nom_complet?: string;
-  nom_raison_sociale?: string;
-  siren?: string;
-  activite_principale?: string;
-  libelle_activite_principale?: string;
-  nature_juridique?: string;
-  libelle_nature_juridique?: string;
-  tranche_effectif_salarie?: string;
-  date_creation?: string;
-  dirigeants?: Array<{
-    nom?: string;
-    prenoms?: string;
-    qualite?: string;
-  }>;
-  siege?: {
-    siret?: string;
-    adresse?: string | null;
-    numero_voie?: string | null;
-    type_voie?: string | null;
-    libelle_voie?: string | null;
-    complement_adresse?: string | null;
-    code_postal?: string | null;
-    libelle_commune?: string | null;
-  };
-};
-
-type RechercheEntrepriseResponse = {
-  results?: RechercheEntrepriseHit[];
-};
-
-// Compute the French intra-community VAT number from a SIREN.
-// Formula: FR + key + SIREN, where key = (12 + 3 * (SIREN % 97)) % 97.
-function computeFrTvaNumber(siret: string): string | null {
-  const siren = siret.slice(0, 9);
-  if (!/^\d{9}$/.test(siren)) return null;
-  const key = (12 + 3 * (Number(siren) % 97)) % 97;
-  return `FR${String(key).padStart(2, "0")}${siren}`;
+interface LigneClient extends Client {
+  nbSites: number;
+  nbFactures: number;
+  caFacture: number;
+  derniereFacture: string | null;
 }
 
-function formatSiegeAddress(siege: RechercheEntrepriseHit["siege"]): string {
-  if (!siege) return "";
-  if (siege.adresse) {
-    return [siege.adresse, siege.code_postal, siege.libelle_commune]
-      .filter((p): p is string => Boolean(p))
-      .join(", ");
-  }
-  const street = [siege.numero_voie, siege.type_voie, siege.libelle_voie]
-    .filter((p): p is string => Boolean(p))
-    .join(" ");
-  return [
-    street,
-    siege.complement_adresse,
-    siege.code_postal,
-    siege.libelle_commune,
-  ]
-    .filter((p): p is string => Boolean(p))
-    .join(", ");
+function euros(montant: number): string {
+  return `${Math.round(montant).toLocaleString("fr-FR")} €`;
 }
 
-function formatDirigeantName(
-  d: NonNullable<RechercheEntrepriseHit["dirigeants"]>[number],
-): string {
-  const prenoms = (d.prenoms ?? "").trim();
-  const nom = (d.nom ?? "").trim();
-  return [prenoms, nom].filter(Boolean).join(" ");
-}
-
+/**
+ * Référentiel de facturation : mêmes clients que « Entreprise › Clients »
+ * (une seule fiche client dans toute l'application), enrichis des sites
+ * rattachés et de l'historique de facturation.
+ */
 export default function BillingClientsPage() {
-  const [clients, setClients] = useState<BillingClient[]>(mockBillingClients);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<BillingClient | null>(
-    null,
+  const router = useRouter();
+  const { data: clients = [], isLoading } = useClients();
+  const { data: sites = [] } = useSites();
+  const { data: factures = [] } = useInvoices();
+
+  const lignes = useMemo<LigneClient[]>(
+    () =>
+      clients.map((client) => {
+        const facturesClient = factures.filter(
+          (f) => f.clientName === client.name && f.status !== "cancelled",
+        );
+        const derniere = facturesClient
+          .map((f) => f.issuedAt ?? f.createdAt)
+          .sort()
+          .at(-1);
+        return {
+          ...client,
+          nbSites: sites.filter((s) => s.clientName === client.name).length,
+          nbFactures: facturesClient.length,
+          caFacture: facturesClient.reduce((s, f) => s + f.total, 0),
+          derniereFacture: derniere ?? null,
+        };
+      }),
+    [clients, sites, factures],
   );
-  const [formData, setFormData] = useState<Partial<BillingClient>>({});
-  const [currentStep, setCurrentStep] = useState(0);
-  const [stepError, setStepError] = useState<string | null>(null);
-  const [siretLookupLoading, setSiretLookupLoading] = useState(false);
-  const [siretLookupError, setSiretLookupError] = useState<string | null>(null);
-  const siretAbortRef = useRef<AbortController | null>(null);
-  const siretDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    return () => {
-      siretAbortRef.current?.abort();
-      if (siretDebounceRef.current) clearTimeout(siretDebounceRef.current);
-    };
-  }, []);
-
-  function scheduleSiretLookup(siret: string) {
-    if (siretDebounceRef.current) clearTimeout(siretDebounceRef.current);
-    siretAbortRef.current?.abort();
-    setSiretLookupError(null);
-
-    if (!/^\d{14}$/.test(siret)) {
-      setSiretLookupLoading(false);
-      return;
-    }
-
-    siretDebounceRef.current = setTimeout(async () => {
-      const controller = new AbortController();
-      siretAbortRef.current = controller;
-      setSiretLookupLoading(true);
-      try {
-        const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(
-          siret,
-        )}&page=1&per_page=1`;
-        const res = await fetch(url, {
-          signal: controller.signal,
-          headers: { accept: "application/json" },
-        });
-        if (controller.signal.aborted) return;
-        if (!res.ok) {
-          setSiretLookupError("Erreur lors de la recherche");
-          return;
-        }
-        const data = (await res.json()) as RechercheEntrepriseResponse;
-        const hit = data.results?.[0];
-        if (!hit) {
-          setSiretLookupError("SIRET introuvable");
-          return;
-        }
-
-        const name = hit.nom_complet ?? hit.nom_raison_sociale ?? "";
-        const address = formatSiegeAddress(hit.siege);
-        const tva = computeFrTvaNumber(siret);
-        const dirigeant = hit.dirigeants?.[0];
-        const contactName = dirigeant ? formatDirigeantName(dirigeant) : "";
-
-        // Stale-response guard: only apply if SIRET still matches
-        setFormData((fd) => {
-          if (fd.siret !== siret) return fd;
-          return {
-            ...fd,
-            name: name || fd.name,
-            address: address || fd.address,
-            tva: fd.tva || tva || fd.tva,
-            contactName: fd.contactName || contactName || fd.contactName,
-          };
-        });
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return;
-        setSiretLookupError("Erreur lors de la recherche");
-      } finally {
-        if (siretAbortRef.current === controller) {
-          setSiretLookupLoading(false);
-        }
-      }
-    }, 400);
-  }
-
-  function validateStep(step: number): string | null {
-    if (step === 0) {
-      if (!formData.name?.trim()) return "Le nom du client est requis.";
-      if (!/^\d{14}$/.test((formData.siret || "").replace(/\s+/g, "")))
-        return "Le SIRET doit comporter 14 chiffres.";
-    }
-    if (step === 1) {
-      if (!formData.contractType) return "Le type de contrat est requis.";
-      if (!formData.contractStartDate)
-        return "La date de début de contrat est requise.";
-    }
-    return null;
-  }
-
-  const columns: ColumnDef<BillingClient>[] = [
-    {
-      key: "name",
-      label: "Client",
-      sortable: true,
-    },
+  const columns: ColumnDef<LigneClient>[] = [
+    { key: "name", label: "Client", sortable: true },
     {
       key: "siret",
       label: "SIRET",
-    },
-    {
-      key: "contractType",
-      label: "Type Contrat",
-      render: (client) => (
-        <Badge variant="secondary">{client.contractType}</Badge>
+      render: (c) => (
+        <span className="font-mono text-xs">{c.siret || "—"}</span>
       ),
     },
     {
-      key: "sites",
+      key: "city",
+      label: "Ville",
+      render: (c) => c.city || "—",
+    },
+    {
+      key: "nbSites",
       label: "Sites",
-    },
-    {
-      key: "hourlyRate",
-      label: "Taux Horaire",
-      render: (client) => `${client.hourlyRate} €/h`,
-    },
-    {
-      key: "paymentTerm",
-      label: "Délai Paiement",
-      render: (client) => `${client.paymentTerm} jours`,
-    },
-    {
-      key: "status",
-      label: "Statut",
-      render: (client) => (
-        <Badge
-          variant={
-            client.status === "Actif"
-              ? "default"
-              : client.status === "Suspendu"
-                ? "secondary"
-                : "outline"
-          }
-        >
-          {client.status}
+      sortable: true,
+      render: (c) => (
+        <Badge variant={c.nbSites > 0 ? "secondary" : "outline"}>
+          {c.nbSites}
         </Badge>
       ),
     },
+    {
+      key: "nbFactures",
+      label: "Factures",
+      sortable: true,
+      render: (c) => c.nbFactures,
+    },
+    {
+      key: "caFacture",
+      label: "CA facturé",
+      sortable: true,
+      sortValue: (c) => c.caFacture,
+      render: (c) => (
+        <span className="font-semibold">{euros(c.caFacture)}</span>
+      ),
+    },
+    {
+      key: "derniereFacture",
+      label: "Dernière facture",
+      render: (c) =>
+        c.derniereFacture
+          ? new Date(c.derniereFacture).toLocaleDateString("fr-FR")
+          : "—",
+    },
   ];
-
-  const SERVICE_TYPES = [
-    "Gardiennage",
-    "Rondes",
-    "Événementiel",
-    "SSIAP",
-    "Accueil",
-    "Intervention",
-    "ADS",
-  ] as const;
-  type ServiceType = (typeof SERVICE_TYPES)[number];
-
-  const handleCreate = () => {
-    setFormData({
-      contractType: "Mensuel",
-      serviceTypes: ["Gardiennage"],
-      contractStartDate: new Date().toISOString().split("T")[0],
-      sites: 1,
-      hourlyRate: 25,
-      nightBonus: 15,
-      sundayBonus: 30,
-      holidayBonus: 50,
-      status: "Actif",
-      billingDay: 1,
-      paymentTerm: 30,
-      contactName: "",
-      address: "",
-      phone: "",
-      email: "",
-    });
-    setCurrentStep(0);
-    setIsCreateModalOpen(true);
-  };
-
-  const handleSave = () => {
-    if (formData.id) {
-      setClients(
-        clients.map((c) => (c.id === formData.id ? { ...c, ...formData } : c)),
-      );
-    } else {
-      const newClient: BillingClient = {
-        id: (clients.length + 1).toString(),
-        name: formData.name || "",
-        siret: formData.siret || "",
-        contractType: formData.contractType || "Mensuel",
-        serviceType:
-          (formData.serviceTypes && formData.serviceTypes[0]) ||
-          formData.serviceType ||
-          "Gardiennage",
-        serviceTypes:
-          formData.serviceTypes ||
-          (formData.serviceType ? [formData.serviceType] : ["Gardiennage"]),
-        contractStartDate:
-          formData.contractStartDate || new Date().toISOString().split("T")[0],
-        contractEndDate: formData.contractEndDate,
-        monthlyHours: formData.monthlyHours,
-        sites: formData.sites || 1,
-        hourlyRate: formData.hourlyRate || 25,
-        nightBonus: formData.nightBonus || 15,
-        sundayBonus: formData.sundayBonus || 30,
-        holidayBonus: formData.holidayBonus || 50,
-        indexationRate: formData.indexationRate,
-        status: formData.status || "Actif",
-        billingDay: formData.billingDay || 1,
-        paymentTerm: formData.paymentTerm || 30,
-        lastInvoice: new Date().toISOString().split("T")[0],
-        contactName: formData.contactName || "",
-        address: formData.address || "",
-        phone: formData.phone || "",
-        email: formData.email || "",
-        agentTypes: formData.agentTypes,
-        planningVolumes: formData.planningVolumes,
-      };
-      setClients([...clients, newClient]);
-    }
-    setIsCreateModalOpen(false);
-    setCurrentStep(0);
-    setFormData({});
-  };
-
-  const handleRowClick = (client: BillingClient) => {
-    setSelectedClient(client);
-    setIsViewModalOpen(true);
-  };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold">Référentiel Clients</h1>
           <p className="text-muted-foreground">
-            Gestion des contrats et des conditions de facturation
+            Clients facturables, sites rattachés et historique de facturation
           </p>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouveau Client
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/billing/invoices">
+              <CalendarClock className="h-4 w-4 mr-2" />
+              Générer une facture
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/hr/entreprise/clients">
+              <Plus className="h-4 w-4 mr-2" />
+              Nouveau client
+            </Link>
+          </Button>
+        </div>
       </div>
 
+      <Card className="border-dashed">
+        <CardContent className="flex items-start gap-3 py-4 text-sm text-muted-foreground">
+          <Info className="h-4 w-4 mt-0.5 shrink-0" />
+          <p>
+            La fiche client est unique dans Safyr : elle se crée et se modifie
+            dans{" "}
+            <Link
+              href="/dashboard/hr/entreprise/clients"
+              className="underline underline-offset-2"
+            >
+              Entreprise › Clients
+            </Link>
+            . Les heures facturées proviennent des vacations planifiées sur les
+            sites du client.
+          </p>
+        </CardContent>
+      </Card>
+
       <DataTable
-        data={clients}
+        data={lignes}
         columns={columns}
+        isLoading={isLoading}
         searchKey="name"
         searchPlaceholder="Rechercher un client..."
-        onRowClick={handleRowClick}
-      />
-
-      {/* Create/Edit Modal */}
-      <Modal
-        open={isCreateModalOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCurrentStep(0);
-          }
-          setIsCreateModalOpen(open);
-        }}
-        type="form"
-        title={formData.id ? "Modifier le client" : "Nouveau client"}
-        size="lg"
-        actions={{
-          primary: {
-            label:
-              currentStep === 2
-                ? formData.id
-                  ? "Modifier"
-                  : "Créer"
-                : "Suivant",
-            onClick: () => {
-              const error = validateStep(currentStep);
-              if (error) {
-                setStepError(error);
-                return;
-              }
-              setStepError(null);
-              if (currentStep === 2) {
-                handleSave();
-              } else {
-                setCurrentStep(currentStep + 1);
-              }
-            },
-          },
-          secondary: {
-            label: currentStep > 0 ? "Précédent" : "Annuler",
-            onClick: () => {
-              setStepError(null);
-              if (currentStep > 0) {
-                setCurrentStep(currentStep - 1);
-              } else {
-                setIsCreateModalOpen(false);
-              }
-            },
-            variant: "outline",
-          },
-        }}
-      >
-        <div className="space-y-6">
-          {/* Stepper */}
-          <Stepper
-            steps={[
-              { label: "Informations générales" },
-              { label: "Informations contrat" },
-              { label: "Connexions" },
+        onRowClick={(c) =>
+          router.push(`/dashboard/hr/entreprise/clients/${c.id}`)
+        }
+        actions={(c) => (
+          <RowActionsMenu
+            onView={() => router.push(`/dashboard/hr/entreprise/clients/${c.id}`)}
+            extraItems={[
+              {
+                label: "Facturer la période",
+                icon: CalendarClock,
+                tone: "send",
+                onClick: () => router.push("/dashboard/billing/invoices"),
+              },
             ]}
-            currentStep={currentStep}
           />
-
-          {stepError && <p className="text-sm text-rose-600">{stepError}</p>}
-
-          {/* Step Content */}
-          <div className="space-y-4">
-            {/* Step 0: General Information */}
-            {currentStep === 0 && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Label htmlFor="name">Nom du client</Label>
-                  <Input
-                    id="name"
-                    value={formData.name || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="Centre Commercial..."
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="siret">SIRET</Label>
-                  <Input
-                    id="siret"
-                    value={formData.siret || ""}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\s+/g, "");
-                      setFormData({ ...formData, siret: value });
-                      scheduleSiretLookup(value);
-                    }}
-                    placeholder="12345678901234"
-                  />
-                  {siretLookupLoading && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Recherche du SIRET…
-                    </p>
-                  )}
-                  {siretLookupError && (
-                    <p className="text-xs text-rose-600 mt-1">
-                      {siretLookupError}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="tva">Numéro de TVA</Label>
-                  <Input
-                    id="tva"
-                    value={formData.tva || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, tva: e.target.value })
-                    }
-                    placeholder="FR12345678901"
-                  />
-                </div>
-
-                <div className="col-span-2 border-t pt-4">
-                  <Label className="text-base font-semibold mb-2 block">
-                    Informations Entreprise
-                  </Label>
-                </div>
-
-                <div>
-                  <Label htmlFor="companyPhone">Téléphone entreprise</Label>
-                  <PhoneInput
-                    id="companyPhone"
-                    value={formData.companyPhone || ""}
-                    onChange={(value) =>
-                      setFormData({ ...formData, companyPhone: value })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="companyEmail">Email entreprise</Label>
-                  <Input
-                    id="companyEmail"
-                    type="email"
-                    value={formData.companyEmail || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, companyEmail: e.target.value })
-                    }
-                    placeholder="contact@entreprise.com"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <Label htmlFor="address">Adresse</Label>
-                  <Input
-                    id="address"
-                    value={formData.address || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
-                    }
-                    placeholder="1 Rue du Commerce, 75000 Paris"
-                  />
-                </div>
-
-                <div className="col-span-2 border-t pt-4">
-                  <Label className="text-base font-semibold mb-2 block">
-                    Informations Interlocuteur
-                  </Label>
-                </div>
-
-                <div>
-                  <Label htmlFor="contactName">Nom interlocuteur</Label>
-                  <Input
-                    id="contactName"
-                    value={formData.contactName || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contactName: e.target.value })
-                    }
-                    placeholder="Nom interlocuteur"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="contactPhone">Téléphone interlocuteur</Label>
-                  <PhoneInput
-                    id="contactPhone"
-                    value={formData.contactPhone || ""}
-                    onChange={(value) =>
-                      setFormData({ ...formData, contactPhone: value })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="contactEmail">Email interlocuteur</Label>
-                  <Input
-                    id="contactEmail"
-                    type="email"
-                    value={formData.contactEmail || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contactEmail: e.target.value })
-                    }
-                    placeholder="interlocuteur@exemple.com"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Step 1: Contract Information */}
-            {currentStep === 1 && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Label className="text-base font-semibold mb-2 block">
-                    Informations Contrat
-                  </Label>
-                </div>
-
-                <div>
-                  <Label htmlFor="contractType">Type de contrat</Label>
-                  <Select
-                    value={formData.contractType}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        contractType: value as BillingClient["contractType"],
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Mensuel">Mensuel</SelectItem>
-                      <SelectItem value="Forfaitaire">Forfaitaire</SelectItem>
-                      <SelectItem value="Heure réelle">Heure réelle</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Type de prestation</Label>
-                  <Select
-                    value={
-                      Array.isArray(formData.serviceTypes) &&
-                      formData.serviceTypes.length > 0
-                        ? formData.serviceTypes[0]
-                        : formData.serviceType || ""
-                    }
-                    onValueChange={(value) => {
-                      setFormData({
-                        ...formData,
-                        serviceType: value as ServiceType,
-                        serviceTypes: [value as ServiceType],
-                      });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SERVICE_TYPES.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="contractStartDate">Date début contrat</Label>
-                  <Input
-                    id="contractStartDate"
-                    type="date"
-                    value={formData.contractStartDate || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        contractStartDate: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="contractEndDate">
-                    Date fin contrat (optionnel)
-                  </Label>
-                  <Input
-                    id="contractEndDate"
-                    type="date"
-                    value={formData.contractEndDate || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        contractEndDate: e.target.value || undefined,
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="monthlyHours">
-                    Volumes horaires mensuels (h)
-                  </Label>
-                  <HoursInput
-                    value={formData.monthlyHours || 0}
-                    onChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        monthlyHours: value,
-                      })
-                    }
-                    step={1}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="indexationRate">
-                    Indexation contractuelle (%)
-                  </Label>
-                  <Input
-                    id="indexationRate"
-                    type="number"
-                    step="0.1"
-                    value={formData.indexationRate || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        indexationRate: e.target.value
-                          ? parseFloat(e.target.value)
-                          : undefined,
-                      })
-                    }
-                    placeholder="2.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="sites">Nombre de sites</Label>
-                  <Input
-                    id="sites"
-                    type="number"
-                    value={formData.sites || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        sites: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="hourlyRate">Taux horaire (€/h)</Label>
-                  <Input
-                    id="hourlyRate"
-                    type="number"
-                    step="0.01"
-                    value={formData.hourlyRate || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        hourlyRate: parseFloat(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="nightBonus">Majoration nuit (%)</Label>
-                  <Input
-                    id="nightBonus"
-                    type="number"
-                    value={formData.nightBonus || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        nightBonus: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="sundayBonus">Majoration dimanche (%)</Label>
-                  <Input
-                    id="sundayBonus"
-                    type="number"
-                    value={formData.sundayBonus || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        sundayBonus: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="holidayBonus">
-                    Majoration jours fériés (%)
-                  </Label>
-                  <Input
-                    id="holidayBonus"
-                    type="number"
-                    value={formData.holidayBonus || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        holidayBonus: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="billingDay">Jour facturation</Label>
-                  <Input
-                    id="billingDay"
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={formData.billingDay || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        billingDay: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="paymentTerm">Délai paiement</Label>
-                  <Select
-                    value={String(formData.paymentTerm || 30)}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        paymentTerm: parseInt(value),
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">À réception</SelectItem>
-                      <SelectItem value="15">15 jours</SelectItem>
-                      <SelectItem value="30">30 jours</SelectItem>
-                      <SelectItem value="45">45 jours</SelectItem>
-                      <SelectItem value="60">60 jours</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="status">Statut</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        status: value as BillingClient["status"],
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Actif">Actif</SelectItem>
-                      <SelectItem value="Suspendu">Suspendu</SelectItem>
-                      <SelectItem value="Inactif">Inactif</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Connections */}
-            {currentStep === 2 && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 border-b pb-4">
-                  <Label
-                    htmlFor="agentType"
-                    className="text-base font-semibold mb-2 block"
-                  >
-                    Connexion RH : Typologie des agents affectés
-                  </Label>
-                  <Select
-                    value={formData.agentTypes?.[0] || ""}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        agentTypes: value ? [value] : [],
-                      })
-                    }
-                  >
-                    <SelectTrigger id="agentType">
-                      <SelectValue placeholder="Sélectionner un type d'agent" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Agent de sécurité">
-                        Agent de sécurité
-                      </SelectItem>
-                      <SelectItem value="Chef de poste">
-                        Chef de poste
-                      </SelectItem>
-                      <SelectItem value="Rondier">Rondier</SelectItem>
-                      <SelectItem value="Agent événementiel">
-                        Agent événementiel
-                      </SelectItem>
-                      <SelectItem value="Superviseur">Superviseur</SelectItem>
-                      <SelectItem value="SSIAP1">SSIAP1</SelectItem>
-                      <SelectItem value="SSIAP2">SSIAP2</SelectItem>
-                      <SelectItem value="SSIAP3">SSIAP3</SelectItem>
-                      <SelectItem value="Agent Cynophile">
-                        Agent Cynophile
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="col-span-2 border-t pt-4">
-                  <Label className="text-base font-semibold mb-2 block">
-                    Connexion Planning : Volumes contractuels par site
-                  </Label>
-                  <div className="space-y-2">
-                    {Array.from({ length: formData.sites || 1 }).map(
-                      (_, index) => (
-                        <div key={index} className="grid grid-cols-2 gap-2">
-                          <Input
-                            placeholder={`Nom du site ${index + 1}`}
-                            value={
-                              formData.planningVolumes?.[index]?.site || ""
-                            }
-                            onChange={(e) => {
-                              const volumes = formData.planningVolumes || [];
-                              const newVolumes = [...volumes];
-                              newVolumes[index] = {
-                                ...newVolumes[index],
-                                site: e.target.value,
-                                monthlyHours:
-                                  newVolumes[index]?.monthlyHours || 0,
-                              };
-                              setFormData({
-                                ...formData,
-                                planningVolumes: newVolumes,
-                              });
-                            }}
-                          />
-                          <HoursInput
-                            value={
-                              formData.planningVolumes?.[index]?.monthlyHours ||
-                              0
-                            }
-                            onChange={(value) => {
-                              const volumes = formData.planningVolumes || [];
-                              const newVolumes = [...volumes];
-                              newVolumes[index] = {
-                                ...newVolumes[index],
-                                site:
-                                  newVolumes[index]?.site ||
-                                  `Site ${index + 1}`,
-                                monthlyHours: value,
-                              };
-                              setFormData({
-                                ...formData,
-                                planningVolumes: newVolumes,
-                              });
-                            }}
-                            step={1}
-                          />
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </Modal>
-
-      {/* View Modal */}
-      <Modal
-        open={isViewModalOpen}
-        onOpenChange={setIsViewModalOpen}
-        type="details"
-        title="Détails du client"
-        size="lg"
-        actions={{
-          secondary: {
-            label: "Fermer",
-            onClick: () => setIsViewModalOpen(false),
-          },
-        }}
-      >
-        {selectedClient && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label>Client</Label>
-                <p className="text-sm font-medium">{selectedClient.name}</p>
-              </div>
-
-              <div>
-                <Label>SIRET</Label>
-                <p className="text-sm font-medium">{selectedClient.siret}</p>
-              </div>
-
-              <div>
-                <Label>Interlocuteur</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.contactName || "-"}
-                </p>
-              </div>
-
-              <div>
-                <Label>Numéro de TVA</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.tva || "-"}
-                </p>
-              </div>
-
-              <div>
-                <Label>Téléphone entreprise</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.companyPhone || "-"}
-                </p>
-              </div>
-
-              <div>
-                <Label>Email entreprise</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.companyEmail || "-"}
-                </p>
-              </div>
-
-              <div>
-                <Label>Téléphone interlocuteur</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.contactPhone || "-"}
-                </p>
-              </div>
-
-              <div>
-                <Label>Email interlocuteur</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.contactEmail || "-"}
-                </p>
-              </div>
-
-              <div className="col-span-2">
-                <Label>Adresse</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.address || "-"}
-                </p>
-              </div>
-
-              <div>
-                <Label>Type de contrat</Label>
-                <Badge variant="secondary">{selectedClient.contractType}</Badge>
-              </div>
-
-              <div>
-                <Label>Type de prestation</Label>
-                <div className="flex gap-2">
-                  {Array.isArray(selectedClient.serviceTypes) &&
-                  selectedClient.serviceTypes.length > 0 ? (
-                    (selectedClient.serviceTypes as ServiceType[]).map((st) => (
-                      <Badge key={st} variant="outline">
-                        {st}
-                      </Badge>
-                    ))
-                  ) : (
-                    <Badge variant="outline">
-                      {selectedClient.serviceType || "N/A"}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label>Date début contrat</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.contractStartDate
-                    ? new Date(
-                        selectedClient.contractStartDate,
-                      ).toLocaleDateString("fr-FR")
-                    : "-"}
-                </p>
-              </div>
-
-              <div>
-                <Label>Date fin contrat</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.contractEndDate
-                    ? new Date(
-                        selectedClient.contractEndDate,
-                      ).toLocaleDateString("fr-FR")
-                    : "Non définie"}
-                </p>
-              </div>
-
-              {selectedClient.monthlyHours && (
-                <div>
-                  <Label>Volumes horaires mensuels</Label>
-                  <p className="text-sm font-medium">
-                    {selectedClient.monthlyHours} h
-                  </p>
-                </div>
-              )}
-
-              {selectedClient.indexationRate && (
-                <div>
-                  <Label>Indexation contractuelle</Label>
-                  <p className="text-sm font-medium">
-                    {selectedClient.indexationRate}%
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <Label>Nombre de sites</Label>
-                <p className="text-sm font-medium">{selectedClient.sites}</p>
-              </div>
-
-              <div>
-                <Label>Taux horaire</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.hourlyRate} €/h
-                </p>
-              </div>
-
-              <div>
-                <Label>Majoration nuit</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.nightBonus}%
-                </p>
-              </div>
-
-              <div>
-                <Label>Majoration dimanche</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.sundayBonus}%
-                </p>
-              </div>
-
-              <div>
-                <Label>Majoration jours fériés</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.holidayBonus}%
-                </p>
-              </div>
-
-              <div>
-                <Label>Jour de facturation</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.billingDay} du mois
-                </p>
-              </div>
-
-              <div>
-                <Label>Délai de paiement</Label>
-                <p className="text-sm font-medium">
-                  {selectedClient.paymentTerm === 0
-                    ? "À réception"
-                    : `${selectedClient.paymentTerm} jours`}
-                </p>
-              </div>
-
-              <div>
-                <Label>Statut</Label>
-                <Badge
-                  variant={
-                    selectedClient.status === "Actif" ? "default" : "outline"
-                  }
-                >
-                  {selectedClient.status}
-                </Badge>
-              </div>
-
-              <div>
-                <Label>Dernière facture</Label>
-                <p className="text-sm font-medium">
-                  {new Date(selectedClient.lastInvoice).toLocaleDateString(
-                    "fr-FR",
-                  )}
-                </p>
-              </div>
-
-              {selectedClient.agentTypes &&
-                selectedClient.agentTypes.length > 0 && (
-                  <div className="col-span-2 border-t pt-4">
-                    <Label className="text-base font-semibold mb-2 block">
-                      Connexion RH : Typologie des agents affectés
-                    </Label>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedClient.agentTypes.map((type) => (
-                        <Badge key={type} variant="outline">
-                          {type}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {selectedClient.planningVolumes &&
-                selectedClient.planningVolumes.length > 0 && (
-                  <div className="col-span-2 border-t pt-4">
-                    <Label className="text-base font-semibold mb-2 block">
-                      Connexion Planning : Volumes contractuels par site
-                    </Label>
-                    <div className="space-y-2">
-                      {selectedClient.planningVolumes.map((volume, index) => (
-                        <div
-                          key={index}
-                          className="flex justify-between items-center p-2 bg-muted rounded"
-                        >
-                          <span className="text-sm font-medium">
-                            {volume.site}
-                          </span>
-                          <span className="text-sm">
-                            {volume.monthlyHours} h/mois
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-            </div>
-          </div>
         )}
-      </Modal>
+      />
     </div>
   );
 }

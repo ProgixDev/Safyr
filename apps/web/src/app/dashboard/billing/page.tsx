@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,6 @@ import {
   FileText,
   FilePlus,
   DollarSign,
-  TrendingUp,
   Clock,
   CheckCircle,
   Send,
@@ -17,9 +17,8 @@ import {
   Receipt,
   FileX,
   ShoppingCart,
+  TrendingUp,
 } from "lucide-react";
-import { mockBillingClients } from "@/data/billing-clients";
-import { mockBillingInvoices } from "@/data/billing-invoices";
 import Link from "next/link";
 import {
   BarChart,
@@ -33,98 +32,136 @@ import {
   Pie,
   Cell,
   Legend,
-  LineChart,
-  Line,
 } from "recharts";
+import { useClients } from "@/hooks/clients";
+import { useSites } from "@/hooks/sites";
+import { useInvoices } from "@/hooks/billing";
+import type { Invoice, InvoiceStatus } from "@safyr/api-client";
+
+const LIBELLE_STATUT: Record<InvoiceStatus, string> = {
+  draft: "Brouillon",
+  sent: "Envoyée",
+  paid: "Payée",
+  cancelled: "Annulée",
+};
+
+const VARIANTE_STATUT: Record<
+  InvoiceStatus,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  draft: "outline",
+  sent: "secondary",
+  paid: "default",
+  cancelled: "destructive",
+};
+
+const COULEUR_STATUT: Record<InvoiceStatus, string> = {
+  draft: "#f97316",
+  sent: "#3b82f6",
+  paid: "#22c55e",
+  cancelled: "#ef4444",
+};
+
+const MOIS_COURTS = [
+  "Jan",
+  "Fév",
+  "Mar",
+  "Avr",
+  "Mai",
+  "Juin",
+  "Juil",
+  "Août",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Déc",
+];
+
+function euros(montant: number): string {
+  return `${Math.round(montant).toLocaleString("fr-FR")} €`;
+}
+
+/** CA des six derniers mois, calculé sur les factures réellement émises. */
+function caParMois(factures: Invoice[]) {
+  const reference = new Date();
+  const mois: { cle: string; month: string; revenue: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(reference.getFullYear(), reference.getMonth() - i, 1);
+    mois.push({
+      cle: `${d.getFullYear()}-${d.getMonth()}`,
+      month: MOIS_COURTS[d.getMonth()],
+      revenue: 0,
+    });
+  }
+  for (const facture of factures) {
+    if (facture.status === "cancelled") continue;
+    const d = new Date(facture.issuedAt ?? facture.createdAt);
+    const cle = `${d.getFullYear()}-${d.getMonth()}`;
+    const case_ = mois.find((m) => m.cle === cle);
+    if (case_) case_.revenue += facture.total;
+  }
+  return mois;
+}
 
 export default function BillingDashboard() {
-  const activeClients = mockBillingClients.filter(
-    (c) => c.status === "Actif",
-  ).length;
-  const totalSites = mockBillingClients.reduce((acc, c) => acc + c.sites, 0);
+  const { data: clients = [] } = useClients();
+  const { data: sites = [] } = useSites();
+  const { data: factures = [], isLoading } = useInvoices();
 
-  // Calculate real metrics from invoices
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  const stats = useMemo(() => {
+    const maintenant = new Date();
+    const duMois = factures.filter((f) => {
+      const d = new Date(f.issuedAt ?? f.createdAt);
+      return (
+        d.getMonth() === maintenant.getMonth() &&
+        d.getFullYear() === maintenant.getFullYear()
+      );
+    });
+    const parStatut = (statut: InvoiceStatus) =>
+      factures.filter((f) => f.status === statut);
 
-  const invoicesThisMonth = mockBillingInvoices.filter((inv) => {
-    const invDate = new Date(inv.createdAt);
-    return (
-      invDate.getMonth() === currentMonth &&
-      invDate.getFullYear() === currentYear
-    );
-  });
+    return {
+      duMois,
+      caDuMois: duMois.reduce((s, f) => s + f.total, 0),
+      caTotal: factures
+        .filter((f) => f.status !== "cancelled")
+        .reduce((s, f) => s + f.total, 0),
+      encaisse: parStatut("paid").reduce((s, f) => s + f.total, 0),
+      aEncaisser: parStatut("sent").reduce((s, f) => s + f.total, 0),
+      brouillons: parStatut("draft").length,
+      envoyees: parStatut("sent").length,
+      payees: parStatut("paid").length,
+      heures: factures
+        .filter((f) => f.status !== "cancelled")
+        .reduce((s, f) => s + f.planningHours, 0),
+    };
+  }, [factures]);
 
-  const totalRevenueThisMonth = invoicesThisMonth.reduce(
-    (sum, inv) => sum + inv.total,
-    0,
+  const donneesCA = useMemo(() => caParMois(factures), [factures]);
+
+  const repartitionStatuts = useMemo(() => {
+    const statuts: InvoiceStatus[] = ["draft", "sent", "paid", "cancelled"];
+    return statuts
+      .map((s) => ({
+        name: LIBELLE_STATUT[s],
+        value: factures.filter((f) => f.status === s).length,
+        color: COULEUR_STATUT[s],
+      }))
+      .filter((entree) => entree.value > 0);
+  }, [factures]);
+
+  const facturesRecentes = useMemo(
+    () =>
+      [...factures]
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
+        .slice(0, 5),
+    [factures],
   );
-  const totalRevenue = mockBillingInvoices.reduce(
-    (sum, inv) => sum + inv.total,
-    0,
-  );
 
-  const pendingInvoices = mockBillingInvoices.filter(
-    (inv) => inv.status === "Brouillon" || inv.status === "En attente",
-  ).length;
-
-  const sentInvoices = mockBillingInvoices.filter(
-    (inv) => inv.status === "Envoyée" || inv.status === "Payée",
-  ).length;
-
-  const totalHoursBilled = mockBillingInvoices.reduce(
-    (sum, inv) =>
-      sum + (inv.validatedHours || inv.realizedHours || inv.planningHours || 0),
-    0,
-  );
-
-  // Recent invoices
-  const recentInvoices = [...mockBillingInvoices]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
-    .slice(0, 5);
-
-  // Calculate average margin (simplified)
-  const averageMargin = 15.5; // This would be calculated from payroll costs vs billing
-
-  // Data for charts
-  const monthlyRevenueData = [
-    { month: "Jan", revenue: 45000 },
-    { month: "Fév", revenue: 52000 },
-    { month: "Mar", revenue: 48000 },
-    { month: "Avr", revenue: 61000 },
-    { month: "Mai", revenue: 55000 },
-    { month: "Juin", revenue: 67000 },
-  ];
-
-  const invoiceStatusData = [
-    {
-      name: "Payées",
-      value: mockBillingInvoices.filter((inv) => inv.status === "Payée").length,
-      color: "#22c55e",
-    },
-    {
-      name: "Envoyées",
-      value: mockBillingInvoices.filter((inv) => inv.status === "Envoyée")
-        .length,
-      color: "#3b82f6",
-    },
-    {
-      name: "Validées",
-      value: mockBillingInvoices.filter((inv) => inv.status === "Validée")
-        .length,
-      color: "#8b5cf6",
-    },
-    { name: "En attente", value: pendingInvoices, color: "#f97316" },
-  ];
-
-  const clientsData = [
-    { name: "Sécurité", value: 12, color: "#3b82f6" },
-    { name: "Accueil", value: 8, color: "#10b981" },
-    { name: "Mixte", value: 15, color: "#f59e0b" },
-  ];
+  const aucuneFacture = !isLoading && factures.length === 0;
 
   return (
     <div className="space-y-6">
@@ -135,100 +172,106 @@ export default function BillingDashboard() {
         </p>
       </div>
 
-      {/* KPI Cards */}
       <InfoCardContainer>
         <InfoCard
           icon={Users}
-          title="Clients Actifs"
-          value={activeClients}
-          subtext={`${totalSites} sites au total`}
+          title="Clients"
+          value={clients.length}
+          subtext={`${sites.length} site${sites.length > 1 ? "s" : ""} rattaché${
+            sites.length > 1 ? "s" : ""
+          }`}
           color="green"
         />
 
         <InfoCard
           icon={FileText}
           title="Factures ce mois"
-          value={invoicesThisMonth.length}
-          subtext={`${pendingInvoices} en attente`}
+          value={stats.duMois.length}
+          subtext={`${factures.length} au total`}
           color="blue"
         />
 
         <InfoCard
           icon={DollarSign}
-          title="CA Ce Mois"
-          value={`${totalRevenueThisMonth.toLocaleString("fr-FR")} €`}
-          subtext={`${totalRevenue.toLocaleString("fr-FR")} € total`}
+          title="CA ce mois"
+          value={euros(stats.caDuMois)}
+          subtext={`${euros(stats.caTotal)} depuis le début`}
           color="orange"
         />
 
         <InfoCard
-          icon={TrendingUp}
-          title="Marge Moyenne"
-          value={`${averageMargin}%`}
-          subtext={`${totalHoursBilled} h facturées`}
+          icon={Clock}
+          title="Heures facturées"
+          value={`${stats.heures} h`}
+          subtext="Issues des vacations planifiées"
           color="green"
         />
       </InfoCardContainer>
 
-      {/* Status Cards */}
       <InfoCardContainer>
         <InfoCard
-          icon={Clock}
-          title="En Attente"
-          value={pendingInvoices}
-          subtext="Factures à traiter"
+          icon={FileText}
+          title="Brouillons"
+          value={stats.brouillons}
+          subtext="À vérifier puis envoyer"
           color="orange"
-        />
-
-        <InfoCard
-          icon={CheckCircle}
-          title="Validées"
-          value={
-            mockBillingInvoices.filter((inv) => inv.status === "Validée").length
-          }
-          subtext="Prêtes à envoyer"
-          color="blue"
         />
 
         <InfoCard
           icon={Send}
           title="Envoyées"
-          value={sentInvoices}
-          subtext="En attente de paiement"
-          color="green"
+          value={stats.envoyees}
+          subtext={`${euros(stats.aEncaisser)} en attente de règlement`}
+          color="blue"
         />
 
         <InfoCard
           icon={CheckCircle}
           title="Payées"
-          value={
-            mockBillingInvoices.filter((inv) => inv.status === "Payée").length
-          }
-          subtext="Factures réglées"
+          value={stats.payees}
+          subtext={`${euros(stats.encaisse)} encaissés`}
           color="green"
+        />
+
+        <InfoCard
+          icon={TrendingUp}
+          title="Panier moyen"
+          value={
+            factures.length > 0
+              ? euros(stats.caTotal / Math.max(1, factures.length))
+              : "—"
+          }
+          subtext="Montant TTC moyen par facture"
+          color="blue"
         />
       </InfoCardContainer>
 
-      {/* Charts Section */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Chiffre d&apos;affaires mensuel</CardTitle>
+            <CardTitle>Chiffre d&apos;affaires des 6 derniers mois</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyRevenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value) =>
-                    `${(value || 0).toLocaleString("fr-FR")} €`
-                  }
-                />
-                <Bar dataKey="revenue" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
+            {aucuneFacture ? (
+              <p className="py-16 text-center text-sm text-muted-foreground">
+                Aucune facture émise : le graphique se remplira dès la première
+                facture générée.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={donneesCA}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value) =>
+                      `${Number(value || 0).toLocaleString("fr-FR")} €`
+                    }
+                  />
+                  <Bar dataKey="revenue" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -237,158 +280,89 @@ export default function BillingDashboard() {
             <CardTitle>Répartition des factures</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={invoiceStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) =>
-                    `${name} ${((percent || 0) * 100).toFixed(0)}%`
-                  }
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {invoiceStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Évolution du CA</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={monthlyRevenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value) =>
-                    `${(value || 0).toLocaleString("fr-FR")} €`
-                  }
-                />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Clients par type</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={clientsData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {clientsData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {repartitionStatuts.length === 0 ? (
+              <p className="py-16 text-center text-sm text-muted-foreground">
+                Aucune facture à répartir pour le moment.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={repartitionStatuts}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value }) => `${name}: ${value}`}
+                    outerRadius={80}
+                    dataKey="value"
+                  >
+                    {repartitionStatuts.map((entree) => (
+                      <Cell key={entree.name} fill={entree.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Invoices */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Factures Récentes</CardTitle>
+            <CardTitle>Factures récentes</CardTitle>
             <Button variant="outline" size="sm" asChild>
               <Link href="/dashboard/billing/invoices">Voir tout</Link>
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {recentInvoices.length > 0 ? (
+          {facturesRecentes.length > 0 ? (
             <div className="space-y-3">
-              {recentInvoices.map((invoice) => {
-                const statusVariants: Record<
-                  string,
-                  "default" | "secondary" | "outline" | "destructive"
-                > = {
-                  Payée: "default",
-                  Envoyée: "secondary",
-                  Validée: "secondary",
-                  "En attente": "outline",
-                  Brouillon: "outline",
-                  Annulée: "destructive",
-                };
-                return (
-                  <div
-                    key={invoice.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-semibold">
-                          {invoice.invoiceNumber}
-                        </span>
-                        <Badge
-                          variant={statusVariants[invoice.status] || "outline"}
-                        >
-                          {invoice.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {invoice.clientName}
-                      </p>
+              {facturesRecentes.map((facture) => (
+                <Link
+                  key={facture.id}
+                  href="/dashboard/billing/invoices"
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-semibold">
+                        {facture.invoiceNumber}
+                      </span>
+                      <Badge variant={VARIANTE_STATUT[facture.status]}>
+                        {LIBELLE_STATUT[facture.status]}
+                      </Badge>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        {invoice.total.toLocaleString("fr-FR")} €
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(invoice.createdAt).toLocaleDateString(
-                          "fr-FR",
-                        )}
-                      </p>
-                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {facture.clientName}
+                    </p>
                   </div>
-                );
-              })}
+                  <div className="text-right">
+                    <p className="font-semibold">{euros(facture.total)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(facture.createdAt).toLocaleDateString("fr-FR")}
+                    </p>
+                  </div>
+                </Link>
+              ))}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Aucune facture récente
+              {isLoading
+                ? "Chargement des factures…"
+                : "Aucune facture. Générez-en une depuis le planning."}
             </p>
           )}
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Actions Rapides</CardTitle>
+            <CardTitle>Actions rapides</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -407,7 +381,7 @@ export default function BillingDashboard() {
                 className="w-full justify-start"
                 asChild
               >
-                <Link href="/dashboard/billing/clients">
+                <Link href="/dashboard/entreprise/clients">
                   <Users className="h-4 w-4 mr-2" />
                   Ajouter un client
                 </Link>
@@ -452,16 +426,6 @@ export default function BillingDashboard() {
                   Services
                 </Link>
               </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                asChild
-              >
-                <Link href="/dashboard/billing/kpi">
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Voir les KPI
-                </Link>
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -472,38 +436,29 @@ export default function BillingDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {pendingInvoices > 0 && (
+              {stats.brouillons > 0 && (
                 <div className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-950 rounded">
                   <AlertCircle className="h-4 w-4 text-orange-600" />
                   <span className="text-sm">
-                    {pendingInvoices} facture{pendingInvoices > 1 ? "s" : ""} en
-                    attente de validation
+                    {stats.brouillons} facture
+                    {stats.brouillons > 1 ? "s" : ""} en brouillon à envoyer
                   </span>
                 </div>
               )}
-              {mockBillingInvoices.filter(
-                (inv) => !inv.sentAt && inv.status === "Validée",
-              ).length > 0 && (
+              {stats.envoyees > 0 && (
                 <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950 rounded">
                   <Send className="h-4 w-4 text-blue-600" />
                   <span className="text-sm">
-                    {
-                      mockBillingInvoices.filter(
-                        (inv) => !inv.sentAt && inv.status === "Validée",
-                      ).length
-                    }{" "}
-                    facture(s) validée(s) à envoyer
+                    {stats.envoyees} facture{stats.envoyees > 1 ? "s" : ""} en
+                    attente de règlement ({euros(stats.aEncaisser)})
                   </span>
                 </div>
               )}
-              {pendingInvoices === 0 &&
-                mockBillingInvoices.filter(
-                  (inv) => !inv.sentAt && inv.status === "Validée",
-                ).length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">
-                    Aucune alerte
-                  </p>
-                )}
+              {stats.brouillons === 0 && stats.envoyees === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  Aucune alerte
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

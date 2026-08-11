@@ -14,6 +14,7 @@ import { LogbookModule } from "./logbook/logbook.module";
 import { CommunicationModule } from "./communication/communication.module";
 import { EntrepriseModule } from "./entreprise/entreprise.module";
 import { PayrollModule } from "./payroll/payroll.module";
+import { BillingModule } from "./billing/billing.module";
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PayrollModule } from "./payroll/payroll.module";
     CommunicationModule,
     EntrepriseModule,
     PayrollModule,
+    BillingModule,
   ],
   controllers: [HealthController],
 })
