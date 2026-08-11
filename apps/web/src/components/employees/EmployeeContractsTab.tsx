@@ -98,10 +98,18 @@ export function EmployeeContractsTab({}: EmployeeContractsTabProps) {
               CDD, CDI et avenants
             </p>
           </div>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouveau contrat
-          </Button>
+          {/* Aucun endpoint Contrats cote serveur : le bouton n'avait aucun
+              gestionnaire et ne faisait donc rien. Plutot que de rester muet,
+              il annonce ce qui manque. */}
+          <div className="text-right">
+            <Button disabled>
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau contrat
+            </Button>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Disponible une fois le module Contrats relié à la base
+            </p>
+          </div>
         </CardHeader>
       </Card>
 

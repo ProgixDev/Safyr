@@ -38,6 +38,11 @@ import {
   Euro,
 } from "lucide-react";
 import {
+  pickAndUploadFile,
+  downloadStoredFile,
+  type StoredFile,
+} from "@/lib/document-files";
+import {
   useSubcontractor,
   useUpdateSubcontractor,
   useDeleteSubcontractor,
@@ -85,6 +90,8 @@ interface Document {
   expiryDate?: string;
   status: "valid" | "expiring" | "expired";
   required: boolean;
+  /** Clé du bucket privé, permet le téléchargement du fichier réel. */
+  storageKey?: string;
 }
 
 const requiredDocuments = [
@@ -195,9 +202,8 @@ export default function SousTraitantDetailPage({
     setSousTraitant(toEditable(apiSousTraitant));
   }
 
-  const [documents] = useState<Document[]>(
-    mockDocuments.filter((doc) => doc.sousTraitantId === id),
-  );
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(
     searchParams.get("edit") === "true",
   );
@@ -295,8 +301,54 @@ export default function SousTraitantDetailPage({
     }
   };
 
-  const handleDocumentUpload = (type: string) => {
-    console.log("Upload document:", type);
+  /**
+   * Téléverse une pièce du dossier sous-traitant. Le bouton se contentait d'un
+   * console.log. Le fichier part réellement dans le stockage ; faute de table
+   * dédiée côté serveur, le rattachement à la ligne ne survit pas au
+   * rechargement — c'est signalé sous la liste.
+   */
+  const handleDocumentUpload = async (type: string) => {
+    const exigence = [...requiredDocuments, ...optionalDocuments].find(
+      (d) => d.type === type,
+    );
+    let fichier: StoredFile | null = null;
+    try {
+      fichier = await pickAndUploadFile();
+    } catch (e) {
+      alert(
+        `Échec du téléversement : ${
+          e instanceof Error ? e.message : "Erreur inconnue"
+        }`,
+      );
+      return;
+    }
+    if (!fichier) return;
+
+    setDocuments((prev) => [
+      ...prev.filter((d) => d.type !== type),
+      {
+        id: `${type}-${fichier.key ?? fichier.name}`,
+        sousTraitantId: id,
+        name: fichier.name,
+        type,
+        uploadDate: new Date().toISOString().split("T")[0],
+        status: "valid",
+        required: requiredDocuments.some((d) => d.type === type),
+        storageKey: fichier.key,
+      },
+    ]);
+    setUploadNotice(
+      `« ${fichier.name} » enregistré pour ${exigence?.name ?? type}.`,
+    );
+  };
+
+  /** Ouvre le fichier reellement depose. */
+  const telechargerDocument = (doc: Document) => {
+    if (!doc.storageKey) {
+      alert("Ce document n'a pas de fichier associé.");
+      return;
+    }
+    void downloadStoredFile({ name: doc.name, key: doc.storageKey });
   };
 
   const handleBulkDownload = () => {
@@ -368,6 +420,24 @@ export default function SousTraitantDetailPage({
 
   return (
     <div className="space-y-6">
+      {uploadNotice && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm"
+        >
+          <span>
+            {uploadNotice} Le rattachement à la fiche n&apos;est pas encore
+            enregistré en base : il disparaîtra au rechargement.
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setUploadNotice(null)}
+          >
+            Fermer
+          </Button>
+        </div>
+      )}
       {saveError && (
         <p
           role="alert"
@@ -921,14 +991,20 @@ export default function SousTraitantDetailPage({
                 getRowId={(doc) => doc.id}
                 actions={(doc) => (
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                      <Download className="h-3 w-3" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      title="Télécharger"
+                      onClick={() => telechargerDocument(doc)}
+                    >
+                      <Download className="h-3 w-3 text-violet-500" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0"
-                      onClick={() => handleDocumentUpload(doc.type)}
+                      onClick={() => void handleDocumentUpload(doc.type)}
                     >
                       <Upload className="h-3 w-3" />
                     </Button>
@@ -966,7 +1042,9 @@ export default function SousTraitantDetailPage({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDocumentUpload(docType.type)}
+                          onClick={() =>
+                            void handleDocumentUpload(docType.type)
+                          }
                         >
                           <Upload className="h-3 w-3 mr-2" />
                           Uploader

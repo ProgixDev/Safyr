@@ -25,7 +25,10 @@ import {
   Pencil,
 } from "lucide-react";
 import type { Employee, Document, CNAPSAccess } from "@/lib/types";
-import type { Certification as ApiCertification } from "@safyr/api-client";
+import {
+  getSignedUrl,
+  type Certification as ApiCertification,
+} from "@safyr/api-client";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { CertificationFormDialog } from "./CertificationFormDialog";
 import { Modal } from "@/components/ui/modal";
@@ -85,25 +88,71 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
     fileInputRef.current?.click();
   };
 
+  const [televersementErreur, setTeleversementErreur] = useState<string | null>(
+    null,
+  );
+
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file || !pendingRequirementId) return;
+    setTeleversementErreur(null);
     try {
       await uploadMutation.mutateAsync({
         file,
         requirementId: pendingRequirementId,
       });
     } catch (err) {
-      console.error("Upload failed", err);
+      // L'echec etait avale dans la console : le salarie ne voyait rien.
+      setTeleversementErreur(
+        `Échec du téléversement : ${
+          err instanceof Error ? err.message : "erreur inconnue"
+        }`,
+      );
     } finally {
       setPendingRequirementId(null);
     }
   };
 
-  const firstMemberRequirementId = compliance?.[0]?.requirement.id ?? null;
+  /** Ouvre un document stocke via une URL signee. */
+  const ouvrirDocument = async (storageKey: string) => {
+    try {
+      const url = await getSignedUrl(storageKey);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setTeleversementErreur(
+        `Impossible d'ouvrir le document : ${
+          err instanceof Error ? err.message : "erreur inconnue"
+        }`,
+      );
+    }
+  };
 
-  const [documents] = useState<Document[]>([]);
+  /**
+   * Documents réels du salarié. L'onglet affichait une liste locale toujours
+   * vide : même après un téléversement réussi, le tableau restait sur
+   * « Aucun résultat ». On lit désormais la conformité renvoyée par l'API.
+   */
+  const exigences = useMemo(() => compliance ?? [], [compliance]);
+
+  const documentsDeposes = useMemo(
+    () => exigences.filter((c) => c.document),
+    [exigences],
+  );
+
+  /** Exigence correspondant à un type donné (DPAE, DUE...), par son nom. */
+  const trouverExigence = (motif: RegExp) =>
+    exigences.find((c) => motif.test(c.requirement.name))?.requirement.id ??
+    null;
+
+  const exigenceDpae = trouverExigence(/dpae|d[ée]claration pr[ée]alable/i);
+  const exigenceDue = trouverExigence(/^due$|d[ée]claration unique/i);
+  const dpaeDeposees = documentsDeposes.filter((c) =>
+    /dpae|due|d[ée]claration/i.test(c.requirement.name),
+  );
+  const autresDocuments = documentsDeposes.filter(
+    (c) => !/dpae|due|d[ée]claration/i.test(c.requirement.name),
+  );
 
   const getCertificationStatusBadge = (status: CertStatus) => {
     const config = {
@@ -364,7 +413,7 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* DPAE/DUE Section */}
+      {/* DPAE/DUE */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -377,44 +426,47 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {documents.filter((doc) => doc.type === "dpae" || doc.type === "due")
-            .length > 0 ? (
+          {dpaeDeposees.length > 0 ? (
             <div className="space-y-3">
-              {documents
-                .filter((doc) => doc.type === "dpae" || doc.type === "due")
-                .map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                        <FileText className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{doc.name}</p>
-                          {doc.verified && (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Ajouté le {doc.uploadedAt.toLocaleDateString("fr-FR")}
-                        </p>
-                      </div>
+              {dpaeDeposees.map((c) => (
+                <div
+                  key={c.requirement.id}
+                  className="flex flex-wrap items-center justify-between gap-3 p-4 border rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                      <FileText className="h-5 w-5 text-green-600" />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm">
-                        <Eye className="mr-2 h-4 w-4 text-green-600" />
-                        Voir
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Download className="mr-2 h-4 w-4" />
-                        Télécharger
-                      </Button>
+                    <div>
+                      <p className="font-medium">{c.requirement.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {c.document?.name} — ajouté le{" "}
+                        {formatDate(c.document!.createdAt)}
+                      </p>
                     </div>
                   </div>
-                ))}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        void ouvrirDocument(c.document!.storageKey)
+                      }
+                    >
+                      <Eye className="mr-2 h-4 w-4 text-green-600" />
+                      Voir
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openFilePicker(c.requirement.id)}
+                    >
+                      <Upload className="mr-2 h-4 w-4 text-blue-500" />
+                      Remplacer
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="text-center py-8 border-2 border-dashed rounded-lg">
@@ -422,10 +474,23 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
               <p className="text-muted-foreground mb-4">
                 Aucune DPAE/DUE enregistrée
               </p>
-              <Button>
-                <Upload className="mr-2 h-4 w-4" />
-                Ajouter une DPAE/DUE
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  disabled={!exigenceDpae || uploadMutation.isPending}
+                  onClick={() => exigenceDpae && openFilePicker(exigenceDpae)}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Ajouter une DPAE
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!exigenceDue || uploadMutation.isPending}
+                  onClick={() => exigenceDue && openFilePicker(exigenceDue)}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Ajouter une DUE
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -433,18 +498,11 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
 
       {/* Documents */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>Documents</CardTitle>
-          <Button
-            disabled={!firstMemberRequirementId || uploadMutation.isPending}
-            onClick={() =>
-              firstMemberRequirementId &&
-              openFilePicker(firstMemberRequirementId)
-            }
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            {uploadMutation.isPending ? "Envoi..." : "Ajouter un document"}
-          </Button>
+          <p className="text-sm text-muted-foreground">
+            Chaque document correspond à une pièce attendue au dossier.
+          </p>
         </CardHeader>
         <input
           ref={fileInputRef}
@@ -453,27 +511,71 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
           onChange={handleFileSelected}
         />
         <CardContent>
-          <DataTable
-            data={documents.filter(
-              (doc) => doc.type !== "dpae" && doc.type !== "due",
-            )}
-            columns={documentColumns}
-            searchKeys={["name", "type"]}
-            searchPlaceholder="Rechercher un document..."
-            actions={() => (
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon">
-                  <Eye className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <Download className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          />
+          {exigences.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aucune pièce n'est attendue pour ce salarié.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {exigences
+                .filter(
+                  (c) => !/dpae|due|d[ée]claration/i.test(c.requirement.name),
+                )
+                .map((c) => (
+                  <li
+                    key={c.requirement.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <FileText className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {c.requirement.name}
+                          {c.requirement.isRequired && (
+                            <span className="ml-1 text-destructive">*</span>
+                          )}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {c.document
+                            ? `${c.document.name} — ajouté le ${formatDate(c.document.createdAt)}`
+                            : "Non fourni"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {c.document && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            void ouvrirDocument(c.document!.storageKey)
+                          }
+                        >
+                          <Download className="mr-1 h-3 w-3 text-violet-500" />
+                          Télécharger
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={uploadMutation.isPending}
+                        onClick={() => openFilePicker(c.requirement.id)}
+                      >
+                        <Upload className="mr-1 h-3 w-3 text-blue-500" />
+                        {c.document ? "Remplacer" : "Téléverser"}
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          )}
+          {televersementErreur && (
+            <p className="mt-3 text-sm text-destructive">
+              {televersementErreur}
+            </p>
+          )}
         </CardContent>
       </Card>
 
