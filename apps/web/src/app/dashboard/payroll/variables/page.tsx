@@ -60,6 +60,22 @@ export default function PayrollVariablesPage() {
   );
 }
 
+/**
+ * Période de repli : le mois en cours. Les périodes de démonstration ayant été
+ * retirées, `periods[0]` était `undefined` et la page plantait au chargement
+ * sur `selectedPeriod.month`.
+ */
+function periodeParDefaut(): PeriodType {
+  const d = new Date();
+  const mois = d.getMonth() + 1;
+  return {
+    id: `${d.getFullYear()}-${String(mois).padStart(2, "0")}`,
+    month: mois,
+    year: d.getFullYear(),
+    label: d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
+  };
+}
+
 function PayrollVariablesContent() {
   const searchParams = useSearchParams();
 
@@ -88,7 +104,7 @@ function PayrollVariablesContent() {
 
       if (variableRecord) {
         return {
-          period: targetPeriod || periods[0],
+          period: targetPeriod || periods[0] || periodeParDefaut(),
           modalMode: "view" as ModalMode,
           selectedVariable: variableRecord,
           formData: variableRecord,
@@ -106,7 +122,7 @@ function PayrollVariablesContent() {
           hasWarnings: false,
         };
         return {
-          period: targetPeriod || periods[0],
+          period: targetPeriod || periods[0] || periodeParDefaut(),
           modalMode: "edit" as ModalMode,
           selectedVariable: null,
           formData: newVariable,
@@ -115,7 +131,7 @@ function PayrollVariablesContent() {
     }
 
     return {
-      period: periods[0],
+      period: periods[0] || periodeParDefaut(),
       modalMode: null,
       selectedVariable: null,
       formData: {},
