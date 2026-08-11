@@ -15,6 +15,18 @@ function euros(v: number): number {
 const SEUIL_HEBDO = 35;
 
 /**
+ * Forme comparable d'un nom de client : majuscules, sans accents ni
+ * ponctuation. « ANTIBES-iNVEST » et « Antibes Invest » donnent la même clé.
+ */
+function normaliserNom(nom: string): string {
+  return nom
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+/**
  * Identifiant de la semaine civile (lundi → dimanche) d'une date, du type
  * « 2026-W33 ». Sert à remettre le compteur d'heures à zéro chaque semaine.
  */
@@ -144,14 +156,40 @@ export class BillingService {
    */
   async genererDepuisPlanning(orgId: string, dto: GenerateInvoiceDto) {
     const debut = new Date(dto.periodStart);
+    // La date de fin est inclusive : une vacation qui se termine le dernier
+    // jour de la période doit être facturée.
     const fin = new Date(dto.periodEnd);
+    fin.setHours(23, 59, 59, 999);
+
+    // Le nom du client porté par un site est saisi à la main : il ne
+    // correspond pas toujours au libellé exact de la fiche client
+    // (« ANTIBES-iNVEST » pour « ANTIBES INVEST »). On rapproche donc sur une
+    // forme normalisée, et par inclusion.
+    const sites = await this.prisma.site.findMany({
+      where: { organizationId: orgId },
+      select: { id: true, clientName: true },
+    });
+    const cible = normaliserNom(dto.clientName);
+    const sitesDuClient = sites.filter((s) => {
+      const nom = normaliserNom(s.clientName ?? "");
+      return (
+        nom.length > 0 &&
+        (nom === cible || nom.includes(cible) || cible.includes(nom))
+      );
+    });
+
+    if (sitesDuClient.length === 0) {
+      throw new NotFoundException(
+        `Aucun site rattaché à « ${dto.clientName} ». Renseignez le client sur la fiche du site.`,
+      );
+    }
 
     const vacations = await this.prisma.shift.findMany({
       where: {
         organizationId: orgId,
         startAt: { gte: debut },
         endAt: { lte: fin },
-        post: { site: { clientName: dto.clientName } },
+        post: { siteId: { in: sitesDuClient.map((s) => s.id) } },
       },
       include: { post: { include: { site: true } } },
     });

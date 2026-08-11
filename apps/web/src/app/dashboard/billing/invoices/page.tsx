@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { CalendarClock, CheckCircle, Send } from "lucide-react";
 import { useClients } from "@/hooks/clients";
+import { useSites } from "@/hooks/sites";
 import {
   useInvoices,
   useGenerateInvoice,
@@ -71,7 +72,17 @@ function moisPrecedent(): { debut: string; fin: string } {
 
 export default function BillingInvoicesPage() {
   const { data: invoices = [], isLoading } = useInvoices();
-  const { data: clients = [] } = useClients();
+  const { data: fichesClients = [] } = useClients();
+  const { data: sites = [] } = useSites();
+
+  // Le client à facturer est celui porté par les sites : on propose donc les
+  // fiches clients et les noms saisis sur les sites, pour ne rien manquer.
+  const clients = useMemo(() => {
+    const noms = new Set<string>();
+    for (const fiche of fichesClients) noms.add(fiche.name);
+    for (const site of sites) if (site.clientName) noms.add(site.clientName);
+    return [...noms].sort((a, b) => a.localeCompare(b, "fr"));
+  }, [fichesClients, sites]);
   const generer = useGenerateInvoice();
   const modifier = useUpdateInvoice();
   const supprimer = useDeleteInvoice();
@@ -249,9 +260,9 @@ export default function BillingInvoicesPage() {
                   <SelectValue placeholder="Sélectionner un client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.name}>
-                      {c.name}
+                  {clients.map((nom) => (
+                    <SelectItem key={nom} value={nom}>
+                      {nom}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -259,7 +270,7 @@ export default function BillingInvoicesPage() {
               {clients.length === 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Aucun client enregistré — créez-en un dans Entreprise ›
-                  Clients.
+                  Clients, puis renseignez-le sur la fiche du site.
                 </p>
               )}
             </div>
