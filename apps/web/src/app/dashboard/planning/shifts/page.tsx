@@ -157,15 +157,15 @@ export default function ShiftsPage() {
   // Create lookup maps for O(1) site access
   const siteNameMap = useMemo(
     () => new Map(mockSites.map((s) => [s.id, s.name])),
-    [],
+    [mockSites],
   );
   const siteColorMap = useMemo(
     () => new Map(mockSites.map((s) => [s.id, s.color])),
-    [],
+    [mockSites],
   );
   const siteClientMap = useMemo(
     () => new Map(mockSites.map((s) => [s.id, s.clientName])),
-    [],
+    [mockSites],
   );
 
   const getSiteName = (siteId: string) => siteNameMap.get(siteId) ?? siteId;

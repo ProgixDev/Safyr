@@ -513,7 +513,7 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
         <CardContent>
           {exigences.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Aucune pièce n'est attendue pour ce salarié.
+              Aucune pièce n&apos;est attendue pour ce salarié.
             </p>
           ) : (
             <ul className="space-y-2">

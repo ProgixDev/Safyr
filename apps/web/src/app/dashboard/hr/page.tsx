@@ -200,7 +200,7 @@ function ComplianceWidget({ isLoading }: { isLoading: boolean }) {
       <CardContent>
         {total === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Aucun document exigé n'est encore configuré.
+            Aucun document exigé n&apos;est encore configuré.
           </p>
         ) : (
           <div className="space-y-4">
@@ -515,7 +515,7 @@ function GenderEqualityWidget({ isLoading }: { isLoading: boolean }) {
       <CardContent>
         {renseignes === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Le genre n'est renseigné sur aucun dossier salarié.
+            Le genre n&apos;est renseigné sur aucun dossier salarié.
           </p>
         ) : (
           <div className="space-y-3">
@@ -539,8 +539,8 @@ function GenderEqualityWidget({ isLoading }: { isLoading: boolean }) {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              L'index d'égalité professionnelle exige les rémunérations : il
-              sera calculé une fois la paie reliée.
+              L&apos;index d&apos;égalité professionnelle exige les
+              rémunérations : il sera calculé une fois la paie reliée.
             </p>
           </div>
         )}
