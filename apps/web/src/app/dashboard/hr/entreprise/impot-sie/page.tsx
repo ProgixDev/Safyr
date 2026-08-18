@@ -137,7 +137,10 @@ const CHAMPS_PRELEVEMENT = ["declaration", "bordereau"] as const;
 const CHAMPS_COURRIER = ["document"] as const;
 
 export default function ImpotSIEPage() {
-  const [selectedYear, setSelectedYear] = useState("2024");
+  // L'exercice en cours, et non une année figée dans le code.
+  const [selectedYear, setSelectedYear] = useState(
+    String(new Date().getFullYear()),
+  );
   const [activeTab, setActiveTab] = useState("tva");
   const [isNewDocumentModalOpen, setIsNewDocumentModalOpen] = useState(false);
   const [newDocumentType, setNewDocumentType] = useState<
@@ -512,7 +515,10 @@ export default function ImpotSIEPage() {
     "décembre",
   ];
 
-  const annees = ["2024", "2023", "2022", "2021"];
+  // Les cinq derniers exercices, calculés — la liste était figée sur 2024.
+  const annees = Array.from({ length: 5 }, (_, i) =>
+    String(new Date().getFullYear() - i),
+  );
 
   const handleNewDocument = () => {
     const newId = Date.now().toString();

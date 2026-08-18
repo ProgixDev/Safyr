@@ -87,7 +87,12 @@ export function useRegistre<T extends LigneRegistre>(
   const enregistrer = useCallback(
     async (
       ligne: T,
-      infos: { period: string; label: string; status?: string; amount?: number },
+      infos: {
+        period: string;
+        label: string;
+        status?: string;
+        amount?: number;
+      },
     ): Promise<string> => {
       const connue = records.some((r) => r.id === ligne.id);
       if (connue) {
@@ -120,12 +125,21 @@ export function useRegistre<T extends LigneRegistre>(
     async (
       ligne: T,
       champ: string,
-      infos: { period: string; label: string; status?: string; amount?: number },
+      infos: {
+        period: string;
+        label: string;
+        status?: string;
+        amount?: number;
+      },
     ): Promise<{ nom: string } | null> => {
       const fichier = await pickFile();
       if (!fichier) return null;
       const recordId = await enregistrer(ligne, infos);
-      await attacher.mutateAsync({ file: fichier, scopeId: recordId, slot: champ });
+      await attacher.mutateAsync({
+        file: fichier,
+        scopeId: recordId,
+        slot: champ,
+      });
       return { nom: fichier.name };
     },
     [attacher, enregistrer],
