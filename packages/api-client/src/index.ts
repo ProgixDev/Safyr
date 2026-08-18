@@ -11,3 +11,4 @@ export * from "./clients";
 export * from "./payroll";
 export * from "./contracts";
 export * from "./billing";
+export * from "./fiscal";

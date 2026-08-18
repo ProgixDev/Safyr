@@ -36,6 +36,7 @@ import {
   downloadStoredFile,
   type StoredFile,
 } from "@/lib/document-files";
+import { useRegistre } from "@/hooks/fiscal";
 
 /**
  * Pièces attendues d'un dossier de financement : devis du prestataire,
@@ -70,12 +71,34 @@ interface AKTOOPCODossier {
   documents: DossierDocuments;
 }
 
-const mockDossiers: AKTOOPCODossier[] = [];
+const CHAMPS_PIECES = ["devis", "convention", "facture"] as const;
+
+/** Dossier tel qu'enregistré : les pièces sont des champs de premier niveau. */
+type DossierEnregistre = Omit<AKTOOPCODossier, "documents"> &
+  Partial<Record<DocumentSlot, StoredFile | null>>;
 
 const AKTO_URL = "https://www.akto.fr";
 
 export default function AKTOOPCOPage() {
-  const [dossiers, setDossiers] = useState<AKTOOPCODossier[]>(mockDossiers);
+  // Dossiers enregistrés en base : ils ne vivaient qu'en mémoire, et les
+  // pièces déposées disparaissaient à la déconnexion.
+  const registre = useRegistre<DossierEnregistre>("akto", CHAMPS_PIECES);
+  const dossiers: AKTOOPCODossier[] = registre.lignes.map((ligne) => ({
+    ...(ligne as unknown as AKTOOPCODossier),
+    documents: Object.fromEntries(
+      CHAMPS_PIECES.filter((champ) => ligne[champ]).map((champ) => [
+        champ,
+        ligne[champ] as StoredFile,
+      ]),
+    ) as DossierDocuments,
+  }));
+
+  const infosDossier = (d: AKTOOPCODossier) => ({
+    period: (d.createdAt ?? "").slice(0, 4),
+    label: d.title,
+    status: d.status,
+    amount: d.amount,
+  });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedDossier, setSelectedDossier] =
@@ -217,27 +240,28 @@ export default function AKTOOPCOPage() {
 
   const handleDelete = (dossierId: string) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer ce dossier ?")) {
-      setDossiers(dossiers.filter((d) => d.id !== dossierId));
+      void registre.supprimerLigne(dossierId);
     }
   };
 
   const handleSave = () => {
     if (editingId) {
-      setDossiers(
-        dossiers.map((d) =>
-          d.id === editingId
-            ? {
-                ...d,
-                type: formData.type,
-                title: formData.title,
-                employeeName: formData.employeeName || undefined,
-                trainingType: formData.trainingType,
-                amount: parseFloat(formData.amount) || 0,
-                accountUrl: formData.accountUrl || undefined,
-              }
-            : d,
-        ),
-      );
+      const existant = dossiers.find((d) => d.id === editingId);
+      if (existant) {
+        const misAJour = {
+          ...existant,
+          type: formData.type,
+          title: formData.title,
+          employeeName: formData.employeeName || undefined,
+          trainingType: formData.trainingType,
+          amount: parseFloat(formData.amount) || 0,
+          accountUrl: formData.accountUrl || undefined,
+        };
+        void registre.enregistrer(
+          misAJour as unknown as DossierEnregistre,
+          infosDossier(misAJour),
+        );
+      }
       setEditingId(null);
       setIsCreateModalOpen(false);
       return;
@@ -256,7 +280,10 @@ export default function AKTOOPCOPage() {
       createdAt: new Date().toISOString().split("T")[0],
       documents: {},
     };
-    setDossiers([...dossiers, newDossier]);
+    void registre.enregistrer(
+      newDossier as unknown as DossierEnregistre,
+      infosDossier(newDossier),
+    );
     setIsCreateModalOpen(false);
   };
 
@@ -270,61 +297,41 @@ export default function AKTOOPCOPage() {
     dossier: AKTOOPCODossier,
     slot: DocumentSlot,
   ) => {
-    let fichier: StoredFile | null = null;
     try {
-      fichier = await pickAndUploadFile();
+      await registre.televerserPiece(
+        dossier as unknown as DossierEnregistre,
+        slot,
+        infosDossier(dossier),
+      );
     } catch (e) {
       alert(
         `Échec du téléversement : ${
           e instanceof Error ? e.message : "Erreur inconnue"
         }`,
       );
-      return;
     }
-    if (!fichier) return;
-
-    const applique = (d: AKTOOPCODossier): AKTOOPCODossier => ({
-      ...d,
-      documents: { ...d.documents, [slot]: fichier },
-    });
-    setDossiers((prev) =>
-      prev.map((d) => (d.id === dossier.id ? applique(d) : d)),
-    );
-    // La modale de détail travaille sur une copie : on la met à jour aussi.
-    setSelectedDossier((current) =>
-      current?.id === dossier.id ? applique(current) : current,
-    );
   };
 
   const handleRemoveDocument = (
     dossier: AKTOOPCODossier,
     slot: DocumentSlot,
   ) => {
-    const applique = (d: AKTOOPCODossier): AKTOOPCODossier => {
-      const documents = { ...d.documents };
-      delete documents[slot];
-      return { ...d, documents };
-    };
-    setDossiers((prev) =>
-      prev.map((d) => (d.id === dossier.id ? applique(d) : d)),
-    );
-    setSelectedDossier((current) =>
-      current?.id === dossier.id ? applique(current) : current,
-    );
+    void registre.retirerPiece(dossier.id, slot);
   };
 
   const handleSubmitDossier = (dossierId: string) => {
-    setDossiers(
-      dossiers.map((d) =>
-        d.id === dossierId
-          ? {
-              ...d,
-              status: "Soumis" as const,
-              submittedAt: new Date().toISOString().split("T")[0],
-            }
-          : d,
-      ),
-    );
+    const dossier = dossiers.find((d) => d.id === dossierId);
+    if (dossier) {
+      const soumis = {
+        ...dossier,
+        status: "Soumis" as const,
+        submittedAt: new Date().toISOString().split("T")[0],
+      };
+      void registre.enregistrer(
+        soumis as unknown as DossierEnregistre,
+        infosDossier(soumis),
+      );
+    }
     alert("Dossier soumis avec succès!");
   };
 

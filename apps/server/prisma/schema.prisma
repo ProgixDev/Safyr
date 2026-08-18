@@ -686,3 +686,30 @@ model PayrollVariable {
   @@map("payroll_variable")
 }
 
+
+/// Ligne d'un registre administratif : déclarations de TVA, CFE, prélèvement à
+/// la source, courriers fiscaux et dossiers de formation AKTO/OPCO. Les pièces
+/// jointes de chaque ligne sont des `Document` (scope = tax ou akto,
+/// scopeId = identifiant de la ligne, slot = colonne).
+model FiscalRecord {
+  id             String @id @default(cuid())
+  organizationId String
+
+  /// tva | cfe | prelevement | courrier | akto
+  type   String
+  /// Période concernée : « 2026-03 » pour un mois, « 2026 » pour une année.
+  period String
+  /// Libellé affiché (mois, objet du courrier, intitulé de la formation).
+  label  String
+  status String  @default("en_attente")
+  amount Float?
+  dueDate DateTime?
+  /// Champs propres au type : organisme, sens du courrier, organisme financeur.
+  meta   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, type, period])
+  @@map("fiscal_record")
+}

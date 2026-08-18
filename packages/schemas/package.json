@@ -48,6 +48,10 @@
     "./billing": {
       "types": "./dist/billing.d.ts",
       "default": "./dist/billing.js"
+    },
+    "./fiscal": {
+      "types": "./dist/fiscal.d.ts",
+      "default": "./dist/fiscal.js"
     }
   },
   "scripts": {

@@ -15,6 +15,7 @@ import { CommunicationModule } from "./communication/communication.module";
 import { EntrepriseModule } from "./entreprise/entreprise.module";
 import { PayrollModule } from "./payroll/payroll.module";
 import { BillingModule } from "./billing/billing.module";
+import { FiscalModule } from "./fiscal/fiscal.module";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { BillingModule } from "./billing/billing.module";
     EntrepriseModule,
     PayrollModule,
     BillingModule,
+    FiscalModule,
   ],
   controllers: [HealthController],
 })

@@ -44,6 +44,7 @@ import {
   downloadStoredFile,
   type StoredFile,
 } from "@/lib/document-files";
+import { useRegistre } from "@/hooks/fiscal";
 
 /**
  * Cellule document : le nom du fichier et le menu d'actions à trois points.
@@ -125,6 +126,16 @@ interface Courrier {
   statut: "traite" | "en_cours" | "en_attente";
 }
 
+const CHAMPS_TVA = [
+  "grandLivre",
+  "declaration",
+  "arDeclaration",
+  "paiement",
+] as const;
+const CHAMPS_CFE = ["declaration", "avis", "paiement"] as const;
+const CHAMPS_PRELEVEMENT = ["declaration", "bordereau"] as const;
+const CHAMPS_COURRIER = ["document"] as const;
+
 export default function ImpotSIEPage() {
   const [selectedYear, setSelectedYear] = useState("2024");
   const [activeTab, setActiveTab] = useState("tva");
@@ -143,13 +154,44 @@ export default function ImpotSIEPage() {
     montant: 0,
   });
 
-  const [tvaDossiers, setTvaDossiers] = useState<TVADocument[]>([]);
+  // Registres enregistrés en base : les lignes et leurs pièces jointes
+  // survivent à la déconnexion (elles ne vivaient qu'en mémoire).
+  const registreTva = useRegistre<TVADocument>("tva", CHAMPS_TVA);
+  const registreCfe = useRegistre<CFEDocument>("cfe", CHAMPS_CFE);
+  const registrePrelevement = useRegistre<PrelevementDocument>(
+    "prelevement",
+    CHAMPS_PRELEVEMENT,
+  );
+  const registreCourrier = useRegistre<Courrier>("courrier", CHAMPS_COURRIER);
 
-  const [cfeDossiers, setCfeDossiers] = useState<CFEDocument[]>([]);
+  const tvaDossiers = registreTva.lignes;
+  const cfeDossiers = registreCfe.lignes;
+  const prelevements = registrePrelevement.lignes;
+  const courriers = registreCourrier.lignes;
 
-  const [prelevements, setPrelevements] = useState<PrelevementDocument[]>([]);
-
-  const [courriers, setCourriers] = useState<Courrier[]>([]);
+  /** Période et libellé sous lesquels chaque ligne est enregistrée. */
+  const infosTva = (d: TVADocument) => ({
+    period: d.annee,
+    label: d.mois,
+    status: d.statut,
+  });
+  const infosCfe = (d: CFEDocument) => ({
+    period: d.annee,
+    label: `CFE ${d.annee}`,
+    status: d.statut,
+    amount: d.montant,
+  });
+  const infosPrelevement = (p: PrelevementDocument) => ({
+    period: p.periode,
+    label: p.periode,
+    status: p.statut,
+    amount: p.montant,
+  });
+  const infosCourrier = (c: Courrier) => ({
+    period: (c.date ?? "").slice(0, 7),
+    label: c.objet,
+    status: c.statut,
+  });
 
   // ── Courriers : menu action (voir / téléverser / télécharger / supprimer) ──
   const [viewedCourrier, setViewedCourrier] = useState<Courrier | null>(null);
@@ -160,25 +202,28 @@ export default function ImpotSIEPage() {
 
   /** Attache (ou remplace) le document scanné du courrier. */
   const handleUploadCourrier = async (courrier: Courrier) => {
-    const fichier = await televerser();
-    if (!fichier) return;
-    setCourriers((prev) =>
-      prev.map((c) => (c.id === courrier.id ? { ...c, document: fichier } : c)),
-    );
-    setViewedCourrier((current) =>
-      current?.id === courrier.id ? { ...current, document: fichier } : current,
-    );
-    confirmUpload(`le courrier « ${courrier.objet} »`, fichier.name);
+    try {
+      const depose = await registreCourrier.televerserPiece(
+        courrier,
+        "document",
+        infosCourrier(courrier),
+      );
+      if (!depose) return;
+      confirmUpload(`le courrier « ${courrier.objet} »`, depose.nom);
+    } catch (e) {
+      alert(
+        `Échec du téléversement : ${e instanceof Error ? e.message : "Erreur inconnue"}`,
+      );
+    }
   };
 
   const handleDeleteCourrier = (courrier: Courrier) => {
-    setCourriers((prev) => prev.filter((c) => c.id !== courrier.id));
+    void registreCourrier.supprimerLigne(courrier.id);
     setViewedCourrier((current) =>
       current?.id === courrier.id ? null : current,
     );
   };
 
-  // ── Téléversement : confirmation visible après chaque dépôt ──────────────
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
 
   /**
@@ -242,51 +287,27 @@ export default function ImpotSIEPage() {
    * volée, sinon le téléversement serait perdu.
    */
   const handleUploadTva = async (dossier: TVADocument, field: TvaDocField) => {
-    const fichier = await televerser();
-    if (!fichier) return;
-
-    setTvaDossiers((prev) => {
-      const existe = prev.some(
-        (d) => d.mois === dossier.mois && d.annee === dossier.annee,
+    try {
+      const depose = await registreTva.televerserPiece(
+        dossier,
+        field,
+        infosTva(dossier),
       );
-      const base = existe ? prev : [...prev, dossier];
-      return base.map((d) =>
-        d.mois === dossier.mois && d.annee === dossier.annee
-          ? withTvaStatut({ ...d, [field]: fichier })
-          : d,
+      if (!depose) return;
+      confirmUpload(
+        `${TVA_DOC_LABELS[field]} — ${dossier.mois} ${dossier.annee}`,
+        depose.nom,
       );
-    });
-    // La modale de consultation travaille sur une copie : on la rafraîchit
-    // pour que le document apparaisse immédiatement quand elle est ouverte.
-    setViewedTva((current) =>
-      current &&
-      current.mois === dossier.mois &&
-      current.annee === dossier.annee
-        ? withTvaStatut({ ...current, [field]: fichier })
-        : current,
-    );
-    confirmUpload(
-      `${TVA_DOC_LABELS[field]} — ${dossier.mois} ${dossier.annee}`,
-      fichier.name,
-    );
+    } catch (e) {
+      alert(
+        `Échec du téléversement : ${e instanceof Error ? e.message : "Erreur inconnue"}`,
+      );
+    }
   };
 
-  /** Retire un document d'un dossier TVA (le statut est recalculé). */
+  /** Retire un document d'un dossier TVA. */
   const handleDeleteTva = (dossier: TVADocument, field: TvaDocField) => {
-    setTvaDossiers((prev) =>
-      prev.map((d) =>
-        d.mois === dossier.mois && d.annee === dossier.annee
-          ? withTvaStatut({ ...d, [field]: null })
-          : d,
-      ),
-    );
-    setViewedTva((current) =>
-      current &&
-      current.mois === dossier.mois &&
-      current.annee === dossier.annee
-        ? withTvaStatut({ ...current, [field]: null })
-        : current,
-    );
+    void registreTva.retirerPiece(dossier.id, field);
   };
 
   const [viewedTva, setViewedTva] = useState<TVADocument | null>(null);
@@ -294,17 +315,7 @@ export default function ImpotSIEPage() {
 
   const handleSaveTva = () => {
     if (!editedTva) return;
-    setTvaDossiers((prev) => {
-      const existe = prev.some(
-        (d) => d.mois === editedTva.mois && d.annee === editedTva.annee,
-      );
-      const base = existe ? prev : [...prev, editedTva];
-      return base.map((d) =>
-        d.mois === editedTva.mois && d.annee === editedTva.annee
-          ? editedTva
-          : d,
-      );
-    });
+    void registreTva.enregistrer(editedTva, infosTva(editedTva));
     setEditedTva(null);
   };
 
@@ -332,32 +343,23 @@ export default function ImpotSIEPage() {
   };
 
   const handleUploadCfe = async (dossier: CFEDocument, field: CfeDocField) => {
-    const fichier = await televerser();
-    if (!fichier) return;
-    setCfeDossiers((prev) =>
-      prev.map((d) =>
-        d.id === dossier.id ? withCfeStatut({ ...d, [field]: fichier }) : d,
-      ),
-    );
-    setViewedCfe((current) =>
-      current?.id === dossier.id
-        ? withCfeStatut({ ...current, [field]: fichier })
-        : current,
-    );
-    confirmUpload(`${CFE_DOC_LABELS[field]} ${dossier.annee}`, fichier.name);
+    try {
+      const depose = await registreCfe.televerserPiece(
+        dossier,
+        field,
+        infosCfe(dossier),
+      );
+      if (!depose) return;
+      confirmUpload(`${CFE_DOC_LABELS[field]} ${dossier.annee}`, depose.nom);
+    } catch (e) {
+      alert(
+        `Échec du téléversement : ${e instanceof Error ? e.message : "Erreur inconnue"}`,
+      );
+    }
   };
 
   const handleDeleteCfeDoc = (dossier: CFEDocument, field: CfeDocField) => {
-    setCfeDossiers((prev) =>
-      prev.map((d) =>
-        d.id === dossier.id ? withCfeStatut({ ...d, [field]: null }) : d,
-      ),
-    );
-    setViewedCfe((current) =>
-      current?.id === dossier.id
-        ? withCfeStatut({ ...current, [field]: null })
-        : current,
-    );
+    void registreCfe.retirerPiece(dossier.id, field);
   };
 
   const [viewedCfe, setViewedCfe] = useState<CFEDocument | null>(null);
@@ -366,15 +368,13 @@ export default function ImpotSIEPage() {
 
   const handleSaveCfe = () => {
     if (!editedCfe) return;
-    setCfeDossiers((prev) =>
-      prev.map((d) => (d.id === editedCfe.id ? editedCfe : d)),
-    );
+    void registreCfe.enregistrer(editedCfe, infosCfe(editedCfe));
     setEditedCfe(null);
   };
 
   const handleDeleteCfe = () => {
     if (!cfeToDelete) return;
-    setCfeDossiers((prev) => prev.filter((d) => d.id !== cfeToDelete.id));
+    void registreCfe.supprimerLigne(cfeToDelete.id);
     setViewedCfe((current) =>
       current?.id === cfeToDelete.id ? null : current,
     );
@@ -393,45 +393,29 @@ export default function ImpotSIEPage() {
     prelevement: PrelevementDocument,
     field: PrelevementDocField,
   ) => {
-    const fichier = await televerser();
-    if (!fichier) return;
-    setPrelevements((prev) =>
-      prev.map((p) =>
-        p.id === prelevement.id
-          ? {
-              ...p,
-              [field]: fichier,
-              statut:
-                field === "declaration" && p.bordereau
-                  ? "declare"
-                  : field === "bordereau" && p.declaration
-                    ? "declare"
-                    : p.statut,
-            }
-          : p,
-      ),
-    );
-    setViewedPrelevement((current) =>
-      current?.id === prelevement.id
-        ? { ...current, [field]: fichier }
-        : current,
-    );
-    confirmUpload(
-      `${PRELEVEMENT_DOC_LABELS[field]} — ${prelevement.periode}`,
-      fichier.name,
-    );
+    try {
+      const depose = await registrePrelevement.televerserPiece(
+        prelevement,
+        field,
+        infosPrelevement(prelevement),
+      );
+      if (!depose) return;
+      confirmUpload(
+        `${PRELEVEMENT_DOC_LABELS[field]} — ${prelevement.periode}`,
+        depose.nom,
+      );
+    } catch (e) {
+      alert(
+        `Échec du téléversement : ${e instanceof Error ? e.message : "Erreur inconnue"}`,
+      );
+    }
   };
 
   const handleDeletePrelevementDoc = (
     prelevement: PrelevementDocument,
     field: PrelevementDocField,
   ) => {
-    setPrelevements((prev) =>
-      prev.map((p) => (p.id === prelevement.id ? { ...p, [field]: null } : p)),
-    );
-    setViewedPrelevement((current) =>
-      current?.id === prelevement.id ? { ...current, [field]: null } : current,
-    );
+    void registrePrelevement.retirerPiece(prelevement.id, field);
   };
 
   const [viewedPrelevement, setViewedPrelevement] =
@@ -443,17 +427,16 @@ export default function ImpotSIEPage() {
 
   const handleSavePrelevement = () => {
     if (!editedPrelevement) return;
-    setPrelevements((prev) =>
-      prev.map((p) => (p.id === editedPrelevement.id ? editedPrelevement : p)),
+    void registrePrelevement.enregistrer(
+      editedPrelevement,
+      infosPrelevement(editedPrelevement),
     );
     setEditedPrelevement(null);
   };
 
   const handleDeletePrelevement = () => {
     if (!prelevementToDelete) return;
-    setPrelevements((prev) =>
-      prev.filter((p) => p.id !== prelevementToDelete.id),
-    );
+    void registrePrelevement.supprimerLigne(prelevementToDelete.id);
     setViewedPrelevement((current) =>
       current?.id === prelevementToDelete.id ? null : current,
     );
@@ -546,7 +529,7 @@ export default function ImpotSIEPage() {
         statut: "manquant",
         dateEcheance: `${newDocument.annee}-${(moisFrancais.indexOf(newDocument.mois) + 2).toString().padStart(2, "0")}-20`,
       };
-      setTvaDossiers((prev) => [...prev, newTvaDoc]);
+      void registreTva.enregistrer(newTvaDoc, infosTva(newTvaDoc));
     } else if (newDocumentType === "cfe") {
       const newCfeDoc: CFEDocument = {
         id: newId,
@@ -557,7 +540,7 @@ export default function ImpotSIEPage() {
         statut: "manquant",
         montant: 0,
       };
-      setCfeDossiers((prev) => [...prev, newCfeDoc]);
+      void registreCfe.enregistrer(newCfeDoc, infosCfe(newCfeDoc));
     } else if (newDocumentType === "prelevement") {
       const newPrelevement: PrelevementDocument = {
         id: newId,
@@ -567,7 +550,10 @@ export default function ImpotSIEPage() {
         statut: "en_attente",
         montant: newDocument.montant,
       };
-      setPrelevements((prev) => [...prev, newPrelevement]);
+      void registrePrelevement.enregistrer(
+        newPrelevement,
+        infosPrelevement(newPrelevement),
+      );
     } else if (newDocumentType === "courrier") {
       const newCourrier: Courrier = {
         id: newId,
@@ -578,7 +564,10 @@ export default function ImpotSIEPage() {
         organisme: newDocument.organisme,
         statut: "en_attente",
       };
-      setCourriers((prev) => [...prev, newCourrier]);
+      void registreCourrier.enregistrer(
+        newCourrier,
+        infosCourrier(newCourrier),
+      );
     }
 
     setIsNewDocumentModalOpen(false);
@@ -630,12 +619,8 @@ export default function ImpotSIEPage() {
         <Select
           value={dossier.statut}
           onValueChange={(value: "complet" | "partiel" | "manquant") => {
-            // Mettre à jour le statut directement
-            setTvaDossiers((prev) =>
-              prev.map((d) =>
-                d.id === dossier.id ? { ...d, statut: value } : d,
-              ),
-            );
+            const misAJour = { ...dossier, statut: value };
+            void registreTva.enregistrer(misAJour, infosTva(misAJour));
           }}
         >
           <SelectTrigger className="w-32 h-8">
