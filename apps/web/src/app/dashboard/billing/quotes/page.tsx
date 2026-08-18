@@ -22,7 +22,7 @@ import {
   BillingQuote,
   QuoteLine,
 } from "@/data/billing-quotes";
-import { mockBillingClients } from "@/data/billing-clients";
+import { useBillingClients } from "@/hooks/billing";
 import { mockBillingServices, computePriceTTC } from "@/data/billing-services";
 import Link from "next/link";
 
@@ -53,6 +53,7 @@ function createEmptyLine(): QuoteLine {
 type QuoteFormData = Partial<BillingQuote> & { quoteType?: string };
 
 export default function BillingQuotesPage() {
+  const mockBillingClients = useBillingClients();
   const [quotes, setQuotes] = useState<BillingQuote[]>(mockBillingQuotes);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);

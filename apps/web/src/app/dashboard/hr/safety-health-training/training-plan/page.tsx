@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeesRH } from "@/hooks/employees";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,16 +45,16 @@ import {
   Building2,
 } from "lucide-react";
 import type { TrainingPlan, TrainingBudget } from "@/lib/types";
-import { mockEmployees } from "@/data/employees";
 
 /**
  * Les participants sont stockés sous forme de matricules (ex. "EMP001").
  * On affiche le nom du salarié quand il est connu, sinon le matricule.
  */
-function getParticipantName(employeeNumber: string) {
-  const employee = mockEmployees.find(
-    (e) => e.employeeNumber === employeeNumber,
-  );
+function getParticipantName(
+  employeeNumber: string,
+  salaries: { employeeNumber: string; firstName: string; lastName: string }[],
+) {
+  const employee = salaries.find((e) => e.employeeNumber === employeeNumber);
   return employee
     ? `${employee.firstName} ${employee.lastName}`
     : employeeNumber;
@@ -188,6 +189,7 @@ const mockTrainingBudget: TrainingBudget = {
 };
 
 export default function TrainingPlanPage() {
+  const mockEmployees = useEmployeesRH();
   const [trainingPlans, setTrainingPlans] =
     useState<TrainingPlan[]>(mockTrainingPlans);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
@@ -687,7 +689,7 @@ export default function TrainingPlanPage() {
                   <ul className="mt-1 space-y-0.5">
                     {selectedPlan.participants.map((participant) => (
                       <li key={participant} className="text-sm">
-                        {getParticipantName(participant)}
+                        {getParticipantName(participant, mockEmployees)}
                       </li>
                     ))}
                   </ul>

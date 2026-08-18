@@ -1,5 +1,7 @@
 "use client";
 
+import { periodesRecentes } from "@/lib/payroll-periods";
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DataTable, ColumnDef, FilterDef } from "@/components/ui/DataTable";
@@ -46,8 +48,6 @@ import {
   MOCK_EXECUTIONS,
 } from "@/data/payroll-controls";
 import { PayrollAnomaly, ControlExecution } from "@/lib/types";
-
-const mockPeriods: PeriodType[] = [];
 
 // Mock last run status for each control
 const mockControlLastRun: Record<
@@ -121,6 +121,7 @@ const mockControlLastRun: Record<
 };
 
 export default function PayrollControlsPage() {
+  const mockPeriods: PeriodType[] = periodesRecentes();
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>(
     mockPeriods[0] ?? null,
   );

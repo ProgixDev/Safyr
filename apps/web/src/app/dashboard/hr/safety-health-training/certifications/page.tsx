@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useEmployeesRH } from "@/hooks/employees";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
@@ -39,7 +40,6 @@ import type {
   CertificationType,
   Employee,
 } from "@/lib/types";
-import { mockEmployees } from "@/data/employees";
 
 // Mock data for other certifications (H0B0, FIRE, etc.)
 const mockCertifications: TrainingCertification[] = [];
@@ -55,6 +55,7 @@ const certificationTypeLabels: Record<CertificationType, string> = {
 };
 
 export default function CertificationsPage() {
+  const mockEmployees = useEmployeesRH();
   const [certifications, setCertifications] =
     useState<TrainingCertification[]>(mockCertifications);
   const [isCertificationModalOpen, setIsCertificationModalOpen] =

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
@@ -97,11 +98,24 @@ interface EmployeeContract {
 }
 
 // Données mockées
-const mockEmployees: EmployeeContract[] = [];
-
 const mockMonthlyOvertime: MonthlyOvertime[] = [];
 
 export default function OvertimeTrackingPage() {
+  const salaries = useEmployeeOptions();
+  // Le compteur raisonne par contrat : on part des dossiers salariés réels,
+  // avec le plafond légal de 220 h supplémentaires par an.
+  const mockEmployees: EmployeeContract[] = salaries.map((s) => ({
+    employeeId: s.id,
+    employeeName: s.name,
+    employeeNumber: s.matricule,
+    department: s.department,
+    contractType: (s.contractType as ContractType) ?? "CDI",
+    monthlyContractHours: 151.67,
+    annualOvertimeLimit: 220,
+    totalOvertimeAccumulated: 0,
+    totalOvertimePaid: 0,
+    totalOvertimePending: 0,
+  }));
   const [employees, setEmployees] = useState(mockEmployees);
   const [monthlyData, setMonthlyData] = useState(mockMonthlyOvertime);
   const [selectedEmployee, setSelectedEmployee] =

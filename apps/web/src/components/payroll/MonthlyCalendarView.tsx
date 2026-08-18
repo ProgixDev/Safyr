@@ -1,5 +1,6 @@
 "use client";
 
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,8 +51,6 @@ interface Employee {
   hireDate: string; // YYYY-MM-DD
   contractEndDate?: string; // YYYY-MM-DD for CDD
 }
-
-const mockEmployees: Employee[] = [];
 
 // Employee data by employeeId and month
 const mockEmployeeMonthData: Record<
@@ -351,6 +350,18 @@ const getStatusColor = (status: string) => {
 export function MonthlyCalendarView({
   onEmployeeClick,
 }: MonthlyCalendarViewProps) {
+  const salaries = useEmployeeOptions();
+  // Le calendrier attend un salarié avec son contrat : on le construit à
+  // partir des dossiers réels.
+  const mockEmployees = salaries.map((s) => ({
+    employeeId: s.id,
+    employeeName: s.name,
+    employeeNumber: s.matricule,
+    position: s.poste,
+    contractType: (s.contractType === "CDD" ? "CDD" : "CDI") as "CDI" | "CDD",
+    hireDate: s.hiringDate,
+    contractEndDate: undefined as string | undefined,
+  }));
   // Calculate default view: last 12 months from today
   const today = new Date();
   const defaultEndMonth = today.getMonth() + 1; // 1-12

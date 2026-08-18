@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,15 +42,6 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 
-// Mock employees
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
 // Mock data
 const mockCertificateRequests: CertificateRequest[] = [];
 
@@ -87,6 +79,7 @@ const deliveryMethodLabels = {
 };
 
 export default function CertificateRequestsPage() {
+  const mockEmployees = useEmployeeOptions();
   const [requests, setRequests] = useState<CertificateRequest[]>(
     mockCertificateRequests,
   );

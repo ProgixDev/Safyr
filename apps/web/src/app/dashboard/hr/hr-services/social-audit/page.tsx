@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeesRH } from "@/hooks/employees";
+import type { Employee as EmployeeRH } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,7 +34,6 @@ import {
   Building2,
   MapPin,
 } from "lucide-react";
-import { mockEmployees } from "@/data/employees";
 import {
   BarChart,
   Bar,
@@ -121,8 +122,10 @@ interface SocialReportData {
   };
 }
 
-const generateMockReport = (year: number): SocialReportData => {
-  const employees = mockEmployees;
+const construireRapport = (
+  year: number,
+  employees: EmployeeRH[],
+): SocialReportData => {
   const total = employees.length;
 
   return {
@@ -259,15 +262,16 @@ const STATUS_COLORS = {
 };
 
 export default function SocialReportPage() {
+  const mockEmployees = useEmployeesRH();
   const [selectedYear, setSelectedYear] = useState(2024);
   const [report, setReport] = useState<SocialReportData>(
-    generateMockReport(2024),
+    construireRapport(2024, mockEmployees),
   );
 
   const handleYearChange = (year: string) => {
     const yearNum = parseInt(year);
     setSelectedYear(yearNum);
-    setReport(generateMockReport(yearNum));
+    setReport(construireRapport(yearNum, mockEmployees));
   };
 
   const handleExport = () => {

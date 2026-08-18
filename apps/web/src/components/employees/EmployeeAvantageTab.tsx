@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CATALOGUE_AVANTAGES, versDotation } from "@/lib/equipment-catalog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +66,9 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
 
   // Available avantage pool (mock data)
-  const [availableEquipment] = useState<Equipment[]>([]);
+  const [availableEquipment] = useState<Equipment[]>(() =>
+    CATALOGUE_AVANTAGES.map(versDotation),
+  );
 
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);

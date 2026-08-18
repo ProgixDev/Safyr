@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+import { useEmployeesRH } from "@/hooks/employees";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +46,6 @@ import type {
   PayrollVariableType,
   Employee,
 } from "@/lib/types";
-import { mockEmployees } from "@/data/employees";
 import {
   usePayrollVariables,
   useCreatePayrollVariable,
@@ -97,15 +97,6 @@ type EmployeePivot = {
   total: number;
 };
 
-// Ajouter un champ hasClothingAllowance aux employés mockés
-const employeesWithAllowance = mockEmployees.map((emp) => ({
-  ...emp,
-  hasClothingAllowance: ["EMP001", "EMP002", "EMP005", "EMP004"].includes(
-    emp.id,
-  ),
-  clothingAllowanceRate: CLOTHING_ALLOWANCE_RATE,
-}));
-
 // Fonction pour calculer automatiquement l'indemnité d'habillage
 const calculateClothingAllowance = (
   employeeId: string,
@@ -121,7 +112,10 @@ const calculateClothingAllowance = (
 };
 
 // Helper to compute initial state from URL params
-function getInitialStateFromParams(searchParams: URLSearchParams) {
+function getInitialStateFromParams(
+  searchParams: URLSearchParams,
+  salaries: { id: string; name: string }[],
+) {
   const employeeId = searchParams.get("employeeId");
   const month = searchParams.get("month");
   const year = searchParams.get("year");
@@ -177,7 +171,7 @@ function getInitialStateFromParams(searchParams: URLSearchParams) {
     };
   }
 
-  const employee = mockEmployees.find((e) => e.id === employeeId);
+  const employee = salaries.find((e) => e.id === employeeId);
   return {
     selectedVariable: null,
     isViewModalOpen: false,
@@ -186,10 +180,7 @@ function getInitialStateFromParams(searchParams: URLSearchParams) {
     variableForm: {
       ...defaultForm,
       employeeId: employeeId,
-      employeeName:
-        employee?.firstName && employee?.lastName
-          ? `${employee.firstName} ${employee.lastName}`
-          : "Employé inconnu",
+      employeeName: employee?.name ?? "Employé inconnu",
       year: year,
       month: month.padStart(2, "0"),
     },
@@ -197,11 +188,21 @@ function getInitialStateFromParams(searchParams: URLSearchParams) {
 }
 
 export default function PayrollVariablesPage() {
+  const mockEmployees = useEmployeesRH();
+  // L'indemnité d'entretien de tenue est portée par le dossier salarié.
+  const employeesWithAllowance = mockEmployees.map((emp) => ({
+    ...emp,
+    hasClothingAllowance: false,
+  }));
+  const salariesPourFiltre = mockEmployees.map((e) => ({
+    id: e.id,
+    name: `${e.firstName} ${e.lastName}`.trim(),
+  }));
   const searchParams = useSearchParams();
 
   // Compute initial state from URL params
   const initialState = useMemo(
-    () => getInitialStateFromParams(searchParams),
+    () => getInitialStateFromParams(searchParams, salariesPourFiltre),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [], // Only compute once on mount
   );

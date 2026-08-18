@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,14 +23,6 @@ interface MiseAPiedRow {
 }
 
 // Mock employees for selection
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
 // Mock data - replace with API call
 const mockMisesAPiedRegisters: MisesAPiedRegister[] = [];
 
@@ -46,6 +39,11 @@ const severityColors = {
 } as const;
 
 export function SanctionsSection() {
+  const mockEmployees = useEmployeeOptions();
+  const employeeOptions = mockEmployees.map((employee) => ({
+    value: employee.id,
+    label: employee.name,
+  }));
   const getEmployeeName = (employeeId: string) => {
     const employee = mockEmployees.find((e) => e.id === employeeId);
     return employee ? employee.name : "Employé inconnu";

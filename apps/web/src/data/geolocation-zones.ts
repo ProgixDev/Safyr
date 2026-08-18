@@ -30,7 +30,12 @@ export interface GeoZone {
 
 // ── Config ─────────────────────────────────────────────────────────
 
-export const ZONE_TYPES: ZoneType[] = [];
+export const ZONE_TYPES: ZoneType[] = [
+  "Site client",
+  "Zone sensible",
+  "Zone restreinte",
+  "Point de contrôle",
+];
 
 export const ZONE_TYPE_COLORS: Record<ZoneType, string> = {
   "Site client": "#22d3ee",

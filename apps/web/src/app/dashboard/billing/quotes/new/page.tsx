@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, Save, Eye, Plus, Trash2 } from "lucide-react";
-import { mockBillingClients } from "@/data/billing-clients";
+import { useBillingClients } from "@/hooks/billing";
 import { mockBillingServices, computePriceTTC } from "@/data/billing-services";
 import { QuoteLine } from "@/data/billing-quotes";
 
@@ -35,6 +35,7 @@ function createEmptyLine(): QuoteLine {
 }
 
 export default function NewQuotePage() {
+  const mockBillingClients = useBillingClients();
   const router = useRouter();
   const today = new Date().toISOString().split("T")[0];
   const validUntilDate = new Date();

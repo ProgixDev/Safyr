@@ -110,7 +110,11 @@ export const CHART_COLORS = {
   pink: "#ec4899",
 } as const;
 
-export const PERIOD_OPTIONS: { value: KPIPeriod; label: string }[] = [];
+export const PERIOD_OPTIONS: { value: KPIPeriod; label: string }[] = [
+  { value: "today", label: "Aujourd'hui" },
+  { value: "week", label: "Cette semaine" },
+  { value: "month", label: "Ce mois" },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────
 

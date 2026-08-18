@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Send, Paperclip, X, Users, Building, UserCog } from "lucide-react";
-import { mockEmployees } from "@/data/employees";
 import { mockEmailTemplates } from "@/data/email-templates";
 import { sendCommunicationEmail } from "@safyr/api-client";
 
@@ -32,6 +32,7 @@ const mockClients: EmailRecipient[] = [];
 const mockPartners: EmailRecipient[] = [];
 
 export default function SendEmailPage() {
+  const mockEmployees = useEmployeeOptions();
   const [recipientType, setRecipientType] = useState<
     "employee" | "client" | "partner"
   >("employee");

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSites } from "@/hooks/sites";
 import { ZonePreviewMap } from "@/components/geolocation/ZonePreviewMap";
 import { cn } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
@@ -32,12 +33,6 @@ const PRESET_COLORS = [
   "#a855f7",
   "#10b981",
   "#3b82f6",
-];
-
-const SITES = [
-  "Centre Commercial Rosny 2",
-  "Siège Social La Défense",
-  "Entrepôt Logistique Gennevilliers",
 ];
 
 // ── Props ───────────────────────────────────────────────────────────
@@ -258,6 +253,8 @@ function ZoneFormContent({
   renderShapeSummary,
   onStartDrawing,
 }: ZoneFormContentProps) {
+  const { data: sitesDisponibles = [] } = useSites();
+  const nomsDesSites = sitesDisponibles.map((site) => site.name);
   return (
     <div className="space-y-4">
       {/* Nom de la zone */}
@@ -296,7 +293,7 @@ function ZoneFormContent({
             <SelectValue placeholder="Sélectionner un site" />
           </SelectTrigger>
           <SelectContent>
-            {SITES.map((s) => (
+            {nomsDesSites.map((s) => (
               <SelectItem key={s} value={s}>
                 {s}
               </SelectItem>

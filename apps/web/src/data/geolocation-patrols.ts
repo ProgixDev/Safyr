@@ -99,7 +99,12 @@ export const CHECKPOINT_TYPE_CONFIG: Record<
   NFC: { label: "NFC", color: "#f59e0b" },
 };
 
-export const PATROL_FREQUENCIES: PatrolFrequency[] = [];
+export const PATROL_FREQUENCIES: PatrolFrequency[] = [
+  "Quotidienne",
+  "Bi-quotidienne",
+  "Nocturne",
+  "Hebdomadaire",
+];
 
 // ── Utility functions ──────────────────────────────────────────────
 

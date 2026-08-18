@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
@@ -39,15 +40,6 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 
-// Mock employees
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
 // Mock data
 const mockWorkAccidents: WorkAccident[] = [];
 
@@ -78,6 +70,7 @@ const statusColors = {
 } as const;
 
 export default function WorkAccidentsPage() {
+  const mockEmployees = useEmployeeOptions();
   const [accidents, setAccidents] = useState<WorkAccident[]>(mockWorkAccidents);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);

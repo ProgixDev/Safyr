@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
@@ -75,15 +76,6 @@ const categoryLabels = {
   other: "Autre",
 };
 
-// Mock employees
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
 type TableItem = ExpenseItem & {
   index: number;
   reportId: string;
@@ -99,6 +91,7 @@ type TableItem = ExpenseItem & {
 };
 
 export default function ExpenseReportsPage() {
+  const mockEmployees = useEmployeeOptions();
   const { data: rawExpenses = [] } = useExpenseReports();
   const createExpenseMutation = useCreateExpenseReport();
   const updateExpenseMutation = useUpdateAnyExpenseReport();

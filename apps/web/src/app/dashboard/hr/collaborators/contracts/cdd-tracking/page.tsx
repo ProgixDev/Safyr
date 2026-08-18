@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
@@ -38,15 +39,6 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 
-// Mock employees
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
 // Mock data
 const mockCDDRegister: CDDRegisterEntry[] = [];
 
@@ -80,6 +72,7 @@ const exitReasonLabels = {
 };
 
 export default function CDDRegisterPage() {
+  const mockEmployees = useEmployeeOptions();
   const [entries, setEntries] = useState<CDDRegisterEntry[]>(mockCDDRegister);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);

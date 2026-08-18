@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,14 +40,6 @@ import Link from "next/link";
 import { mockDocumentRequests } from "@/data/hr-workflows";
 
 // Mock employees for dropdown (simplified) - use inline for compatibility
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
 // Mock data - use data from file, convert dates
 const mockDocumentRequestsData: DocumentRequest[] = mockDocumentRequests.map(
   (req) => ({
@@ -111,6 +104,7 @@ const deliveryMethodLabels = {
 };
 
 export default function DocumentRequestsPage() {
+  const mockEmployees = useEmployeeOptions();
   const [requests, setRequests] = useState<DocumentRequest[]>(
     mockDocumentRequestsData,
   );

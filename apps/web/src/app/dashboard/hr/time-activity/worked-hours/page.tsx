@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useEmployeesRH } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,6 @@ import {
   Trash2,
 } from "lucide-react";
 import { mockWorkedHours } from "@/data/time-management";
-import { mockEmployees } from "@/data/employees";
 
 export default function WorkedHoursPage() {
   return (
@@ -47,6 +47,7 @@ export default function WorkedHoursPage() {
 }
 
 function WorkedHoursContent() {
+  const mockEmployees = useEmployeesRH();
   const searchParams = useSearchParams();
 
   // Compute initial state from URL params

@@ -17,7 +17,7 @@ import {
 import { ArrowLeft, Save, Eye, Plus, Trash2 } from "lucide-react";
 import { QuoteLine } from "@/data/billing-quotes";
 import { computePriceTTC } from "@/data/billing-services";
-import { mockBillingClients } from "@/data/billing-clients";
+import { useBillingClients } from "@/hooks/billing";
 import { mockBillingInvoices } from "@/data/billing-invoices";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -62,6 +62,7 @@ function createEmptyLine(): QuoteLine {
 }
 
 export default function NewInvoicePage() {
+  const mockBillingClients = useBillingClients();
   const router = useRouter();
 
   const [formData, setFormData] = useState({

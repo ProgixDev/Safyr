@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,15 +37,6 @@ import {
   Employee,
 } from "@/lib/types";
 import Link from "next/link";
-
-// Mock employees
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
 
 // Mock data - Bank Details Changes
 const mockBankDetailsRequests: PersonalInfoChangeRequest[] = [];
@@ -83,6 +75,7 @@ const civilStatusLabels: Record<Employee["civilStatus"], string> = {
 };
 
 export default function PersonalInfoChangePage() {
+  const mockEmployees = useEmployeeOptions();
   const [activeTab, setActiveTab] = useState("bank_details");
   const [bankDetailsRequests, setBankDetailsRequests] = useState(
     mockBankDetailsRequests,

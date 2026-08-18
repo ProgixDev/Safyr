@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { useSites } from "@/hooks/sites";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCard } from "@/components/ui/stats-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1050,6 +1051,8 @@ const ROW_RH_MICRO = ["hrAbsences", "hrSos", "hrFatigue"];
 // ── Main Component ────────────────────────────────────────────────
 
 export default function GeolocationDashboard() {
+  const { data: sitesReels = [] } = useSites();
+  const nomsDesSites = sitesReels.map((site) => site.name);
   const [selectedPeriod, setSelectedPeriod] = useState<KPIPeriod>("today");
   const [selectedSite, setSelectedSite] = useState<SiteFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -1123,7 +1126,7 @@ export default function GeolocationDashboard() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les sites</SelectItem>
-              {SITES.map((s) => (
+              {nomsDesSites.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
                 </SelectItem>

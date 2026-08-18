@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import { mockBillingServices, computePriceTTC } from "@/data/billing-services";
-import { mockSubcontractors } from "@/data/subcontractors";
+import { useSubcontractors } from "@/hooks/clients";
 import { QuoteLine } from "@/data/billing-quotes";
 
 interface PurchaseOrder {
@@ -46,6 +46,7 @@ function createEmptyLine(): QuoteLine {
 }
 
 export default function BillingPurchaseOrdersPage() {
+  const { data: mockSubcontractors = [] } = useSubcontractors();
   const [data, setData] = useState<PurchaseOrder[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formData, setFormData] = useState<{

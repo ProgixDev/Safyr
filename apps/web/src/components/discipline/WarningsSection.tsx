@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,20 +24,6 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
 
-// Mock employees for selection
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
-const employeeOptions = mockEmployees.map((employee) => ({
-  value: employee.id,
-  label: employee.name,
-}));
-
 // Mock data - replace with API call
 const mockWarnings: Warning[] = [];
 
@@ -51,6 +38,11 @@ const statusColors = {
 } as const;
 
 export function WarningsSection() {
+  const mockEmployees = useEmployeeOptions();
+  const employeeOptions = mockEmployees.map((employee) => ({
+    value: employee.id,
+    label: employee.name,
+  }));
   const [warnings, setWarnings] = useState<Warning[]>(mockWarnings);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,14 +44,6 @@ const mockPayslips: {
   status: string;
 }[] = [];
 
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
 const months = [
   { value: "1", label: "Janvier" },
   { value: "2", label: "Février" },
@@ -70,6 +63,7 @@ const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
 export default function HREmployeeArchivesPage() {
+  const mockEmployees = useEmployeeOptions();
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>(
     currentYear.toString(),

@@ -1,5 +1,7 @@
 "use client";
 
+import { periodesRecentes } from "@/lib/payroll-periods";
+
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -80,12 +82,14 @@ function PayrollVariablesContent() {
   const searchParams = useSearchParams();
 
   // Convert PayrollPeriod to Period format
-  const periods: PeriodType[] = mockPayrollPeriods.map((p) => ({
+  const periodesApi = mockPayrollPeriods.map((p) => ({
     id: p.id,
     month: p.month,
     year: p.year,
     label: p.label,
   }));
+  const periods: PeriodType[] =
+    periodesApi.length > 0 ? periodesApi : periodesRecentes();
 
   // Compute initial state from URL params
   const getInitialStateFromParams = () => {

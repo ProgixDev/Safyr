@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeesRH } from "@/hooks/employees";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
@@ -17,13 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Download, FileText, CheckCircle, Clock } from "lucide-react";
-import { mockEmployees } from "@/data/employees";
 import {
   mockOffboardingProcesses,
   type OffboardingProcess,
 } from "@/data/hr-offboarding";
 
 export default function OffboardingPage() {
+  const mockEmployees = useEmployeesRH();
   const [processes, setProcesses] = useState<OffboardingProcess[]>(
     mockOffboardingProcesses,
   );

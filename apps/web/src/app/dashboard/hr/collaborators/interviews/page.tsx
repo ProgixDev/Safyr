@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,20 +29,6 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
 import { Progress } from "@/components/ui/progress";
-
-// Mock employees for selection
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
-const employeeOptions = mockEmployees.map((employee) => ({
-  value: employee.id,
-  label: employee.name,
-}));
 
 // Mock data for interviews
 const mockAnnualInterviews: Interview[] = [];
@@ -100,6 +87,11 @@ type CombinedItem =
   | (Objective & { itemType: "objective"; originalId: string });
 
 export default function InterviewsPage() {
+  const mockEmployees = useEmployeeOptions();
+  const employeeOptions = mockEmployees.map((employee) => ({
+    value: employee.id,
+    label: employee.name,
+  }));
   const [annualInterviews, setAnnualInterviews] =
     useState<Interview[]>(mockAnnualInterviews);
   const [professionalInterviews, setProfessionalInterviews] = useState<

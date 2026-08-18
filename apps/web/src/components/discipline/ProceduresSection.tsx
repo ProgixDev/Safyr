@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,20 +36,6 @@ import { DisciplinaryProcedure, DisciplinaryStep } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
-
-// Mock employees for selection
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
-const employeeOptions = mockEmployees.map((employee) => ({
-  value: employee.id,
-  label: employee.name,
-}));
 
 // Mock data - replace with API call
 const standardSteps: DisciplinaryStep[] = [
@@ -88,6 +75,11 @@ const statusColors = {
 } as const;
 
 export function ProceduresSection() {
+  const mockEmployees = useEmployeeOptions();
+  const employeeOptions = mockEmployees.map((employee) => ({
+    value: employee.id,
+    label: employee.name,
+  }));
   const [procedures, setProcedures] =
     useState<DisciplinaryProcedure[]>(mockProcedures);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

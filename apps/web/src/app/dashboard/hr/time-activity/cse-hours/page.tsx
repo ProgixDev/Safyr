@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeesRH } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Badge } from "@/components/ui/badge";
@@ -29,9 +30,9 @@ import {
 } from "lucide-react";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { mockCSEDelegationHours } from "@/data/time-management";
-import { mockEmployees } from "@/data/employees";
 
 export default function CSEHoursPage() {
+  const mockEmployees = useEmployeesRH();
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);

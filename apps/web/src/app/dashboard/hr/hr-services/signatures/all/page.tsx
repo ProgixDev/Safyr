@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import * as React from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,15 +35,6 @@ import {
 } from "lucide-react";
 import { SignatureWorkflow, SignatureStatus, SignatureType } from "@/lib/types";
 import Link from "next/link";
-
-// Mock employees
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
 
 const statusLabels: Record<SignatureStatus, string> = {
   pending: "En attente",
@@ -118,6 +110,7 @@ const pageConfig: Record<
 };
 
 export default function SignatureTypePage() {
+  const mockEmployees = useEmployeeOptions();
   const [activeTab, setActiveTab] = useState<SignatureType>("contract");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);

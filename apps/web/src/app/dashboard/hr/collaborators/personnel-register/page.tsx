@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions, useEmployeesRH } from "@/hooks/employees";
+import type { Employee as EmployeeRH } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
@@ -34,17 +36,50 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 
-// Mock employees
-const mockEmployees: {
-  id: string;
-  name: string;
-  department?: string;
-  email?: string;
-  hiringDate?: string;
-}[] = [];
-
-// Mock data
-const mockPersonnelRegister: PersonnelRegisterEntry[] = [];
+/**
+ * Le registre unique du personnel est obligatoire et doit reprendre, dans
+ * l'ordre des embauches, tous les salariés de l'entreprise. Il est donc
+ * construit à partir des dossiers salariés plutôt que saisi une deuxième fois.
+ */
+function versEntreeRegistre(
+  salarie: EmployeeRH,
+  rang: number,
+): PersonnelRegisterEntry {
+  return {
+    id: salarie.id,
+    employeeId: salarie.id,
+    registrationNumber:
+      salarie.employeeNumber || String(rang + 1).padStart(4, "0"),
+    entryDate: salarie.hireDate,
+    exitDate: salarie.status === "terminated" ? salarie.updatedAt : undefined,
+    contractType: (["CDI", "CDD", "apprentice", "interim"].includes(
+      salarie.contractType ?? "",
+    )
+      ? salarie.contractType
+      : "CDI") as PersonnelRegisterEntry["contractType"],
+    contractWorkTime:
+      salarie.workSchedule === "part-time" ? "partiel" : "complet",
+    position: salarie.position,
+    qualification: salarie.position,
+    nationality: salarie.nationality,
+    sex: salarie.gender === "female" ? "F" : "M",
+    birthDate: salarie.dateOfBirth,
+    birthPlace: salarie.placeOfBirth,
+    address: [
+      salarie.address?.street,
+      salarie.address?.postalCode,
+      salarie.address?.city,
+    ]
+      .filter(Boolean)
+      .join(" "),
+    phone: salarie.phone,
+    email: salarie.email,
+    socialSecurityNumber: salarie.socialSecurityNumber,
+    cnapsProfessionalCardNumber: salarie.cartePro,
+    createdAt: salarie.createdAt,
+    updatedAt: salarie.updatedAt,
+  };
+}
 
 const contractTypeLabels = {
   CDI: "CDI",
@@ -63,9 +98,24 @@ const contractTypeColors = {
 } as const;
 
 export default function PersonnelRegisterPage() {
-  const [entries, setEntries] = useState<PersonnelRegisterEntry[]>(
-    mockPersonnelRegister,
-  );
+  const mockEmployees = useEmployeeOptions();
+  const salaries = useEmployeesRH();
+
+  // Le registre suit les dossiers salariés : on le resynchronise dès que la
+  // liste change, tout en gardant les compléments saisis sur cet écran.
+  const [entries, setEntries] = useState<PersonnelRegisterEntry[]>([]);
+  const [cleSalaries, setCleSalaries] = useState<string | null>(null);
+  const cle = salaries.map((s) => s.id).join(",");
+  if (cle !== cleSalaries) {
+    setCleSalaries(cle);
+    setEntries((precedentes) => {
+      const complements = new Map(precedentes.map((e) => [e.employeeId, e]));
+      return salaries.map((s, i) => ({
+        ...versEntreeRegistre(s, i),
+        ...(complements.get(s.id) ?? {}),
+      }));
+    });
+  }
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] =
