@@ -30,6 +30,7 @@ import {
   Building,
   Mail,
   Plus,
+  ExternalLink,
   Receipt,
   CreditCard,
   Eye,
@@ -515,9 +516,55 @@ export default function ImpotSIEPage() {
     "décembre",
   ];
 
-  // Les cinq derniers exercices, calculés — la liste était figée sur 2024.
-  const annees = Array.from({ length: 5 }, (_, i) =>
+  // Dix exercices disponibles ; seuls les trois derniers sont affichés, les
+  // précédents se déplient à la demande pour ne pas allonger le menu.
+  const annees = Array.from({ length: 10 }, (_, i) =>
     String(new Date().getFullYear() - i),
+  );
+  const [afficherAnneesAnciennes, setAfficherAnneesAnciennes] = useState(false);
+  const anneesVisibles = afficherAnneesAnciennes
+    ? annees
+    : annees.slice(0, 3).includes(selectedYear)
+      ? annees.slice(0, 3)
+      : [...annees.slice(0, 3), selectedYear];
+
+  /**
+   * Lignes affichées pour l'exercice choisi.
+   *
+   * Ces tableaux n'affichaient que les dossiers déjà enregistrés : tant que
+   * rien n'existait ils restaient vides, sans menu d'actions, donc sans moyen
+   * de déposer un document. Comme pour la TVA, on présente désormais la trame
+   * de l'exercice — l'enregistrement se crée au premier dépôt.
+   */
+  const lignesCfeAffichees: CFEDocument[] = (() => {
+    const existant = cfeDossiers.find((d) => d.annee === selectedYear);
+    return [
+      existant ?? {
+        id: `cfe-${selectedYear}`,
+        annee: selectedYear,
+        declaration: null,
+        avis: null,
+        paiement: null,
+        statut: "manquant" as const,
+        montant: 0,
+      },
+    ];
+  })();
+
+  const lignesPrelevementAffichees: PrelevementDocument[] = moisFrancais.map(
+    (mois, index) => {
+      const periode = `${mois} ${selectedYear}`;
+      return (
+        prelevements.find((p) => p.periode === periode) ?? {
+          id: `pas-${selectedYear}-${index}`,
+          periode,
+          declaration: null,
+          bordereau: null,
+          statut: "en_attente" as const,
+          montant: 0,
+        }
+      );
+    },
   );
 
   const handleNewDocument = () => {
@@ -708,11 +755,23 @@ export default function ImpotSIEPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {annees.map((annee) => (
+              {anneesVisibles.map((annee) => (
                 <SelectItem key={annee} value={annee}>
                   {annee}
                 </SelectItem>
               ))}
+              {!afficherAnneesAnciennes && (
+                <button
+                  type="button"
+                  className="w-full px-2 py-1.5 text-left text-sm text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setAfficherAnneesAnciennes(true);
+                  }}
+                >
+                  Afficher les années précédentes
+                </button>
+              )}
             </SelectContent>
           </Select>
           <Button
@@ -724,6 +783,17 @@ export default function ImpotSIEPage() {
           </Button>
         </div>
       </div>
+
+      {/* Accès direct au portail fiscal, commun aux quatre onglets. */}
+      <a
+        href="https://cfspro.impots.gouv.fr"
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-2 text-sm text-primary underline underline-offset-4 hover:opacity-80"
+      >
+        <ExternalLink className="h-4 w-4" />
+        Connexion à l&apos;espace professionnel | impots.gouv.fr
+      </a>
 
       {/* Confirmation visible du dernier téléversement */}
       {uploadNotice && (
@@ -864,7 +934,7 @@ export default function ImpotSIEPage() {
             </CardHeader>
             <CardContent>
               <DataTable
-                data={cfeDossiers.filter((d) => d.annee === selectedYear)}
+                data={lignesCfeAffichees}
                 columns={[
                   {
                     key: "annee",
@@ -929,9 +999,7 @@ export default function ImpotSIEPage() {
             </CardHeader>
             <CardContent>
               <DataTable
-                data={prelevements.filter((p) =>
-                  p.periode.includes(selectedYear.toString()),
-                )}
+                data={lignesPrelevementAffichees}
                 columns={[
                   {
                     key: "periode",
@@ -995,7 +1063,9 @@ export default function ImpotSIEPage() {
                 Courriers Fiscaux
               </CardTitle>
               <CardDescription>
-                Courriers reçus et envoyés aux services fiscaux
+                Courriers reçus et envoyés aux services fiscaux — utilisez «
+                Nouveau Document » pour enregistrer un courrier, puis déposez le
+                scan depuis son menu d&apos;actions.
               </CardDescription>
             </CardHeader>
             <CardContent>

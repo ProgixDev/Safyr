@@ -490,7 +490,7 @@ export default function ExpenseReportsPage() {
                   !selectedItems.some((item) => item.status === "submitted")
                 }
               >
-                <CheckCircle className="mr-2 h-4 w-4" />
+                <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" />
                 Approuver (
                 {
                   selectedItems.filter((item) => item.status === "submitted")
@@ -525,7 +525,7 @@ export default function ExpenseReportsPage() {
                   setIsBulkActionModalOpen(true);
                 }}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="mr-2 h-4 w-4 text-red-600" />
                 Supprimer ({selectedItems.length})
               </Button>
             </div>

@@ -74,7 +74,11 @@ export function deleteContract(
 
 // ── Documents rattachés (sous-traitants, fiscal, AKTO/OPCO) ───────────────
 
-export type AttachedScope = "subcontractor" | "tax" | "akto";
+export type AttachedScope =
+  | "subcontractor"
+  | "tax"
+  | "akto"
+  | "divers";
 
 export interface AttachedDocument {
   id: string;

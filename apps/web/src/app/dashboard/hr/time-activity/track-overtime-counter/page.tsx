@@ -565,7 +565,7 @@ export default function OvertimeTrackingPage() {
                           Voir détails
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
-                          <History className="mr-2 h-4 w-4 text-blue-600" />
+                          <History className="mr-2 h-4 w-4 text-blue-500" />
                           Historique
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -628,7 +628,7 @@ export default function OvertimeTrackingPage() {
                               onClick={() => handleValidateOvertime(item.id)}
                               className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"
                             >
-                              <CheckCircle className="mr-2 h-4 w-4 text-blue-600" />
+                              <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" />
                               Valider
                             </DropdownMenuItem>
                             <DropdownMenuItem

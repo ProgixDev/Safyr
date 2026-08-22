@@ -49,7 +49,12 @@ export type UpdateContractDto = z.infer<typeof UpdateContractSchema>;
  * Documents rattachés à un module sans table dédiée : sous-traitants,
  * dossiers fiscaux (TVA, CFE, prélèvement, courriers), dossiers AKTO/OPCO.
  */
-export const AttachedScopeSchema = z.enum(["subcontractor", "tax", "akto"]);
+export const AttachedScopeSchema = z.enum([
+  "subcontractor",
+  "tax",
+  "akto",
+  "divers",
+]);
 
 export const AttachDocumentSchema = z.object({
   scope: AttachedScopeSchema,

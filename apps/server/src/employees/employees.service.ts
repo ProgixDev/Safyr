@@ -23,6 +23,7 @@ import type {
 } from "@safyr/schemas/employee";
 
 import { computeExpiryStatus } from "@/common/document-status";
+import { statutEcheance, regleDe } from "@/common/document-rules";
 
 function toDate(v: string | null | undefined): Date | null {
   return v && v !== "" ? new Date(v) : null;
@@ -426,12 +427,24 @@ export class EmployeesService {
     );
     return requirements.map((req) => {
       const doc = docByReq.get(req.id) ?? null;
+      const regle = regleDe(req.type);
       const status = doc
-        ? computeExpiryStatus(doc.expiryDate)
+        ? statutEcheance(req.type, doc.expiryDate)
         : req.isRequired
           ? "missing"
           : "optional";
-      return { requirement: req, document: doc, status };
+      return {
+        requirement: { ...req, hasExpiry: regle !== null },
+        document: doc,
+        status,
+        rule: regle
+          ? {
+              validityMonths: regle.validiteMois,
+              alertDaysBefore: regle.preavisJours,
+            }
+          : null,
+        expiryDate: regle ? (doc?.expiryDate ?? null) : null,
+      };
     });
   }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { formaterTelephone } from "@/lib/phone-format";
+
 import { useState, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -658,7 +660,7 @@ export default function SousTraitantDetailPage({
                     onChange={(e) =>
                       setSousTraitant({
                         ...sousTraitant,
-                        telephone: e.target.value,
+                        telephone: formaterTelephone(e.target.value),
                       })
                     }
                   />
@@ -941,7 +943,7 @@ export default function SousTraitantDetailPage({
                         ...sousTraitant,
                         dirigeant: {
                           ...sousTraitant.dirigeant,
-                          telephone: e.target.value,
+                          telephone: formaterTelephone(e.target.value),
                         },
                       })
                     }
@@ -1054,7 +1056,7 @@ export default function SousTraitantDetailPage({
                           }
                         >
                           <Upload className="h-3 w-3 mr-2" />
-                          Uploader
+                          Téléverser
                         </Button>
                       </div>
                     ))}

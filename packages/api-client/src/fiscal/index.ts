@@ -5,7 +5,10 @@ export type FiscalRecordType =
   | "cfe"
   | "prelevement"
   | "courrier"
-  | "akto";
+  | "akto"
+  | "organisme"
+  | "divers"
+  | "courrier_organisme";
 
 /** Ligne d'un registre administratif (TVA, CFE, PAS, courrier, AKTO). */
 export interface FiscalRecord {

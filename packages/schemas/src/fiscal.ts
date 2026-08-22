@@ -7,6 +7,10 @@ export const FiscalRecordTypeSchema = z.enum([
   "prelevement",
   "courrier",
   "akto",
+  // Organismes et pièces de « Divers documents »
+  "organisme",
+  "divers",
+  "courrier_organisme",
 ]);
 
 export const CreateFiscalRecordSchema = z.object({

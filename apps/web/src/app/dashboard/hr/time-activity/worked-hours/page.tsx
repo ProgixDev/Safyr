@@ -330,7 +330,7 @@ function WorkedHoursContent() {
               onClick={() => handleDelete(hours)}
               className="text-red-600"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Trash2 className="mr-2 h-4 w-4 text-red-600" />
               Supprimer
             </DropdownMenuItem>
           </DropdownMenuContent>

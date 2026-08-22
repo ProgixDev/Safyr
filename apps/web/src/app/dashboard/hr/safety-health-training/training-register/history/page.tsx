@@ -329,7 +329,7 @@ export default function TrainingRegisterPage() {
               onClick={() => handleDelete(training.id)}
               className="text-red-600"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Trash2 className="mr-2 h-4 w-4 text-red-600" />
               Supprimer
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -357,7 +357,7 @@ export default function TrainingRegisterPage() {
         </div>
         <div className="flex gap-2">
           <Button onClick={handleExportPDF} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
+            <Download className="mr-2 h-4 w-4 text-violet-500" />
             Exporter PDF
           </Button>
           <Button onClick={handleCreate}>

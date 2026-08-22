@@ -1,5 +1,7 @@
 "use client";
 
+import { formaterTelephone } from "@/lib/phone-format";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,11 +15,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import {
-  Users,
-  Plus,
-  Building2,
-  CheckCircle2,
   AlertTriangle,
+  Building2,
+  CalendarClock,
+  CheckCircle2,
+  Mail,
+  Phone,
+  Plus,
+  Users,
   XCircle,
 } from "lucide-react";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
@@ -256,9 +261,14 @@ export default function SousTraitantsPage() {
       label: "Entreprise",
       sortable: true,
       render: (st) => (
-        <div>
-          <p className="font-semibold">{st.name}</p>
-          <p className="text-sm text-muted-foreground">{st.address}</p>
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-xs font-semibold text-primary">
+            {st.name.slice(0, 2).toUpperCase()}
+          </span>
+          <div>
+            <p className="font-semibold">{st.name}</p>
+            <p className="text-sm text-muted-foreground">{st.address}</p>
+          </div>
         </div>
       ),
     },
@@ -289,16 +299,39 @@ export default function SousTraitantsPage() {
       key: "prochainRenouvellement",
       label: "Prochain renouvellement",
       sortable: true,
-      render: (st) =>
-        new Date(st.prochainRenouvellement).toLocaleDateString("fr-FR"),
+      render: (st) => {
+        // Échéance proche : mise en couleur pour la repérer d'un coup d'œil.
+        const jours = Math.round(
+          (new Date(st.prochainRenouvellement).getTime() - Date.now()) /
+            86_400_000,
+        );
+        const ton =
+          jours < 0
+            ? "text-red-600 dark:text-red-400"
+            : jours < 90
+              ? "text-orange-500"
+              : "text-emerald-600 dark:text-emerald-400";
+        return (
+          <span className={`inline-flex items-center gap-1.5 ${ton}`}>
+            <CalendarClock className="h-3.5 w-3.5" />
+            {new Date(st.prochainRenouvellement).toLocaleDateString("fr-FR")}
+          </span>
+        );
+      },
     },
     {
       key: "email",
       label: "Contact",
       render: (st) => (
         <div className="text-sm">
-          <p>{st.email}</p>
-          <p className="text-muted-foreground">{st.telephone}</p>
+          <p className="inline-flex items-center gap-1.5 text-violet-600 dark:text-violet-400">
+            <Mail className="h-3.5 w-3.5" />
+            {st.email}
+          </p>
+          <p className="inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
+            <Phone className="h-3.5 w-3.5" />
+            {st.telephone}
+          </p>
         </div>
       ),
     },
@@ -550,7 +583,7 @@ export default function SousTraitantsPage() {
                   onChange={(e) =>
                     setNewSousTraitant((prev) => ({
                       ...prev,
-                      telephone: e.target.value,
+                      telephone: formaterTelephone(e.target.value),
                     }))
                   }
                   placeholder="Ex: 04 78 12 34 56"
@@ -763,7 +796,7 @@ export default function SousTraitantsPage() {
                         ...prev,
                         dirigeant: {
                           ...prev.dirigeant,
-                          telephone: e.target.value,
+                          telephone: formaterTelephone(e.target.value),
                         },
                       }))
                     }

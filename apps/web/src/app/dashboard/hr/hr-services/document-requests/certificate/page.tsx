@@ -324,7 +324,7 @@ export default function CertificateRequestsPage() {
             {request.status === "pending" && (
               <>
                 <DropdownMenuItem onClick={() => handleValidate(request)}>
-                  <CheckCircle className="mr-2 h-4 w-4" />
+                  <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" />
                   Valider
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -338,7 +338,7 @@ export default function CertificateRequestsPage() {
             )}
             {request.generatedCertificateUrl && (
               <DropdownMenuItem>
-                <Download className="mr-2 h-4 w-4" />
+                <Download className="mr-2 h-4 w-4 text-violet-500" />
                 Télécharger
               </DropdownMenuItem>
             )}
@@ -366,7 +366,7 @@ export default function CertificateRequestsPage() {
         </div>
         <div className="flex gap-2">
           <Button onClick={handleExportPDF} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
+            <Download className="mr-2 h-4 w-4 text-violet-500" />
             Exporter PDF
           </Button>
           <Button onClick={handleCreate}>
@@ -727,7 +727,7 @@ export default function CertificateRequestsPage() {
                   Certificat généré
                 </Label>
                 <Button variant="outline" size="sm" className="mt-2">
-                  <Download className="mr-2 h-4 w-4" />
+                  <Download className="mr-2 h-4 w-4 text-violet-500" />
                   Télécharger le certificat
                 </Button>
               </div>

@@ -359,7 +359,7 @@ export default function DocumentRequestsPage() {
             {request.status === "pending" && (
               <>
                 <DropdownMenuItem onClick={() => handleValidate(request)}>
-                  <CheckCircle className="mr-2 h-4 w-4" />
+                  <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" />
                   Valider
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -373,7 +373,7 @@ export default function DocumentRequestsPage() {
             )}
             {request.documentUrl && (
               <DropdownMenuItem>
-                <Download className="mr-2 h-4 w-4" />
+                <Download className="mr-2 h-4 w-4 text-violet-500" />
                 Télécharger
               </DropdownMenuItem>
             )}
@@ -401,7 +401,7 @@ export default function DocumentRequestsPage() {
         </div>
         <div className="flex gap-2">
           <Button onClick={handleExportPDF} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
+            <Download className="mr-2 h-4 w-4 text-violet-500" />
             Exporter PDF
           </Button>
           <Button onClick={handleCreate}>
@@ -783,7 +783,7 @@ export default function DocumentRequestsPage() {
               <div>
                 <Label className="text-muted-foreground">Document fourni</Label>
                 <Button variant="outline" size="sm" className="mt-2">
-                  <Download className="mr-2 h-4 w-4" />
+                  <Download className="mr-2 h-4 w-4 text-violet-500" />
                   Télécharger le document
                 </Button>
               </div>

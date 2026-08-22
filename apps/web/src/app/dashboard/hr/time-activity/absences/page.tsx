@@ -444,7 +444,7 @@ export default function TimeManagementPage() {
           Modifier
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleHistory(request)}>
-          <History className="mr-2 h-4 w-4" />
+          <History className="mr-2 h-4 w-4 text-blue-500" />
           Historique
         </DropdownMenuItem>
         {request.status === "pending" && (
@@ -453,7 +453,7 @@ export default function TimeManagementPage() {
             <DropdownMenuItem
               onClick={() => handleValidation(true, request.id)}
             >
-              <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+              <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" />
               Approuver
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -470,7 +470,7 @@ export default function TimeManagementPage() {
           onClick={() => handleDeleteClick(request)}
           className="text-red-600"
         >
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Trash2 className="mr-2 h-4 w-4 text-red-600" />
           Supprimer
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -539,7 +539,7 @@ export default function TimeManagementPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Demandes de congés</CardTitle>
           <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
+            <Download className="mr-2 h-4 w-4 text-violet-500" />
             Exporter
           </Button>
         </CardHeader>

@@ -13,7 +13,11 @@ import type {
   UpdateOrganizationDto,
   CreateRepresentativeDto,
 } from "@safyr/schemas/organization";
-import { computeExpiryStatus as computeStatus } from "@/common/document-status";
+import {
+  statutEcheance,
+  regleDe,
+  echeanceDepuisDepot,
+} from "@/common/document-rules";
 
 function toDate(v: string | null | undefined): Date | null {
   return v ? new Date(v) : null;
@@ -130,12 +134,26 @@ export class OrganizationService {
 
     return requirements.map((req) => {
       const linkedDoc = docByRequirement.get(req.id) ?? null;
+      const regle = regleDe(req.type);
       const status = linkedDoc
-        ? computeStatus(linkedDoc.expiryDate)
+        ? statutEcheance(req.type, linkedDoc.expiryDate)
         : req.isRequired
           ? "missing"
           : "optional";
-      return { requirement: req, document: linkedDoc, status };
+      return {
+        // `hasExpiry` reflète la règle réelle : une pièce sans échéance ne
+        // doit ni réclamer de date, ni déclencher d'alerte.
+        requirement: { ...req, hasExpiry: regle !== null },
+        document: linkedDoc,
+        status,
+        rule: regle
+          ? {
+              validityMonths: regle.validiteMois,
+              alertDaysBefore: regle.preavisJours,
+            }
+          : null,
+        expiryDate: regle ? (linkedDoc?.expiryDate ?? null) : null,
+      };
     });
   }
 
@@ -183,8 +201,15 @@ export class OrganizationService {
       },
     });
 
-    const expiry = expiryDate ? new Date(expiryDate) : null;
-    const status = computeStatus(expiry);
+    // L'échéance n'a de sens que pour les pièces soumises à renouvellement ;
+    // à défaut de date saisie, on la déduit de la règle du document.
+    const regle = regleDe(requirement.type);
+    const expiry = regle
+      ? expiryDate
+        ? new Date(expiryDate)
+        : echeanceDepuisDepot(requirement.type, new Date())
+      : null;
+    const status = statutEcheance(requirement.type, expiry);
 
     const document = await this.prisma.document.upsert({
       where: {

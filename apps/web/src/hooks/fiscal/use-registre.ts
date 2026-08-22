@@ -29,12 +29,15 @@ export interface LigneRegistre {
   id: string;
 }
 
-const SCOPE: Record<FiscalRecordType, "tax" | "akto"> = {
+const SCOPE: Record<FiscalRecordType, "tax" | "akto" | "divers"> = {
   tva: "tax",
   cfe: "tax",
   prelevement: "tax",
   courrier: "tax",
   akto: "akto",
+  organisme: "divers",
+  divers: "divers",
+  courrier_organisme: "divers",
 };
 
 export function useRegistre<T extends LigneRegistre>(

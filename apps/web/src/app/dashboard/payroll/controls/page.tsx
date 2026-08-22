@@ -530,7 +530,7 @@ export default function PayrollControlsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleViewDetails(anomaly)}>
-              <Eye className="mr-2 h-4 w-4" />
+              <Eye className="mr-2 h-4 w-4 text-green-600" />
               Voir détails
             </DropdownMenuItem>
             {anomaly.status === "pending" && (
@@ -645,7 +645,7 @@ export default function PayrollControlsPage() {
                 </CardDescription>
               </div>
               <Button variant="outline" size="sm">
-                <Download className="mr-2 h-4 w-4" />
+                <Download className="mr-2 h-4 w-4 text-violet-500" />
                 Exporter
               </Button>
             </div>

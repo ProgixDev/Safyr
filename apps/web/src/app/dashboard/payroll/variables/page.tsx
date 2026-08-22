@@ -521,11 +521,11 @@ function PayrollVariablesContent() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleView(item)}>
-              <Eye className="mr-2 h-4 w-4" />
+              <Eye className="mr-2 h-4 w-4 text-green-600" />
               Voir détails
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEdit(item)}>
-              <Pencil className="mr-2 h-4 w-4" />
+              <Pencil className="mr-2 h-4 w-4 text-orange-500" />
               Modifier
             </DropdownMenuItem>
             {!item.validated && !item.hasErrors && (

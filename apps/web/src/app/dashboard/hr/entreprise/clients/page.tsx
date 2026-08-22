@@ -1,5 +1,7 @@
 "use client";
 
+import { formaterTelephone } from "@/lib/phone-format";
+
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +19,10 @@ import {
   FileCheck,
   AlertTriangle,
   Gift,
+  Phone,
+  Mail,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { ClientContract, ClientGift } from "@/lib/types";
 import type { Client } from "@safyr/api-client";
@@ -129,6 +134,14 @@ export default function ClientsPage() {
       icon: Building2,
       defaultVisible: true,
       sortable: true,
+      render: (client) => (
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-xs font-semibold text-primary">
+            {client.name.slice(0, 2).toUpperCase()}
+          </span>
+          <span className="font-medium">{client.name}</span>
+        </div>
+      ),
     },
     {
       key: "contactPerson",
@@ -143,21 +156,44 @@ export default function ClientsPage() {
       label: "Téléphone",
       defaultVisible: true,
       sortable: false,
-      render: (client) => client.phone || "-",
+      render: (client) =>
+        client.phone ? (
+          <span className="inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
+            <Phone className="h-3.5 w-3.5" />
+            {client.phone}
+          </span>
+        ) : (
+          "-"
+        ),
     },
     {
       key: "email",
       label: "Email",
       defaultVisible: true,
       sortable: false,
-      render: (client) => client.email || "-",
+      render: (client) =>
+        client.email ? (
+          <span className="inline-flex items-center gap-1.5 text-violet-600 dark:text-violet-400">
+            <Mail className="h-3.5 w-3.5" />
+            {client.email}
+          </span>
+        ) : (
+          "-"
+        ),
     },
     {
       key: "sector",
       label: "Secteur",
       defaultVisible: true,
       sortable: true,
-      render: (client) => client.sector || "-",
+      render: (client) =>
+        client.sector ? (
+          <Badge variant="secondary" className="font-normal">
+            {client.sector}
+          </Badge>
+        ) : (
+          "-"
+        ),
     },
     {
       key: "city",
@@ -364,9 +400,13 @@ export default function ClientsPage() {
               id="phone"
               value={newClient.phone}
               onChange={(e) =>
-                setNewClient({ ...newClient, phone: e.target.value })
+                setNewClient({
+                  ...newClient,
+                  phone: formaterTelephone(e.target.value),
+                })
               }
-              placeholder="Numéro de téléphone"
+              inputMode="tel"
+              placeholder="06 12 34 56 78"
             />
           </div>
           <div>

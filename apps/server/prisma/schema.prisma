@@ -525,7 +525,8 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([siteId, name])
+  // Deux postes peuvent porter le meme nom sur un site : ils se distinguent
+  // par leur description (SSIAP1 de jour / SSIAP1 de nuit).
   @@index([siteId])
   @@map("post")
 }

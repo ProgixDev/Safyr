@@ -376,18 +376,18 @@ export default function SitesPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleViewSite(site)}>
-              <Eye className="mr-2 h-4 w-4" />
+              <Eye className="mr-2 h-4 w-4 text-green-600" />
               Voir détails
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEditSite(site)}>
-              <Pencil className="mr-2 h-4 w-4" />
+              <Pencil className="mr-2 h-4 w-4 text-orange-500" />
               Modifier
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handleDeleteSite(site)}
               className="text-destructive"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Trash2 className="mr-2 h-4 w-4 text-red-600" />
               Supprimer
             </DropdownMenuItem>
           </DropdownMenuContent>

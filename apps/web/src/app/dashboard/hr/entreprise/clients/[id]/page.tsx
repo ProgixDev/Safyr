@@ -792,7 +792,7 @@ export default function ClientDetailPage({
                         onClick={() => handleDeleteContract(c)}
                         className="text-red-600"
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Trash2 className="mr-2 h-4 w-4 text-red-600" />
                         Supprimer
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -859,7 +859,7 @@ export default function ClientDetailPage({
                         onClick={() => handleDeleteGift(g)}
                         className="text-red-600"
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Trash2 className="mr-2 h-4 w-4 text-red-600" />
                         Supprimer
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -1142,7 +1142,7 @@ export default function ClientDetailPage({
                 size="sm"
                 onClick={() => handleUploadReceipt(viewGift)}
               >
-                <Upload className="mr-2 h-4 w-4" />
+                <Upload className="mr-2 h-4 w-4 text-blue-500" />
                 Téléverser un reçu
               </Button>
               {giftReceipts[viewGift.id] && (
@@ -1151,7 +1151,7 @@ export default function ClientDetailPage({
                   size="sm"
                   onClick={() => handleDownloadReceipt(viewGift)}
                 >
-                  <Download className="mr-2 h-4 w-4" />
+                  <Download className="mr-2 h-4 w-4 text-violet-500" />
                   Télécharger
                 </Button>
               )}

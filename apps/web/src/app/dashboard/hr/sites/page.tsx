@@ -37,13 +37,24 @@ export default function SitesPage() {
       sortable: true,
       sortValue: (s) => s.name,
       render: (s) => (
-        <div>
-          <div className="font-medium">{s.name}</div>
-          {s.clientName && (
-            <div className="text-xs text-muted-foreground">
-              Client&nbsp;: {s.clientName}
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <span
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-semibold ${
+              s.active
+                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {s.name.slice(0, 2).toUpperCase()}
+          </span>
+          <div>
+            <div className="font-medium">{s.name}</div>
+            {s.clientName && (
+              <div className="text-xs text-sky-600 dark:text-sky-400">
+                Client&nbsp;: {s.clientName}
+              </div>
+            )}
+          </div>
         </div>
       ),
     },
@@ -65,7 +76,8 @@ export default function SitesPage() {
       label: "GPS",
       render: (s) =>
         s.latitude != null && s.longitude != null ? (
-          <span className="text-xs font-mono text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 font-mono text-xs text-violet-600 dark:text-violet-400">
+            <MapPin className="h-3.5 w-3.5" />
             {s.latitude.toFixed(4)}, {s.longitude.toFixed(4)}
             {s.geofenceRadiusMeters && ` · ${s.geofenceRadiusMeters} m`}
           </span>
@@ -76,7 +88,18 @@ export default function SitesPage() {
     {
       key: "posts",
       label: "Postes",
-      render: (s) => <Badge variant="secondary">{s.posts.length}</Badge>,
+      render: (s) => (
+        <Badge
+          variant={s.posts.length > 0 ? "secondary" : "outline"}
+          className={
+            s.posts.length > 0
+              ? "bg-orange-500/15 text-orange-600 dark:text-orange-400"
+              : undefined
+          }
+        >
+          {s.posts.length}
+        </Badge>
+      ),
     },
     {
       key: "status",

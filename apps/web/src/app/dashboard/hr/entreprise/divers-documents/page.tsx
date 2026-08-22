@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRegistre } from "@/hooks/fiscal";
+import { downloadStoredFile, type StoredFile } from "@/lib/document-files";
 import {
   Card,
   CardContent,
@@ -53,21 +55,13 @@ import {
   Clock,
 } from "lucide-react";
 
-// Téléchargement (mock) d'un document : génère un fichier placeholder.
-// À remplacer par le vrai fichier servi par le backend une fois branché.
-function downloadMock(filename: string) {
-  const blob = new Blob(
-    [
-      `Document : ${filename}\n(Placeholder — le vrai fichier sera servi par le backend une fois branché.)`,
-    ],
-    { type: "text/plain" },
-  );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filename}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+/** Ouvre la pièce réellement déposée ; explique si la ligne n'en a pas. */
+function ouvrirPiece(piece: StoredFile | null | undefined, libelle: string) {
+  if (!piece) {
+    alert(`Aucun fichier n'a été déposé pour « ${libelle} ».`);
+    return;
+  }
+  void downloadStoredFile(piece);
 }
 
 const DOC_STATUTS = [
@@ -110,12 +104,29 @@ interface Courrier {
   pieceJointe: string | null;
 }
 
+/** Document d'organisme tel qu'enregistré : la pièce est un champ à part. */
+type DocumentEnregistre = Document & { fichier?: StoredFile | null };
+type CourrierEnregistre = Omit<Courrier, "pieceJointe"> & {
+  piece?: StoredFile | null;
+};
+
 export default function DiversDocumentsPage() {
-  const [organismes, setOrganismes] = useState<Organisme[]>([]);
+  // Organismes, documents et courriers enregistrés en base : cet écran ne
+  // conservait rien, les dépôts disparaissaient à la reconnexion et les
+  // boutons d'ajout n'étaient reliés à rien.
+  const registreOrganismes = useRegistre<Organisme>("organisme", []);
+  const registreDocuments = useRegistre<DocumentEnregistre>("divers", [
+    "fichier",
+  ]);
+  const registreCourriers = useRegistre<CourrierEnregistre>(
+    "courrier_organisme",
+    ["piece"],
+  );
 
-  const [documents, setDocuments] = useState<Document[]>([]);
-
-  const [courriers, setCourriers] = useState<Courrier[]>([]);
+  const organismes = registreOrganismes.lignes;
+  const documents = registreDocuments.lignes;
+  const courriers = registreCourriers.lignes;
+  const [erreurDepot, setErreurDepot] = useState<string | null>(null);
 
   const [selectedOrganisme, setSelectedOrganisme] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -123,7 +134,7 @@ export default function DiversDocumentsPage() {
   const [showUrgentOnly, setShowUrgentOnly] = useState(false);
   const [isAddingOrganisme, setIsAddingOrganisme] = useState(false);
   const [docStatuts, setDocStatuts] = useState<Record<string, string>>({});
-  const [viewDoc, setViewDoc] = useState<Document | null>(null);
+  const [viewDoc, setViewDoc] = useState<DocumentEnregistre | null>(null);
   const [newOrganisme, setNewOrganisme] = useState({
     nom: "",
     type: "",
@@ -223,6 +234,55 @@ export default function DiversDocumentsPage() {
     }
   };
 
+  /**
+   * Dépose un document pour l'organisme choisi : le fichier part dans le
+   * stockage et la ligne est créée en base. Les deux boutons d'ajout de cette
+   * page n'étaient reliés à rien.
+   */
+  const handleAjouterDocument = async (organismeId: string) => {
+    setErreurDepot(null);
+    const organisme = organismes.find((o) => o.id === organismeId);
+    if (!organisme) {
+      setErreurDepot("Sélectionnez d'abord un organisme.");
+      return;
+    }
+    const aujourdhui = new Date().toISOString().split("T")[0];
+    const brouillon: DocumentEnregistre = {
+      id: `doc-${Date.now()}`,
+      organismeId,
+      nom: "Document",
+      type: "attestation",
+      dateAjout: aujourdhui,
+      dateModification: aujourdhui,
+      taille: "",
+      tags: [],
+      description: "",
+      urgent: false,
+    };
+    try {
+      const depose = await registreDocuments.televerserPiece(
+        brouillon,
+        "fichier",
+        { period: aujourdhui.slice(0, 4), label: organisme.nom },
+      );
+      if (!depose) return;
+      // Le nom du fichier déposé devient le libellé de la ligne.
+      const ligne = registreDocuments.lignes.find(
+        (d) => d.organismeId === organismeId && d.nom === "Document",
+      );
+      if (ligne) {
+        await registreDocuments.enregistrer(
+          { ...ligne, nom: depose.nom },
+          { period: aujourdhui.slice(0, 4), label: organisme.nom },
+        );
+      }
+    } catch (e) {
+      setErreurDepot(
+        e instanceof Error ? e.message : "Le dépôt du document a échoué.",
+      );
+    }
+  };
+
   const handleAddOrganisme = () => {
     if (newOrganisme.nom && newOrganisme.type) {
       const organisme: Organisme = {
@@ -233,7 +293,10 @@ export default function DiversDocumentsPage() {
         icon: "building",
         couleur: "blue",
       };
-      setOrganismes([...organismes, organisme]);
+      void registreOrganismes.enregistrer(organisme, {
+        period: String(new Date().getFullYear()),
+        label: organisme.nom,
+      });
       setNewOrganisme({ nom: "", type: "", description: "" });
       setIsAddingOrganisme(false);
     }
@@ -274,7 +337,16 @@ export default function DiversDocumentsPage() {
             <Plus className="h-4 w-4" />
             Ajouter Organisme
           </Button>
-          <Button className="flex items-center gap-2">
+          <Button
+            className="flex items-center gap-2"
+            disabled={!selectedOrganisme}
+            title={
+              selectedOrganisme
+                ? undefined
+                : "Ouvrez d'abord un organisme pour y déposer un document"
+            }
+            onClick={() => void handleAjouterDocument(selectedOrganisme)}
+          >
             <Upload className="h-4 w-4" />
             Nouveau Document
           </Button>
@@ -609,23 +681,26 @@ export default function DiversDocumentsPage() {
                                     Voir
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() => downloadMock(document.nom)}
+                                    onClick={() =>
+                                      ouvrirPiece(
+                                        document.fichier,
+                                        document.nom,
+                                      )
+                                    }
                                   >
-                                    <Download className="mr-2 h-4 w-4" />
+                                    <Download className="mr-2 h-4 w-4 text-violet-500" />
                                     Télécharger
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      setDocuments((prev) =>
-                                        prev.filter(
-                                          (d) => d.id !== document.id,
-                                        ),
+                                      void registreDocuments.supprimerLigne(
+                                        document.id,
                                       )
                                     }
                                     className="text-red-600"
                                   >
-                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    <Trash2 className="mr-2 h-4 w-4 text-red-600" />
                                     Supprimer
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -637,7 +712,12 @@ export default function DiversDocumentsPage() {
                     )}
                   </div>
 
-                  <Button className="w-full mt-4">
+                  <Button
+                    className="w-full mt-4"
+                    onClick={() =>
+                      void handleAjouterDocument(selectedOrganisme)
+                    }
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Ajouter un document
                   </Button>
@@ -715,11 +795,13 @@ export default function DiversDocumentsPage() {
                               >
                                 {getStatutText(courrier.statut)}
                               </Badge>
-                              {courrier.pieceJointe && (
+                              {courrier.piece && (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => downloadMock(courrier.objet)}
+                                  onClick={() =>
+                                    ouvrirPiece(courrier.piece, courrier.objet)
+                                  }
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
@@ -735,44 +817,50 @@ export default function DiversDocumentsPage() {
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      setCourriers((prev) =>
-                                        prev.map((c) =>
-                                          c.id === courrier.id
-                                            ? { ...c, statut: "en_cours" }
-                                            : c,
-                                        ),
+                                      void registreCourriers.enregistrer(
+                                        { ...courrier, statut: "en_cours" },
+                                        {
+                                          period: (courrier.date ?? "").slice(
+                                            0,
+                                            4,
+                                          ),
+                                          label: courrier.objet,
+                                          status: "en_cours",
+                                        },
                                       )
                                     }
                                   >
-                                    <Clock className="mr-2 h-4 w-4 text-orange-500" />
+                                    <Clock className="mr-2 h-4 w-4 text-blue-500" />
                                     Marquer en cours
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      setCourriers((prev) =>
-                                        prev.map((c) =>
-                                          c.id === courrier.id
-                                            ? { ...c, statut: "traite" }
-                                            : c,
-                                        ),
+                                      void registreCourriers.enregistrer(
+                                        { ...courrier, statut: "traite" },
+                                        {
+                                          period: (courrier.date ?? "").slice(
+                                            0,
+                                            4,
+                                          ),
+                                          label: courrier.objet,
+                                          status: "traite",
+                                        },
                                       )
                                     }
                                   >
-                                    <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                                    <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />
                                     Marquer comme traité
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      setCourriers((prev) =>
-                                        prev.filter(
-                                          (c) => c.id !== courrier.id,
-                                        ),
+                                      void registreCourriers.supprimerLigne(
+                                        courrier.id,
                                       )
                                     }
                                     className="text-red-600"
                                   >
-                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    <Trash2 className="mr-2 h-4 w-4 text-red-600" />
                                     Supprimer
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -923,9 +1011,9 @@ export default function DiversDocumentsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => downloadMock(viewDoc.nom)}
+              onClick={() => ouvrirPiece(viewDoc.fichier, viewDoc.nom)}
             >
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="mr-2 h-4 w-4 text-violet-500" />
               Télécharger
             </Button>
           </div>
