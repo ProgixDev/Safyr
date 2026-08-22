@@ -9,6 +9,7 @@ import {
   deleteEmployee,
   resendEmployeeInvite,
   uploadMemberDocument,
+  deleteMemberDocument,
   createCertification,
   updateCertification,
   deleteCertification,
@@ -112,6 +113,16 @@ export function useUploadMemberDocument(memberId: string) {
       qc.invalidateQueries({ queryKey: employeeKeys.detail(memberId) });
       qc.invalidateQueries({ queryKey: employeeKeys.compliance(memberId) });
     },
+  });
+}
+
+export function useDeleteMemberDocument(memberId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (requirementId: string) =>
+      deleteMemberDocument(memberId, requirementId),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: employeeKeys.compliance(memberId) }),
   });
 }
 

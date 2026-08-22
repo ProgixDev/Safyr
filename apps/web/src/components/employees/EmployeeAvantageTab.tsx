@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { useUpdateEmployee } from "@/hooks/employees";
 import {
   Select,
@@ -589,44 +590,34 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                 },
               ]}
               actions={(item) => (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setDetailsEquipmentId(item.id);
-                      setShowDetailsModal(true);
-                    }}
-                  >
-                    <Eye className="mr-2 h-4 w-4 text-green-600" />
-                    Détails
-                  </Button>
-                  {item.consumable ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setExhaustEquipmentId(item.id);
-                        setShowExhaustModal(true);
-                      }}
-                    >
-                      <Archive className="mr-2 h-4 w-4" />
-                      Épuiser
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setReturnEquipmentId(item.id);
-                        setShowReturnModal(true);
-                      }}
-                    >
-                      <FileSignature className="mr-2 h-4 w-4" />
-                      Retour
-                    </Button>
-                  )}
-                </div>
+                <RowActionsMenu
+                  viewLabel="Détails"
+                  onView={() => {
+                    setDetailsEquipmentId(item.id);
+                    setShowDetailsModal(true);
+                  }}
+                  extraItems={[
+                    item.consumable
+                      ? {
+                          label: "Marquer comme épuisé",
+                          icon: Archive,
+                          tone: "neutral" as const,
+                          onClick: () => {
+                            setExhaustEquipmentId(item.id);
+                            setShowExhaustModal(true);
+                          },
+                        }
+                      : {
+                          label: "Enregistrer le retour",
+                          icon: FileSignature,
+                          tone: "history" as const,
+                          onClick: () => {
+                            setReturnEquipmentId(item.id);
+                            setShowReturnModal(true);
+                          },
+                        },
+                  ]}
+                />
               )}
             />
           )}
@@ -646,10 +637,14 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
               searchKeys={["name", "serialNumber", "type", "quantity"]}
               searchPlaceholder="Rechercher dans l'historique..."
               itemsPerPage={10}
-              actions={() => (
-                <Button variant="ghost" size="sm">
-                  <Eye className="h-4 w-4" />
-                </Button>
+              actions={(item) => (
+                <RowActionsMenu
+                  viewLabel="Détails"
+                  onView={() => {
+                    setDetailsEquipmentId(item.id);
+                    setShowDetailsModal(true);
+                  }}
+                />
               )}
             />
           </CardContent>

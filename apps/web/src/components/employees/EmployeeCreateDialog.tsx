@@ -81,7 +81,6 @@ const STEP_FIELDS: string[][] = [
     "employeeNumber",
     "hireDate",
     "position",
-    "role",
     "contractType",
     "workSchedule",
     "status",
@@ -900,30 +899,6 @@ function EmploymentStep({ form }: { form: FormApi }) {
                 selected={field.state.value ?? []}
                 onChange={(next) => field.handleChange(next as never)}
               />
-              <FieldError field={field} />
-            </div>
-          )}
-        </form.Field>
-        <form.Field name="role">
-          {(field) => (
-            <div className="space-y-2">
-              <Label>
-                Rôle <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={field.state.value ?? "agent"}
-                onValueChange={(v) =>
-                  field.handleChange(v as CreateEmployeeDto["role"])
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="agent">Agent</SelectItem>
-                  <SelectItem value="owner">Propriétaire</SelectItem>
-                </SelectContent>
-              </Select>
               <FieldError field={field} />
             </div>
           )}

@@ -65,6 +65,17 @@ export async function resendEmployeeInvite(
   });
 }
 
+/** Retire la pièce déposée pour une exigence du dossier salarié. */
+export function deleteMemberDocument(
+  memberId: string,
+  requirementId: string,
+): Promise<{ id: string; requirementId: string }> {
+  return apiFetch(
+    `/organization/employees/${memberId}/documents/${requirementId}`,
+    { method: "DELETE" },
+  );
+}
+
 export async function uploadMemberDocument(
   memberId: string,
   file: File,

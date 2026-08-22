@@ -78,7 +78,8 @@ export type AttachedScope =
   | "subcontractor"
   | "tax"
   | "akto"
-  | "divers";
+  | "divers"
+  | "contract";
 
 export interface AttachedDocument {
   id: string;

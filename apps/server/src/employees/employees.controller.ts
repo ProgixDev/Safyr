@@ -173,6 +173,19 @@ export class EmployeesController {
     );
   }
 
+  @Delete(":memberId/documents/:requirementId")
+  async deleteDocument(
+    @Req() req: FastifyRequest,
+    @Param("memberId") memberId: string,
+    @Param("requirementId") requirementId: string,
+  ) {
+    return this.employees.deleteMemberDocument(
+      await this.getOrgId(req),
+      memberId,
+      requirementId,
+    );
+  }
+
   @Delete(":memberId/certifications/:certId")
   async deleteCertification(
     @Req() req: FastifyRequest,

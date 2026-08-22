@@ -414,6 +414,22 @@ export class EmployeesService {
     return document;
   }
 
+  /** Retire la pièce déposée pour une exigence du dossier salarié. */
+  async deleteMemberDocument(
+    orgId: string,
+    memberId: string,
+    requirementId: string,
+  ) {
+    await this.ensureMember(orgId, memberId);
+    const existant = await this.prisma.document.findFirst({
+      where: { memberId, requirementId },
+    });
+    if (!existant) throw new NotFoundException("Aucun document à supprimer");
+    await this.prisma.document.delete({ where: { id: existant.id } });
+    await this.storage.deleteObjectSafe(SAFYR_BUCKET, existant.storageKey);
+    return { id: existant.id, requirementId };
+  }
+
   async listMemberCompliance(orgId: string, memberId: string) {
     await this.ensureMember(orgId, memberId);
     const [requirements, documents] = await Promise.all([

@@ -6,6 +6,7 @@ import {
   useEmployee,
   useEmployeeCompliance,
   useUploadMemberDocument,
+  useDeleteMemberDocument,
 } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ import {
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { CertificationFormDialog } from "./CertificationFormDialog";
 import { Modal } from "@/components/ui/modal";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { formatDate } from "@/lib/date-utils";
 import { CNAPS_TELESERVICES_URL, openExternal } from "@/lib/external-links";
 
@@ -71,6 +73,11 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
   const { data: compliance } = useEmployeeCompliance(employee.id);
   const { data: apiEmployee } = useEmployee(employee.id);
   const uploadMutation = useUploadMemberDocument(employee.id);
+  const suppressionDocument = useDeleteMemberDocument(employee.id);
+  // Retrait d'une pièce du dossier : confirmé, comme sur « Mon entreprise ».
+  const [docASupprimer, setDocASupprimer] = useState<{
+    requirement: { id: string; name: string };
+  } | null>(null);
   const deleteCertMutation = useDeleteCertification(employee.id);
   const [certDialogOpen, setCertDialogOpen] = useState(false);
   const [certEditing, setCertEditing] = useState<ApiCertification | null>(null);
@@ -445,26 +452,15 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        void ouvrirDocument(c.document!.storageKey)
-                      }
-                    >
-                      <Eye className="mr-2 h-4 w-4 text-green-600" />
-                      Voir
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openFilePicker(c.requirement.id)}
-                    >
-                      <Upload className="mr-2 h-4 w-4 text-blue-500" />
-                      Remplacer
-                    </Button>
-                  </div>
+                  <RowActionsMenu
+                    onView={() => void ouvrirDocument(c.document!.storageKey)}
+                    onUpload={() => openFilePicker(c.requirement.id)}
+                    uploadLabel="Remplacer"
+                    onDownload={() =>
+                      void ouvrirDocument(c.document!.storageKey)
+                    }
+                    onDelete={() => setDocASupprimer(c)}
+                  />
                 </div>
               ))}
             </div>
@@ -545,27 +541,24 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
-                      {c.document && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            void ouvrirDocument(c.document!.storageKey)
-                          }
-                        >
-                          <Download className="mr-1 h-3 w-3 text-violet-500" />
-                          Télécharger
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
+                      <RowActionsMenu
+                        onView={
+                          c.document
+                            ? () => void ouvrirDocument(c.document!.storageKey)
+                            : undefined
+                        }
+                        onUpload={() => openFilePicker(c.requirement.id)}
+                        uploadLabel={c.document ? "Remplacer" : "Téléverser"}
+                        onDownload={
+                          c.document
+                            ? () => void ouvrirDocument(c.document!.storageKey)
+                            : undefined
+                        }
+                        onDelete={
+                          c.document ? () => setDocASupprimer(c) : undefined
+                        }
                         disabled={uploadMutation.isPending}
-                        onClick={() => openFilePicker(c.requirement.id)}
-                      >
-                        <Upload className="mr-1 h-3 w-3 text-blue-500" />
-                        {c.document ? "Remplacer" : "Téléverser"}
-                      </Button>
+                      />
                     </div>
                   </li>
                 ))}
@@ -731,6 +724,45 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
           />
         </CardContent>
       </Card>
+
+      <Modal
+        open={!!docASupprimer}
+        onOpenChange={(ouvert) => !ouvert && setDocASupprimer(null)}
+        type="confirmation"
+        title="Retirer ce document ?"
+        description={docASupprimer?.requirement.name}
+        actions={{
+          secondary: {
+            label: "Annuler",
+            onClick: () => setDocASupprimer(null),
+            variant: "outline",
+          },
+          primary: {
+            label: suppressionDocument.isPending ? "Suppression…" : "Retirer",
+            variant: "destructive",
+            disabled: suppressionDocument.isPending,
+            onClick: async () => {
+              if (!docASupprimer) return;
+              try {
+                await suppressionDocument.mutateAsync(
+                  docASupprimer.requirement.id,
+                );
+                setDocASupprimer(null);
+              } catch (e) {
+                setTeleversementErreur(
+                  e instanceof Error ? e.message : "La suppression a échoué.",
+                );
+              }
+            },
+          },
+        }}
+      >
+        <p className="text-sm text-muted-foreground">
+          La pièce sera retirée du dossier et supprimée du stockage. Le salarié
+          restera signalé comme non conforme tant qu&apos;aucune nouvelle pièce
+          n&apos;est déposée.
+        </p>
+      </Modal>
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { EmployeeCreateDialog } from "@/components/employees/EmployeeCreateDialog";
@@ -134,21 +135,12 @@ export default function EmployeesPage() {
             : null;
         return (
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              {showSpinner ? (
-                <AvatarFallback>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </AvatarFallback>
-              ) : (
-                <>
-                  <AvatarImage src={employee.photo} alt={employee.firstName} />
-                  <AvatarFallback>
-                    {employee.firstName[0]}
-                    {employee.lastName[0]}
-                  </AvatarFallback>
-                </>
-              )}
-            </Avatar>
+            <EmployeeAvatar
+              firstName={employee.firstName}
+              lastName={employee.lastName}
+              photo={employee.photo}
+              loading={showSpinner}
+            />
             <div>
               <div className="font-medium">
                 {employee.firstName} {employee.lastName}
@@ -171,7 +163,12 @@ export default function EmployeesPage() {
       label: "Poste",
       sortable: true,
       render: (employee) => (
-        <div className="font-medium">{employee.position}</div>
+        <Badge
+          variant="secondary"
+          className="bg-primary/10 font-normal text-primary"
+        >
+          {employee.position}
+        </Badge>
       ),
     },
     {
@@ -181,11 +178,11 @@ export default function EmployeesPage() {
       sortable: true,
       render: (employee) => (
         <div className="text-sm">
-          <div className="flex items-center gap-2">
-            <Mail className="h-3 w-3 text-muted-foreground" />
+          <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
+            <Mail className="h-3 w-3" />
             {employee.email}
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400">
             <Phone className="h-3 w-3" />
             {employee.phone}
           </div>
@@ -196,11 +193,22 @@ export default function EmployeesPage() {
       key: "hireDate",
       label: "Date d'embauche",
       sortable: true,
-      render: (employee) => (
-        <span className="text-sm">
-          {new Date(employee.hireDate).toLocaleDateString("fr-FR")}
-        </span>
-      ),
+      render: (employee) => {
+        const annees = Math.floor(
+          (Date.now() - new Date(employee.hireDate).getTime()) /
+            (365.25 * 86_400_000),
+        );
+        return (
+          <div className="text-sm">
+            <div>{new Date(employee.hireDate).toLocaleDateString("fr-FR")}</div>
+            <div className="text-xs text-emerald-600 dark:text-emerald-400">
+              {annees < 1
+                ? "Moins d’un an"
+                : `${annees} an${annees > 1 ? "s" : ""} d’ancienneté`}
+            </div>
+          </div>
+        );
+      },
     },
   ];
 
@@ -395,16 +403,11 @@ export default function EmployeesPage() {
             </p>
             <div className="rounded-lg border bg-muted/30 p-3">
               <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage
-                    src={employeeToDelete.photo}
-                    alt={employeeToDelete.firstName}
-                  />
-                  <AvatarFallback>
-                    {employeeToDelete.firstName[0]}
-                    {employeeToDelete.lastName[0]}
-                  </AvatarFallback>
-                </Avatar>
+                <EmployeeAvatar
+                  firstName={employeeToDelete.firstName}
+                  lastName={employeeToDelete.lastName}
+                  photo={employeeToDelete.photo}
+                />
                 <div>
                   <div className="font-medium">
                     {employeeToDelete.firstName} {employeeToDelete.lastName}
@@ -459,16 +462,12 @@ export default function EmployeesPage() {
             <div className="space-y-2">
               {selectedEmployees.map((employee) => (
                 <div key={employee.id} className="flex items-center gap-3 py-1">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage
-                      src={employee.photo}
-                      alt={employee.firstName}
-                    />
-                    <AvatarFallback className="text-xs">
-                      {employee.firstName[0]}
-                      {employee.lastName[0]}
-                    </AvatarFallback>
-                  </Avatar>
+                  <EmployeeAvatar
+                    firstName={employee.firstName}
+                    lastName={employee.lastName}
+                    photo={employee.photo}
+                    className="h-8 w-8"
+                  />
                   <div className="text-sm">
                     <span className="font-medium">
                       {employee.firstName} {employee.lastName}

@@ -16,13 +16,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Plus, Calendar, Euro, Clock } from "lucide-react";
+import { FileText, Plus, Calendar, Euro, Clock, Trash2 } from "lucide-react";
+import { pickFile, downloadStoredFile } from "@/lib/document-files";
 import type { Employee } from "@/lib/types";
 import {
   useContracts,
   useCreateContract,
   useUpdateContract,
   useDeleteContract,
+  useAttachments,
+  useAttachDocument,
+  useDeleteAttachment,
 } from "@/hooks/contracts";
 import type { Contract, CreateContractPayload } from "@safyr/api-client";
 
@@ -186,6 +190,35 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
 
   const enCours = creation.isPending || modification.isPending;
 
+  /** Contrat signé rattaché à chaque ligne : dépôt, lecture, remplacement. */
+  const { data: pieces = [] } = useAttachments("contract");
+  const attacher = useAttachDocument("contract");
+  const detacher = useDeleteAttachment("contract");
+
+  const pieceDe = (contratId: string) =>
+    pieces.find((p) => p.scopeId === contratId) ?? null;
+
+  const televerserContrat = async (contratId: string) => {
+    setErreur(null);
+    const fichier = await pickFile();
+    if (!fichier) return;
+    try {
+      const existante = pieceDe(contratId);
+      if (existante) await detacher.mutateAsync(existante.id);
+      await attacher.mutateAsync({
+        file: fichier,
+        scopeId: contratId,
+        slot: "contrat",
+      });
+    } catch (e) {
+      setErreur(
+        `Échec du téléversement : ${
+          e instanceof Error ? e.message : "erreur inconnue"
+        }`,
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -238,6 +271,12 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
                     {STATUT_LABELS[contrat.status]}
                   </Badge>
                 </div>
+                {pieceDe(contrat.id) && (
+                  <p className="flex items-center gap-1.5 text-sm text-violet-600 dark:text-violet-400">
+                    <FileText className="h-3.5 w-3.5" />
+                    {pieceDe(contrat.id)!.name}
+                  </p>
+                )}
                 <p className="text-sm text-muted-foreground">
                   Du {formaterDate(contrat.startDate)}
                   {contrat.endDate
@@ -248,6 +287,36 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
               <RowActionsMenu
                 onEdit={() => ouvrirEdition(contrat)}
                 onDelete={() => setASupprimer(contrat)}
+                uploadLabel={
+                  pieceDe(contrat.id)
+                    ? "Remplacer le contrat signé"
+                    : "Téléverser le contrat signé"
+                }
+                onUpload={() => void televerserContrat(contrat.id)}
+                onDownload={
+                  pieceDe(contrat.id)
+                    ? () =>
+                        void downloadStoredFile({
+                          name: pieceDe(contrat.id)!.name,
+                          key: pieceDe(contrat.id)!.storageKey,
+                        })
+                    : undefined
+                }
+                extraItems={
+                  pieceDe(contrat.id)
+                    ? [
+                        {
+                          label: "Retirer le contrat signé",
+                          icon: Trash2,
+                          tone: "delete" as const,
+                          onClick: () => {
+                            const piece = pieceDe(contrat.id);
+                            if (piece) void detacher.mutateAsync(piece.id);
+                          },
+                        },
+                      ]
+                    : []
+                }
               />
             </CardHeader>
             <CardContent>
