@@ -37,6 +37,7 @@ export const ROW_ACTION_TONES = {
   history: "text-blue-500",
   validate: "text-emerald-500",
   send: "text-sky-500",
+  locate: "text-teal-500",
   neutral: "text-muted-foreground",
 } as const;
 

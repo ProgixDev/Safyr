@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -238,31 +239,24 @@ export default function BillingQuotesPage() {
         searchPlaceholder="Rechercher un devis..."
         onRowClick={handleRowClick}
         actions={(q) => (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedQuote(q);
-                setIsViewModalOpen(true);
-              }}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            {q.status === "Brouillon" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSend(q);
-                }}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+          <RowActionsMenu
+            onView={() => {
+              setSelectedQuote(q);
+              setIsViewModalOpen(true);
+            }}
+            extraItems={
+              q.status === "Brouillon"
+                ? [
+                    {
+                      label: "Envoyer le devis",
+                      icon: Send,
+                      tone: "send" as const,
+                      onClick: () => handleSend(q),
+                    },
+                  ]
+                : []
+            }
+          />
         )}
       />
 

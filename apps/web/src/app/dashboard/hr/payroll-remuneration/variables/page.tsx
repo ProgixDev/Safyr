@@ -636,7 +636,8 @@ export default function PayrollVariablesPage() {
                 Modifier
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive"
+              <DropdownMenuItem
+                variant="destructive"
                 onClick={() => {
                   if (
                     confirm(
@@ -775,7 +776,8 @@ export default function PayrollVariablesPage() {
               Modifier
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive"
+            <DropdownMenuItem
+              variant="destructive"
               onClick={() => {
                 if (confirm(`Supprimer cette variable ?`)) {
                   deleteVariableMutation.mutate(item.id);

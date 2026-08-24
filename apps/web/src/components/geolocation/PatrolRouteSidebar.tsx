@@ -387,7 +387,8 @@ export function PatrolRouteSidebar({
                             Modifier
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem variant="destructive"
+                          <DropdownMenuItem
+                            variant="destructive"
                             className="text-destructive"
                             onClick={() => onDeleteRoute(route)}
                           >

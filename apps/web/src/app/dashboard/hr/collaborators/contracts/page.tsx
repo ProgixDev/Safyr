@@ -336,14 +336,14 @@ export default function ContractsPage() {
               onClick={() => handleView(contract)}
               className="gap-2"
             >
-              <Eye className="h-4 w-4 text-orange-500" />
+              <Eye className="h-4 w-4 text-green-600" />
               Voir
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handleEdit(contract)}
               className="gap-2"
             >
-              <Pencil className="h-4 w-4 text-green-600" />
+              <Pencil className="h-4 w-4 text-orange-500" />
               Modifier
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -357,7 +357,7 @@ export default function ContractsPage() {
               onClick={() => downloadMock(`Facture_contrat_${contract.id}`)}
               className="gap-2"
             >
-              <Download className="h-4 w-4 text-blue-600" />
+              <Download className="h-4 w-4 text-violet-500" />
               Télécharger la facture
             </DropdownMenuItem>
             {contract.status === "draft" && (
@@ -371,7 +371,8 @@ export default function ContractsPage() {
                 Envoyer en signature
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem variant="destructive"
+            <DropdownMenuItem
+              variant="destructive"
               onClick={() => handleDelete(contract.id)}
               className="gap-2 text-destructive"
             >

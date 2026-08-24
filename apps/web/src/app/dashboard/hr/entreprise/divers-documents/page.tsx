@@ -692,7 +692,8 @@ export default function DiversDocumentsPage() {
                                     Télécharger
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem variant="destructive"
+                                  <DropdownMenuItem
+                                    variant="destructive"
                                     onClick={() =>
                                       void registreDocuments.supprimerLigne(
                                         document.id,
@@ -852,7 +853,8 @@ export default function DiversDocumentsPage() {
                                     Marquer comme traité
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem variant="destructive"
+                                  <DropdownMenuItem
+                                    variant="destructive"
                                     onClick={() =>
                                       void registreCourriers.supprimerLigne(
                                         courrier.id,

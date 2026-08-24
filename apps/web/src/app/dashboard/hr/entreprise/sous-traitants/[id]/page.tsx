@@ -14,6 +14,7 @@ import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Textarea } from "@/components/ui/textarea";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import {
   Select,
   SelectContent,
@@ -989,35 +990,12 @@ export default function SousTraitantDetailPage({
                 }
                 getRowId={(doc) => doc.id}
                 actions={(doc) => (
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      title="Télécharger"
-                      onClick={() => telechargerDocument(doc)}
-                    >
-                      <Download className="h-3 w-3 text-violet-500" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      title="Remplacer"
-                      onClick={() => void handleDocumentUpload(doc.type)}
-                    >
-                      <Upload className="h-3 w-3 text-blue-500" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      title="Supprimer"
-                      onClick={() => void detacher.mutateAsync(doc.id)}
-                    >
-                      <Trash2 className="h-3 w-3 text-red-600" />
-                    </Button>
-                  </div>
+                  <RowActionsMenu
+                    onDownload={() => telechargerDocument(doc)}
+                    onUpload={() => void handleDocumentUpload(doc.type)}
+                    uploadLabel="Remplacer"
+                    onDelete={() => void detacher.mutateAsync(doc.id)}
+                  />
                 )}
               />
             </CardContent>

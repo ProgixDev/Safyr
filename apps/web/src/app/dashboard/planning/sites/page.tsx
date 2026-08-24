@@ -383,7 +383,8 @@ export default function SitesPage() {
               <Pencil className="mr-2 h-4 w-4 text-orange-500" />
               Modifier
             </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive"
+            <DropdownMenuItem
+              variant="destructive"
               onClick={() => handleDeleteSite(site)}
               className="text-destructive"
             >

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
+import type { z } from "zod";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import { CreateSiteSchema, type CreateSiteDto } from "@safyr/schemas/site";
 import { ApiError, type Site, type UpdateSitePayload } from "@safyr/api-client";
@@ -67,7 +68,14 @@ export function SiteCreateDialog({
 
   const form = useForm({
     defaultValues,
-    validators: { onChange: CreateSiteSchema },
+    // Les champs avec .default() sont optionnels en entree du schema :
+    // on aligne le type sur les valeurs du formulaire (validation inchangee).
+    validators: {
+      onChange: CreateSiteSchema as unknown as z.ZodType<
+        CreateSiteDto,
+        CreateSiteDto
+      >,
+    },
     onSubmit: async ({ value }) => {
       setGlobalError(null);
       try {

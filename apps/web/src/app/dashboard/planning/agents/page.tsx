@@ -181,7 +181,8 @@ export default function PlanningAgentsPage() {
               <Pencil className="h-4 w-4 mr-2 text-orange-500" />
               Modifier
             </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive"
+            <DropdownMenuItem
+              variant="destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteClick(agent);

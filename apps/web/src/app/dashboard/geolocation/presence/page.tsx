@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CalendarCheck,
   CheckCircle,
@@ -22,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { DataTable } from "@/components/ui/DataTable";
 import type { ColumnDef, FilterDef } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/badge";
@@ -313,6 +315,7 @@ const STATUS_OPTIONS = [
 // ── Page ─────────────────────────────────────────────────────────────
 
 export default function PresenceControlPage() {
+  const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
 
@@ -594,14 +597,19 @@ export default function PresenceControlPage() {
               )
             }
             actions={(record) => (
-              <Button variant="ghost" size="sm" asChild>
-                <Link
-                  href={`/dashboard/geolocation/live?agent=${record.agentId}`}
-                >
-                  <MapPin className="h-3.5 w-3.5 mr-1" />
-                  Localiser
-                </Link>
-              </Button>
+              <RowActionsMenu
+                extraItems={[
+                  {
+                    label: "Localiser sur la carte",
+                    icon: MapPin,
+                    tone: "locate" as const,
+                    onClick: () =>
+                      router.push(
+                        `/dashboard/geolocation/live?agent=${record.agentId}`,
+                      ),
+                  },
+                ]}
+              />
             )}
           />
         ) : (

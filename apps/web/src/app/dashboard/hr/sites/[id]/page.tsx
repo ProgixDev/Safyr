@@ -226,7 +226,8 @@ export default function SiteDetailPage({
                         Modifier
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive"
+                      <DropdownMenuItem
+                        variant="destructive"
                         onClick={() => setPostToDelete(p)}
                         className="text-red-600"
                       >

@@ -241,7 +241,8 @@ export default function TemplatesPage() {
                 <Pencil className="h-4 w-4 text-orange-500" />
                 Modifier
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive"
+              <DropdownMenuItem
+                variant="destructive"
                 onClick={() => handleDelete(template.id)}
                 className="gap-2 text-destructive"
               >

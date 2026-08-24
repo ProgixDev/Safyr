@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { Employee, CSERole } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 
 interface EmployeeCSETabProps {
   employee: Employee;
@@ -65,8 +66,8 @@ export function EmployeeCSETab({ employee }: EmployeeCSETabProps) {
   const usagePercentage =
     (displayRole.usedHours / displayRole.delegationHours) * 100;
 
-  // Mock delegation hours history
-  const delegationHistory = [
+  // Historique des heures de délégation (données de démonstration)
+  const [delegationHistory, setDelegationHistory] = useState([
     {
       id: "1",
       date: new Date("2024-12-10"),
@@ -98,7 +99,17 @@ export function EmployeeCSETab({ employee }: EmployeeCSETabProps) {
       reason: "Consultation documents sociaux",
       validated: false,
     },
-  ];
+  ]);
+
+  const validerHeures = (id: string) => {
+    setDelegationHistory((entrees) =>
+      entrees.map((e) =>
+        e.id === id
+          ? { ...e, validated: true, validatedBy: "admin@safyr.com" }
+          : e,
+      ),
+    );
+  };
 
   const delegationColumns: ColumnDef<(typeof delegationHistory)[0]>[] = [
     {
@@ -352,20 +363,20 @@ export function EmployeeCSETab({ employee }: EmployeeCSETabProps) {
                     ],
                   },
                 ]}
-                actions={(entry) => (
-                  <>
-                    {!entry.validated && (
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          Valider
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          Modifier
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )}
+                actions={(entry) =>
+                  entry.validated ? null : (
+                    <RowActionsMenu
+                      extraItems={[
+                        {
+                          label: "Valider les heures",
+                          icon: CheckCircle,
+                          tone: "validate" as const,
+                          onClick: () => validerHeures(entry.id),
+                        },
+                      ]}
+                    />
+                  )
+                }
               />
             </CardContent>
           </Card>

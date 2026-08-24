@@ -280,7 +280,7 @@ export function ProceduresSection() {
                   onClick={() => handleStatusChange(procedure.id, "completed")}
                   className="gap-2"
                 >
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-4 w-4 text-emerald-500" />
                   Marquer terminée
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -292,7 +292,8 @@ export function ProceduresSection() {
                 </DropdownMenuItem>
               </>
             )}
-            <DropdownMenuItem variant="destructive"
+            <DropdownMenuItem
+              variant="destructive"
               onClick={() => handleDelete(procedure.id)}
               className="gap-2 text-destructive"
             >

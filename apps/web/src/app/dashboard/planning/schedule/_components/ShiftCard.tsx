@@ -228,7 +228,8 @@ export function ShiftCard({
               <Copy className="h-3 w-3 mr-2" />
               Copier
             </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive"
+            <DropdownMenuItem
+              variant="destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(shift.id);

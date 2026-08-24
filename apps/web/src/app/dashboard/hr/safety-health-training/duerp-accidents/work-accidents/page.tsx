@@ -420,7 +420,8 @@ export default function WorkAccidentsPage() {
               <Pencil className="mr-2 h-4 w-4 text-orange-500" />
               Modifier
             </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive"
+            <DropdownMenuItem
+              variant="destructive"
               onClick={() => handleDelete(accident.id)}
               className="text-red-600"
             >

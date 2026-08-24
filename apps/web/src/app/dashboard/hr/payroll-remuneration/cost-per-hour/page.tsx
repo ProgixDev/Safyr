@@ -272,7 +272,8 @@ export default function PersonnelCostPage() {
               Modifier
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive"
+            <DropdownMenuItem
+              variant="destructive"
               onClick={() => handleDelete(cost)}
               className="text-red-600 focus:text-red-700 focus:bg-red-50"
             >

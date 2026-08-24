@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
+import type { z } from "zod";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import { CreatePostSchema, type CreatePostDto } from "@safyr/schemas/site";
 import {
@@ -96,7 +97,14 @@ export function PostFormDialog({
 
   const form = useForm({
     defaultValues,
-    validators: { onChange: CreatePostSchema },
+    // Les champs avec .default() sont optionnels en entree du schema :
+    // on aligne le type sur les valeurs du formulaire (validation inchangee).
+    validators: {
+      onChange: CreatePostSchema as unknown as z.ZodType<
+        CreatePostDto,
+        CreatePostDto
+      >,
+    },
     onSubmit: async ({ value }) => {
       setGlobalError(null);
       try {

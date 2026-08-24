@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { cn } from "@/lib/utils";
 import {
@@ -203,31 +204,27 @@ export default function LogbookValidationPage() {
             columns={colonnes}
             searchKey="title"
             actions={(e) => (
-              <div className="flex justify-end gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1 text-green-600"
-                  disabled={valider.isPending}
-                  onClick={() => void traiter(e, "validated")}
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Valider
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1 text-red-600"
-                  disabled={valider.isPending}
-                  onClick={() => {
-                    setARefuser(e);
-                    setMotif("");
-                  }}
-                >
-                  <XCircle className="h-4 w-4" />
-                  Refuser
-                </Button>
-              </div>
+              <RowActionsMenu
+                disabled={valider.isPending}
+                extraItems={[
+                  {
+                    label: "Valider",
+                    icon: CheckCircle2,
+                    tone: "validate" as const,
+                    onClick: () => void traiter(e, "validated"),
+                  },
+                  {
+                    label: "Refuser",
+                    icon: XCircle,
+                    tone: "delete" as const,
+                    destructive: true,
+                    onClick: () => {
+                      setARefuser(e);
+                      setMotif("");
+                    },
+                  },
+                ]}
+              />
             )}
           />
         </CardContent>

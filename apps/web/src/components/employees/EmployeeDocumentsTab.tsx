@@ -594,26 +594,13 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
             searchPlaceholder="Rechercher une certification..."
             itemsPerPage={10}
             actions={(cert) => (
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setCertEditing(cert);
-                    setCertDialogOpen(true);
-                  }}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setCertToDelete(cert)}
-                  className="text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              <RowActionsMenu
+                onEdit={() => {
+                  setCertEditing(cert);
+                  setCertDialogOpen(true);
+                }}
+                onDelete={() => setCertToDelete(cert)}
+              />
             )}
           />
         </CardContent>
