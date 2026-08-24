@@ -622,7 +622,7 @@ export default function TrainingPlanPage() {
                 <Pencil className="h-4 w-4 text-orange-500" />
                 Modifier
               </DropdownMenuItem>
-              <DropdownMenuItem
+              <DropdownMenuItem variant="destructive"
                 onClick={() => {
                   setSelectedPlanForDelete(plan);
                   setIsDeleteModalOpen(true);

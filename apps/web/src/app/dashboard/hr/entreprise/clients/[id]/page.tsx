@@ -788,7 +788,7 @@ export default function ClientDetailPage({
                         Modifier
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem
+                      <DropdownMenuItem variant="destructive"
                         onClick={() => handleDeleteContract(c)}
                         className="text-red-600"
                       >
@@ -855,7 +855,7 @@ export default function ClientDetailPage({
                           : "Téléverser un reçu/facture"}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem
+                      <DropdownMenuItem variant="destructive"
                         onClick={() => handleDeleteGift(g)}
                         className="text-red-600"
                       >

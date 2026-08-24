@@ -652,7 +652,7 @@ export default function OvertimeTrackingPage() {
                         )}
 
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                        <DropdownMenuItem variant="destructive" className="text-red-600 focus:text-red-700 focus:bg-red-50">
                           <Trash2 className="mr-2 h-4 w-4 text-red-600" />
                           Supprimer
                         </DropdownMenuItem>

@@ -216,7 +216,7 @@ export function ZoneListSidebar({
                             Localiser
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
+                          <DropdownMenuItem variant="destructive"
                             className="text-destructive"
                             onClick={() => onZoneDelete(zone)}
                           >

@@ -326,7 +326,7 @@ function WorkedHoursContent() {
               Modifier
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
+            <DropdownMenuItem variant="destructive"
               onClick={() => handleDelete(hours)}
               className="text-red-600"
             >

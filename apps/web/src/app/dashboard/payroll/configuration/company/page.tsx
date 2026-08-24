@@ -247,7 +247,7 @@ export default function CompanyConfigurationPage() {
           <Pencil className="h-4 w-4 mr-2 text-orange-500" />
           Modifier
         </DropdownMenuItem>
-        <DropdownMenuItem
+        <DropdownMenuItem variant="destructive"
           onClick={() => handleDelete(type, item)}
           className="text-destructive"
         >

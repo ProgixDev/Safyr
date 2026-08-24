@@ -272,7 +272,7 @@ export default function SalaryMaintenanceAnalysisPage() {
                 <Edit className="h-4 w-4 mr-2 text-orange-500" />
                 Modifier
               </DropdownMenuItem>
-              <DropdownMenuItem
+              <DropdownMenuItem variant="destructive"
                 className="text-red-600"
                 onClick={() => handleDelete(maintenance)}
               >

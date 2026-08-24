@@ -396,7 +396,7 @@ export default function H0B0Page() {
                 <RotateCcw className="h-4 w-4 text-blue-500" />
                 Ajouter recyclage
               </DropdownMenuItem>
-              <DropdownMenuItem
+              <DropdownMenuItem variant="destructive"
                 onClick={() => {
                   setSelectedCertificationForDelete(certification);
                   setIsDeleteModalOpen(true);

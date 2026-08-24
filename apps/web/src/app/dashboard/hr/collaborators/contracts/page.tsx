@@ -371,7 +371,7 @@ export default function ContractsPage() {
                 Envoyer en signature
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem
+            <DropdownMenuItem variant="destructive"
               onClick={() => handleDelete(contract.id)}
               className="gap-2 text-destructive"
             >

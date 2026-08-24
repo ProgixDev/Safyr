@@ -466,7 +466,7 @@ export default function TimeManagementPage() {
           </>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem
+        <DropdownMenuItem variant="destructive"
           onClick={() => handleDeleteClick(request)}
           className="text-red-600"
         >

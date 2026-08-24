@@ -252,7 +252,7 @@ export default function IndemnitesConfigurationPage() {
           <Pencil className="h-4 w-4 mr-2 text-orange-500" />
           Modifier
         </DropdownMenuItem>
-        <DropdownMenuItem
+        <DropdownMenuItem variant="destructive"
           onClick={() => handleDelete(indemnite)}
           className="text-destructive"
         >

@@ -292,7 +292,7 @@ export function ProceduresSection() {
                 </DropdownMenuItem>
               </>
             )}
-            <DropdownMenuItem
+            <DropdownMenuItem variant="destructive"
               onClick={() => handleDelete(procedure.id)}
               className="gap-2 text-destructive"
             >
