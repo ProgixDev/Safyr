@@ -1109,6 +1109,27 @@ export default function ImpotSIEPage() {
                     render: (courrier) => getOrganismeText(courrier.organisme),
                   },
                   {
+                    key: "document",
+                    label: "Scan",
+                    // Comme sur les dossiers TVA : la pièce déposée se lit
+                    // directement sur la ligne, sans ouvrir le menu.
+                    render: (courrier) => (
+                      <span
+                        className={cn(
+                          "truncate text-xs",
+                          courrier.document
+                            ? "text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                        title={courrier.document?.name}
+                      >
+                        {courrier.document
+                          ? courrier.document.name
+                          : "Non fourni"}
+                      </span>
+                    ),
+                  },
+                  {
                     key: "statut",
                     label: "Statut",
                     render: (courrier) => (
