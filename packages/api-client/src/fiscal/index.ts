@@ -8,7 +8,9 @@ export type FiscalRecordType =
   | "akto"
   | "organisme"
   | "divers"
-  | "courrier_organisme";
+  | "courrier_organisme"
+  | "equipement"
+  | "avantage";
 
 /** Ligne d'un registre administratif (TVA, CFE, PAS, courrier, AKTO). */
 export interface FiscalRecord {

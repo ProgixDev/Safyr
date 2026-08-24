@@ -331,6 +331,14 @@ export function DataTable<T extends object>({
             <Input
               placeholder={searchPlaceholder}
               className="pl-8"
+              // Sans cela le navigateur propose — et remplit — l'adresse e-mail
+              // enregistrée : le tableau se retrouve filtré sur « aucun
+              // résultat » sans que l'utilisateur ait rien tapé.
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              name="recherche-tableau"
+              data-form-type="other"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRegistre } from "@/hooks/fiscal";
 import { CATALOGUE_AVANTAGES, versDotation } from "@/lib/equipment-catalog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,58 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
     }
   };
 
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  // Dotations enregistrées en base : elles ne vivaient qu'en mémoire et
+  // disparaissaient au rechargement de la page.
+  const registre = useRegistre<Equipment & { id: string }>("avantage", []);
+
+  const raviverDates = (ligne: Record<string, unknown>): Equipment => {
+    const enDate = (v: unknown) => (v ? new Date(v as string) : undefined);
+    const signature = (v: unknown) =>
+      v
+        ? {
+            ...(v as Record<string, unknown>),
+            signedAt: enDate((v as Record<string, unknown>).signedAt),
+          }
+        : undefined;
+    return {
+      ...(ligne as unknown as Equipment),
+      assignedAt: enDate(ligne.assignedAt) ?? new Date(),
+      returnedAt: enDate(ligne.returnedAt),
+      issuanceSignature: signature(ligne.issuanceSignature),
+      returnSignature: signature(ligne.returnSignature),
+    } as Equipment;
+  };
+
+  const equipment: Equipment[] = registre.lignes
+    .filter(
+      (l) => (l as unknown as Record<string, unknown>).memberId === employee.id,
+    )
+    .map((l) => raviverDates(l as unknown as Record<string, unknown>));
+
+  /** Écrit en base la différence entre l'ancien et le nouvel état. */
+  const setEquipment = (
+    maj: Equipment[] | ((prev: Equipment[]) => Equipment[]),
+  ) => {
+    const suivant = typeof maj === "function" ? maj(equipment) : maj;
+    const avant = new Map(equipment.map((e) => [e.id, JSON.stringify(e)]));
+    for (const item of suivant) {
+      if (avant.get(item.id) === JSON.stringify(item)) continue;
+      void registre.enregistrer(
+        { ...item, memberId: employee.id } as unknown as Equipment & {
+          id: string;
+        },
+        {
+          period: String(new Date().getFullYear()),
+          label: item.name,
+          status: item.status,
+        },
+      );
+    }
+    const gardes = new Set(suivant.map((e) => e.id));
+    for (const ancien of equipment) {
+      if (!gardes.has(ancien.id)) void registre.supprimerLigne(ancien.id);
+    }
+  };
 
   // Available avantage pool (mock data)
   const [availableEquipment] = useState<Equipment[]>(() =>

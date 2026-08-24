@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
+import { PostFormDialog } from "@/components/sites/PostFormDialog";
 import { Modal } from "@/components/ui/modal";
 import { useSites, useDeleteSite } from "@/hooks/sites";
 import { SiteCreateDialog } from "@/components/sites/SiteCreateDialog";
@@ -16,6 +17,7 @@ import type { Site } from "@safyr/api-client";
 
 export default function SitesPage() {
   const router = useRouter();
+  const [sitePourPoste, setSitePourPoste] = useState<string | null>(null);
   const { data, isLoading } = useSites();
   const deleteMutation = useDeleteSite();
   const sites = useMemo<Site[]>(() => data ?? [], [data]);
@@ -180,6 +182,14 @@ export default function SitesPage() {
                 onView={() => router.push(`/dashboard/hr/sites/${s.id}`)}
                 onEdit={() => setToEdit(s)}
                 onDelete={() => setToDelete(s)}
+                extraItems={[
+                  {
+                    label: "Ajouter un poste",
+                    icon: Plus,
+                    tone: "validate",
+                    onClick: () => setSitePourPoste(s.id),
+                  },
+                ]}
               />
             )}
             onRowClick={(s) => router.push(`/dashboard/hr/sites/${s.id}`)}
@@ -189,6 +199,16 @@ export default function SitesPage() {
       </Card>
 
       <SiteCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      {/* La création d'un poste n'était accessible qu'après avoir ouvert le
+          site : elle se fait maintenant directement depuis la liste. */}
+      {sitePourPoste && (
+        <PostFormDialog
+          open
+          onOpenChange={(ouvert) => !ouvert && setSitePourPoste(null)}
+          siteId={sitePourPoste}
+        />
+      )}
 
       <SiteCreateDialog
         open={!!toEdit}

@@ -28,6 +28,13 @@ const CommandInput = React.forwardRef<
   <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
     <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
     <CommandPrimitive.Input
+      // Même raison que la recherche des tableaux : l'autoremplissage du
+      // navigateur vidait la liste de choix.
+      autoComplete="off"
+      autoCorrect="off"
+      spellCheck={false}
+      name="recherche-liste"
+      data-form-type="other"
       ref={ref}
       className={cn(
         "flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",

@@ -11,6 +11,9 @@ export const FiscalRecordTypeSchema = z.enum([
   "organisme",
   "divers",
   "courrier_organisme",
+  // Dotations et avantages attribués à un salarié
+  "equipement",
+  "avantage",
 ]);
 
 export const CreateFiscalRecordSchema = z.object({
