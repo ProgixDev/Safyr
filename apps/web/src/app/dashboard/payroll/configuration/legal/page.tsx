@@ -207,18 +207,18 @@ export default function LegalConfigurationPage() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => handleOpenModal("view", convention)}>
-          <Eye className="h-4 w-4 mr-2" />
+          <Eye className="h-4 w-4 mr-2 text-green-600" />
           Voir
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleOpenModal("edit", convention)}>
-          <Pencil className="h-4 w-4 mr-2" />
+          <Pencil className="h-4 w-4 mr-2 text-orange-500" />
           Modifier
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => handleDelete(convention)}
           className="text-destructive"
         >
-          <Trash2 className="h-4 w-4 mr-2" />
+          <Trash2 className="h-4 w-4 mr-2 text-red-600" />
           Supprimer
         </DropdownMenuItem>
       </DropdownMenuContent>

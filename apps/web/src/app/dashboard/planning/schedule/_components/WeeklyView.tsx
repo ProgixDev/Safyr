@@ -390,7 +390,7 @@ export function WeeklyView({
                             onClick={() => onDeleteWeek(agentId, weekDates)}
                             className="text-destructive"
                           >
-                            <Trash2 className="h-3 w-3 mr-2" />
+                            <Trash2 className="h-3 w-3 mr-2 text-red-600" />
                             Vider la semaine
                           </DropdownMenuItem>
                         </>
@@ -400,7 +400,7 @@ export function WeeklyView({
                           onClick={() => onDeleteWeek(agentId, weekDates)}
                           className="text-destructive"
                         >
-                          <Trash2 className="h-3 w-3 mr-2" />
+                          <Trash2 className="h-3 w-3 mr-2 text-red-600" />
                           Vider la semaine
                         </DropdownMenuItem>
                       )}

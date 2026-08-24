@@ -264,14 +264,14 @@ export function ProceduresSection() {
               onClick={() => handleView(procedure)}
               className="gap-2"
             >
-              <Eye className="h-4 w-4" />
+              <Eye className="h-4 w-4 text-green-600" />
               Voir
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handleEdit(procedure)}
               className="gap-2"
             >
-              <Pencil className="h-4 w-4" />
+              <Pencil className="h-4 w-4 text-orange-500" />
               Modifier
             </DropdownMenuItem>
             {procedure.status === "ongoing" && (
@@ -296,7 +296,7 @@ export function ProceduresSection() {
               onClick={() => handleDelete(procedure.id)}
               className="gap-2 text-destructive"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4 text-red-600" />
               Supprimer
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -265,15 +265,18 @@ export default function SalaryMaintenanceAnalysisPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => handleViewDetails(maintenance)}>
-                <Eye className="h-4 w-4 mr-2" />
+                <Eye className="h-4 w-4 mr-2 text-green-600" />
                 Voir
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleEdit(maintenance)}>
-                <Edit className="h-4 w-4 mr-2" />
+                <Edit className="h-4 w-4 mr-2 text-orange-500" />
                 Modifier
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDelete(maintenance)}>
-                <Trash2 className="h-4 w-4 mr-2" />
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={() => handleDelete(maintenance)}
+              >
+                <Trash2 className="h-4 w-4 mr-2 text-red-600" />
                 Supprimer
               </DropdownMenuItem>
             </DropdownMenuContent>

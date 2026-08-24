@@ -248,18 +248,18 @@ export default function OrganismsConfigurationPage() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => handleOpenModal("view", rule)}>
-          <Eye className="h-4 w-4 mr-2" />
+          <Eye className="h-4 w-4 mr-2 text-green-600" />
           Voir
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleOpenModal("edit", rule)}>
-          <Pencil className="h-4 w-4 mr-2" />
+          <Pencil className="h-4 w-4 mr-2 text-orange-500" />
           Modifier
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => handleDelete(rule)}
           className="text-destructive"
         >
-          <Trash2 className="h-4 w-4 mr-2" />
+          <Trash2 className="h-4 w-4 mr-2 text-red-600" />
           Supprimer
         </DropdownMenuItem>
       </DropdownMenuContent>

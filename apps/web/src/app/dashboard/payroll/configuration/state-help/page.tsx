@@ -242,18 +242,18 @@ export default function StateHelpConfigurationPage() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => handleOpenModal("view", help)}>
-          <Eye className="h-4 w-4 mr-2" />
+          <Eye className="h-4 w-4 mr-2 text-green-600" />
           Voir
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleOpenModal("edit", help)}>
-          <Pencil className="h-4 w-4 mr-2" />
+          <Pencil className="h-4 w-4 mr-2 text-orange-500" />
           Modifier
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => handleDelete(help)}
           className="text-destructive"
         >
-          <Trash2 className="h-4 w-4 mr-2" />
+          <Trash2 className="h-4 w-4 mr-2 text-red-600" />
           Supprimer
         </DropdownMenuItem>
       </DropdownMenuContent>

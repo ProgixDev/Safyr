@@ -169,7 +169,7 @@ export default function PlanningAgentsPage() {
                 handleView(agent);
               }}
             >
-              <Eye className="h-4 w-4 mr-2" />
+              <Eye className="h-4 w-4 mr-2 text-green-600" />
               Voir
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -178,7 +178,7 @@ export default function PlanningAgentsPage() {
                 handleEditFromDropdown(agent);
               }}
             >
-              <Pencil className="h-4 w-4 mr-2" />
+              <Pencil className="h-4 w-4 mr-2 text-orange-500" />
               Modifier
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -188,7 +188,7 @@ export default function PlanningAgentsPage() {
               }}
               className="text-red-600"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="h-4 w-4 mr-2 text-red-600" />
               Supprimer
             </DropdownMenuItem>
           </DropdownMenuContent>

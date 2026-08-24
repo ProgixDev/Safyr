@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Modal } from "@/components/ui/modal";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -322,27 +323,11 @@ export default function PostesPage() {
       label: "",
       render: (s) => (
         <div onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleView(s)}>
-                <Eye className="h-4 w-4 mr-2" /> Voir
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleEdit(s)}>
-                <Pencil className="h-4 w-4 mr-2" /> Modifier
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDeleteClick(s)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" /> Supprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RowActionsMenu
+            onView={() => handleView(s)}
+            onEdit={() => handleEdit(s)}
+            onDelete={() => handleDeleteClick(s)}
+          />
         </div>
       ),
     },

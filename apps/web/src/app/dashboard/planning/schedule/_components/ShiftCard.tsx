@@ -207,7 +207,7 @@ export function ShiftCard({
                 onEdit(shift);
               }}
             >
-              <Pencil className="h-3 w-3 mr-2" />
+              <Pencil className="h-3 w-3 mr-2 text-orange-500" />
               Modifier
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -216,7 +216,7 @@ export function ShiftCard({
                 onCustomizeHours(shift);
               }}
             >
-              <Clock className="h-3 w-3 mr-2" />
+              <Clock className="h-3 w-3 mr-2 text-blue-500" />
               Personnaliser horaires
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -235,7 +235,7 @@ export function ShiftCard({
               }}
               className="text-destructive"
             >
-              <Trash2 className="h-3 w-3 mr-2" />
+              <Trash2 className="h-3 w-3 mr-2 text-red-600" />
               Supprimer
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -351,16 +351,16 @@ export default function ShiftsPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => handleView(s)}>
-                <Eye className="h-4 w-4 mr-2" /> Voir
+                <Eye className="h-4 w-4 mr-2 text-green-600" /> Voir
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleEdit(s)}>
-                <Pencil className="h-4 w-4 mr-2" /> Modifier
+                <Pencil className="h-4 w-4 mr-2 text-orange-500" /> Modifier
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive"
                 onClick={() => handleDeleteClick(s)}
               >
-                <Trash2 className="h-4 w-4 mr-2" /> Supprimer
+                <Trash2 className="h-4 w-4 mr-2 text-red-600" /> Supprimer
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

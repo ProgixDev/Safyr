@@ -397,14 +397,14 @@ export default function SSIAPPage() {
                 onClick={() => handleViewCertification(certification)}
                 className="flex items-center gap-2"
               >
-                <Eye className="h-4 w-4" />
+                <Eye className="h-4 w-4 text-green-600" />
                 Voir
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleEditCertification(certification)}
                 className="flex items-center gap-2"
               >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-4 w-4 text-orange-500" />
                 Modifier
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -414,7 +414,7 @@ export default function SSIAPPage() {
                 }}
                 className="flex items-center gap-2 text-destructive"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4 text-red-600" />
                 Supprimer
               </DropdownMenuItem>
             </DropdownMenuContent>

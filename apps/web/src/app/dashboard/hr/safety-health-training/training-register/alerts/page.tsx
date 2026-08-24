@@ -245,7 +245,7 @@ export default function TrainingAlertsPage() {
                 onClick={() => handleViewAlert(alert)}
                 className="flex items-center gap-2"
               >
-                <Eye className="h-4 w-4" />
+                <Eye className="h-4 w-4 text-green-600" />
                 Voir
               </DropdownMenuItem>
               {alert.status !== "acknowledged" && (
@@ -253,7 +253,7 @@ export default function TrainingAlertsPage() {
                   onClick={() => handleAcknowledgeAlert(alert)}
                   className="flex items-center gap-2"
                 >
-                  <CheckCircle className="h-4 w-4" />
+                  <CheckCircle className="h-4 w-4 text-emerald-500" />
                   Acquitter
                 </DropdownMenuItem>
               )}

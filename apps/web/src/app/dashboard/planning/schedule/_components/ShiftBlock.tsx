@@ -249,7 +249,7 @@ export function ShiftBlock({
                 onEdit(shift);
               }}
             >
-              <Pencil className="h-4 w-4 mr-2" />
+              <Pencil className="h-4 w-4 mr-2 text-orange-500" />
               Modifier
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -258,7 +258,7 @@ export function ShiftBlock({
                 onCustomizeHours(shift);
               }}
             >
-              <Clock className="h-4 w-4 mr-2" />
+              <Clock className="h-4 w-4 mr-2 text-blue-500" />
               Personnaliser horaires
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -277,7 +277,7 @@ export function ShiftBlock({
                 onDelete(shift.id);
               }}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="h-4 w-4 mr-2 text-red-600" />
               Supprimer
             </DropdownMenuItem>
           </DropdownMenuContent>

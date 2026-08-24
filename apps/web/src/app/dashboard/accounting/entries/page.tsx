@@ -212,7 +212,7 @@ function AccountingEntriesContent() {
                 setIsViewModalOpen(true);
               }}
             >
-              <Eye className="h-4 w-4 mr-2" />
+              <Eye className="h-4 w-4 mr-2 text-green-600" />
               Voir le détail
             </DropdownMenuItem>
           </DropdownMenuContent>
