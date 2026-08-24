@@ -96,6 +96,11 @@ export class ContractsService {
 
   async remove(orgId: string, memberId: string, contractId: string) {
     await this.ensureContract(orgId, memberId, contractId);
+    // Le contrat signé rattaché suit la suppression : sans cela le fichier
+    // restait référencé par une ligne pointant sur un contrat disparu.
+    await this.prisma.document.deleteMany({
+      where: { organizationId: orgId, scope: "contract", scopeId: contractId },
+    });
     return this.prisma.contract.delete({ where: { id: contractId } });
   }
 }
