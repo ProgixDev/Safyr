@@ -21,6 +21,7 @@ import { OvertimeCounterOverview } from "@/components/payroll/OvertimeCounterOve
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 import {
   Select,
   SelectContent,
@@ -117,7 +118,9 @@ export default function OvertimeTrackingPage() {
     totalOvertimePending: 0,
   }));
   const [employees, setEmployees] = useState(mockEmployees);
-  const [monthlyData, setMonthlyData] = useState(mockMonthlyOvertime);
+  // Enregistré en base : les relevés mensuels ne vivaient que dans le navigateur.
+  const [monthlyData, setMonthlyData] =
+    useListePersistante<MonthlyOvertime>("heures_sup");
   const [selectedEmployee, setSelectedEmployee] =
     useState<EmployeeContract | null>(null);
   const [selectedOvertime, setSelectedOvertime] =

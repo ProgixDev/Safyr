@@ -39,6 +39,7 @@ import {
   SMIC_HORAIRE_2024,
 } from "@/data/payroll-state-help";
 import { StateHelp } from "@/lib/types.d";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 type ModalMode = "view" | "create" | "edit" | null;
 
@@ -62,7 +63,12 @@ const calculationMethodLabels: Record<StateHelp["calculationMethod"], string> =
   };
 
 export default function StateHelpConfigurationPage() {
-  const [helps, setHelps] = useState<StateHelp[]>(mockStateHelps);
+  // La liste livrée reste dans le code ; les ajouts et modifications
+  // du client sont enregistrés en base.
+  const [helps, setHelps] = useListePersistante<StateHelp>("aide_etat", {
+    reference: mockStateHelps,
+    cle: (ligne) => ligne.code,
+  });
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedHelp, setSelectedHelp] = useState<StateHelp | null>(null);
   const [formData, setFormData] = useState<Partial<StateHelp>>({});

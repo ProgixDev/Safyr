@@ -39,6 +39,7 @@ import { WorkAccident } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 // Mock data
 const mockWorkAccidents: WorkAccident[] = [];
@@ -71,7 +72,9 @@ const statusColors = {
 
 export default function WorkAccidentsPage() {
   const mockEmployees = useEmployeeOptions();
-  const [accidents, setAccidents] = useState<WorkAccident[]>(mockWorkAccidents);
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [accidents, setAccidents] =
+    useListePersistante<WorkAccident>("accident_travail");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingAccident, setEditingAccident] = useState<WorkAccident | null>(

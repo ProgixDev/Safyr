@@ -26,6 +26,7 @@ import {
 import { useBillingClients } from "@/hooks/billing";
 import { mockBillingServices, computePriceTTC } from "@/data/billing-services";
 import Link from "next/link";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 function formatCurrency(value: number) {
   return `${(Math.round(value * 100) / 100).toLocaleString("fr-FR")} €`;
@@ -55,7 +56,8 @@ type QuoteFormData = Partial<BillingQuote> & { quoteType?: string };
 
 export default function BillingQuotesPage() {
   const mockBillingClients = useBillingClients();
-  const [quotes, setQuotes] = useState<BillingQuote[]>(mockBillingQuotes);
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [quotes, setQuotes] = useListePersistante<BillingQuote>("devis");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<BillingQuote | null>(null);

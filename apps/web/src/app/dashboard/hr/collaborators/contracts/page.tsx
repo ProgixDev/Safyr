@@ -35,6 +35,7 @@ import { Contract } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 // Téléchargement (mock) d'un document : génère un fichier placeholder.
 // À remplacer par le vrai fichier servi par le backend une fois branché.
@@ -81,7 +82,8 @@ const typeLabels = {
 };
 
 export default function ContractsPage() {
-  const [contracts, setContracts] = useState<Contract[]>(mockContracts);
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [contracts, setContracts] = useListePersistante<Contract>("contrat_rh");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);

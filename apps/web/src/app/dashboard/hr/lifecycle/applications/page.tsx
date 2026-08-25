@@ -23,6 +23,7 @@ import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { candidateFromEmail } from "@/lib/candidate-from-email";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 // Mock data - replace with API call
 const mockApplications: JobApplication[] = [];
@@ -46,8 +47,9 @@ const statusColors = {
 const commonPositions = EMPLOYEE_POSTE_OPTIONS;
 
 export default function ApplicationsPage() {
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
   const [applications, setApplications] =
-    useState<JobApplication[]>(mockApplications);
+    useListePersistante<JobApplication>("candidature");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingApplication, setEditingApplication] =

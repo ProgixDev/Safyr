@@ -20,6 +20,8 @@ export const CreateSiteSchema = z.object({
   geofenceRadiusMeters: z.number().int().min(10).max(10000).optional(),
   notes: z.string().trim().max(500).optional(),
   active: z.boolean().default(true),
+  /** Champs propres au planning : contact, contraintes, tarifs. */
+  details: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const UpdateSiteSchema = CreateSiteSchema.partial();

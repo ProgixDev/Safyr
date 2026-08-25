@@ -18,6 +18,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { mockBillingServices, computePriceTTC } from "@/data/billing-services";
 import { useSubcontractors } from "@/hooks/clients";
 import { QuoteLine } from "@/data/billing-quotes";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 interface PurchaseOrder {
   id: string;
@@ -47,7 +48,8 @@ function createEmptyLine(): QuoteLine {
 
 export default function BillingPurchaseOrdersPage() {
   const { data: mockSubcontractors = [] } = useSubcontractors();
-  const [data, setData] = useState<PurchaseOrder[]>([]);
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [data, setData] = useListePersistante<PurchaseOrder>("bon_commande");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formData, setFormData] = useState<{
     subcontractorId: string;

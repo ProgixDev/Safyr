@@ -35,6 +35,7 @@ import {
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 /**
  * Le registre unique du personnel est obligatoire et doit reprendre, dans
@@ -103,7 +104,9 @@ export default function PersonnelRegisterPage() {
 
   // Le registre suit les dossiers salariés : on le resynchronise dès que la
   // liste change, tout en gardant les compléments saisis sur cet écran.
-  const [entries, setEntries] = useState<PersonnelRegisterEntry[]>([]);
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [entries, setEntries] =
+    useListePersistante<PersonnelRegisterEntry>("registre_personnel");
   const [cleSalaries, setCleSalaries] = useState<string | null>(null);
   const cle = salaries.map((s) => s.id).join(",");
   if (cle !== cleSalaries) {

@@ -36,15 +36,16 @@ import {
   Trash2,
 } from "lucide-react";
 import type { TrainingCertification } from "@/lib/types";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 // Données de démonstration : habilitations électriques H0B0.
 // Recyclage recommandé tous les 3 ans (NF C 18-510).
 const mockH0B0Certifications: TrainingCertification[] = [];
 
 export default function H0B0Page() {
-  const [certifications, setCertifications] = useState<TrainingCertification[]>(
-    mockH0B0Certifications,
-  );
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [certifications, setCertifications] =
+    useListePersistante<TrainingCertification>("h0b0");
   const [isRecycleModalOpen, setIsRecycleModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isCertificationModalOpen, setIsCertificationModalOpen] =

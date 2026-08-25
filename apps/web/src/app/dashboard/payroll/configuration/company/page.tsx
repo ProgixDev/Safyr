@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 import {
   Plus,
   MoreHorizontal,
@@ -43,11 +44,15 @@ type ModalMode = "view" | "create" | "edit" | null;
 
 export default function CompanyConfigurationPage() {
   const [activeTab, setActiveTab] = useState("structures");
-  const [structures, setStructures] = useState<CompanyStructure[]>(
-    mockCompanyStructures,
+  // Structures et virements : la liste livrée reste dans le code, les
+  // modifications du client sont enregistrées en base.
+  const [structures, setStructures] = useListePersistante<CompanyStructure>(
+    "structure_paie",
+    { reference: mockCompanyStructures },
   );
-  const [transfers, setTransfers] = useState<AccountingTransfer[]>(
-    mockAccountingTransfers,
+  const [transfers, setTransfers] = useListePersistante<AccountingTransfer>(
+    "structure_paie",
+    { reference: mockAccountingTransfers },
   );
 
   const [modalMode, setModalMode] = useState<ModalMode>(null);

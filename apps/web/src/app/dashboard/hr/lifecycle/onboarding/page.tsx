@@ -56,6 +56,7 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 // Types pour les documents du dossier salarié
 interface EmployeeDocument {
@@ -275,8 +276,9 @@ const documentTypeIcons = {
 export default function OnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
   const [onboardingPaths, setOnboardingPaths] =
-    useState<OnboardingPath[]>(mockOnboardingPaths);
+    useListePersistante<OnboardingPath>("parcours_integration");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);

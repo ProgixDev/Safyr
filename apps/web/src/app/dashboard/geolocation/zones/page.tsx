@@ -11,6 +11,7 @@ import { ZoneMap } from "@/components/geolocation/ZoneMap";
 import { ZoneListSidebar } from "@/components/geolocation/ZoneListSidebar";
 import { ZoneFormPanel } from "@/components/geolocation/ZoneFormModal";
 import { ZonePreviewMap } from "@/components/geolocation/ZonePreviewMap";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 import {
   GeoZone,
   ZoneShape,
@@ -41,7 +42,8 @@ function describeShape(shape: GeoZone["shape"]): string {
 // ── Page component ─────────────────────────────────────────────
 
 export default function ZonesPage() {
-  const [zones, setZones] = useState<GeoZone[]>(mockGeolocationZones);
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [zones, setZones] = useListePersistante<GeoZone>("zone_geo");
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");

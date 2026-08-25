@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 import {
   Plus,
   CheckCircle,
@@ -56,8 +57,9 @@ const certificationTypeLabels: Record<CertificationType, string> = {
 
 export default function CertificationsPage() {
   const mockEmployees = useEmployeesRH();
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
   const [certifications, setCertifications] =
-    useState<TrainingCertification[]>(mockCertifications);
+    useListePersistante<TrainingCertification>("certification");
   const [isCertificationModalOpen, setIsCertificationModalOpen] =
     useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);

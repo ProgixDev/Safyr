@@ -36,14 +36,15 @@ import {
   Trash2,
 } from "lucide-react";
 import type { TrainingCertification } from "@/lib/types";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 // Mock data for SST certifications with recycles
 const mockSSTCertifications: TrainingCertification[] = [];
 
 export default function SSTPage() {
-  const [certifications, setCertifications] = useState<TrainingCertification[]>(
-    mockSSTCertifications,
-  );
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [certifications, setCertifications] =
+    useListePersistante<TrainingCertification>("sst");
   const [isRecycleModalOpen, setIsRecycleModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isCertificationModalOpen, setIsCertificationModalOpen] =

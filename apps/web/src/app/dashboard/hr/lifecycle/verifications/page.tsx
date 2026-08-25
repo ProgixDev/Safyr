@@ -22,6 +22,7 @@ import { RegulatoryVerification } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { CNAPS_TELESERVICES_URL, openExternal } from "@/lib/external-links";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 // Mock data - replace with API call
 const mockVerifications: RegulatoryVerification[] = [];
@@ -71,8 +72,9 @@ function downloadDocument(path: string) {
 }
 
 export default function VerificationsPage() {
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
   const [verifications, setVerifications] =
-    useState<RegulatoryVerification[]>(mockVerifications);
+    useListePersistante<RegulatoryVerification>("verification");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingVerification, setEditingVerification] =

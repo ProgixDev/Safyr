@@ -29,6 +29,7 @@ import {
   EmailTemplateCategoryOption,
 } from "@/lib/types";
 import { mockEmailTemplates } from "@/data/email-templates";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 const TEMPLATE_CATEGORIES: EmailTemplateCategoryOption[] = [
   { value: "rh", label: "RH Général" },
@@ -42,8 +43,15 @@ const TEMPLATE_CATEGORIES: EmailTemplateCategoryOption[] = [
 ];
 
 export default function TemplatesPage() {
-  const [templates, setTemplates] =
-    useState<EmailTemplate[]>(mockEmailTemplates);
+  // La liste livrée reste dans le code ; les ajouts et modifications
+  // du client sont enregistrés en base.
+  const [templates, setTemplates] = useListePersistante<EmailTemplate>(
+    "modele_email",
+    {
+      reference: mockEmailTemplates,
+      cle: (ligne) => ligne.id,
+    },
+  );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(

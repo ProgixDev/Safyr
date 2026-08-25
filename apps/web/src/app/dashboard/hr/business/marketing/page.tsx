@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Calendar, TrendingUp, Mail, Share2 } from "lucide-react";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 import {
   mockSocialPosts,
   mockEmailAutoReplies,
@@ -33,10 +34,13 @@ export default function MarketingPage() {
   const [activeTab, setActiveTab] = useState<"posts" | "emails" | "crm">(
     "posts",
   );
-  const [posts, setPosts] = useState<SocialPost[]>(mockSocialPosts);
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [posts, setPosts] = useListePersistante<SocialPost>(
+    "publication_sociale",
+  );
   const [autoReplies] = useState<EmailAutoReply[]>(mockEmailAutoReplies);
   const [crmCustomers, setCrmCustomers] =
-    useState<CRMCustomer[]>(mockCRMCustomers);
+    useListePersistante<CRMCustomer>("client_crm");
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(
     null,
   );

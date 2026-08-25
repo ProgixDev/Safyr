@@ -57,6 +57,8 @@ export interface Site {
   geofenceRadiusMeters: number | null;
   notes: string | null;
   active: boolean;
+  /** Champs propres au planning : contact, contraintes, tarifs. */
+  details?: Record<string, unknown> | null;
   posts: Post[];
   createdAt: string;
   updatedAt: string;
@@ -74,6 +76,7 @@ export interface CreateSitePayload {
   geofenceRadiusMeters?: number;
   notes?: string;
   active?: boolean;
+  details?: Record<string, unknown>;
 }
 
 export type UpdateSitePayload = Partial<CreateSitePayload>;

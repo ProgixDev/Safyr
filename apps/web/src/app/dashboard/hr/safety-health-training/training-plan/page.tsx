@@ -45,6 +45,7 @@ import {
   Building2,
 } from "lucide-react";
 import type { TrainingPlan, TrainingBudget } from "@/lib/types";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 /**
  * Les participants sont stockés sous forme de matricules (ex. "EMP001").
@@ -190,8 +191,9 @@ const mockTrainingBudget: TrainingBudget = {
 
 export default function TrainingPlanPage() {
   const mockEmployees = useEmployeesRH();
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
   const [trainingPlans, setTrainingPlans] =
-    useState<TrainingPlan[]>(mockTrainingPlans);
+    useListePersistante<TrainingPlan>("plan_formation");
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);

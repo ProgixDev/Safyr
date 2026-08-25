@@ -40,6 +40,7 @@ import {
   PLAFOND_SS_MENSUEL,
 } from "@/data/payroll-organisms";
 import { OrganismRule } from "@/lib/types.d";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 type ModalMode = "view" | "create" | "edit" | null;
 
@@ -61,7 +62,15 @@ const appliesToLabels: Record<OrganismRule["appliesTo"], string> = {
 };
 
 export default function OrganismsConfigurationPage() {
-  const [rules, setRules] = useState<OrganismRule[]>(mockOrganismRules);
+  // La liste livrée reste dans le code ; les ajouts et modifications
+  // du client sont enregistrés en base.
+  const [rules, setRules] = useListePersistante<OrganismRule>(
+    "organisme_paie",
+    {
+      reference: mockOrganismRules,
+      cle: (ligne) => ligne.code,
+    },
+  );
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedRule, setSelectedRule] = useState<OrganismRule | null>(null);
   const [formData, setFormData] = useState<Partial<OrganismRule>>({});

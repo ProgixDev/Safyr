@@ -64,7 +64,7 @@ import {
 import { mockTimeOffRequests } from "@/data/time-off";
 import { usePlanningAgents, usePlanningSites } from "@/hooks/planning";
 import { useShifts, useCreateShift, useDeleteShift } from "@/hooks/shifts";
-import { useShiftTemplates } from "@/hooks/contracts";
+import { useShiftTemplates, useCreateShiftTemplate } from "@/hooks/contracts";
 import type { Shift as ApiShift } from "@safyr/api-client";
 import { playAlertBeep } from "@/lib/audio-alerts";
 import { DailyView } from "./_components/DailyView";
@@ -198,6 +198,7 @@ export function ScheduleView({
   };
   // Modeles de vacation enregistres, partages avec l'ecran Shift.
   const { data: modelesApi = [] } = useShiftTemplates();
+  const creerModele = useCreateShiftTemplate();
 
   // Vacations réellement enregistrées en base.
   const { data: vacationsApi = [] } = useShifts({});
@@ -1128,20 +1129,39 @@ export function ScheduleView({
     setEditingShift(null);
   };
 
-  const handleSaveAsTemplate = () => {
+  const handleSaveAsTemplate = async () => {
     if (!activeSiteIdRef.current) return;
-    const newTemplate: StandardShift = {
-      id: `std-${Date.now()}`,
-      siteId: activeSiteIdRef.current,
-      name: templateForm.name,
-      startTime: templateForm.startTime,
-      endTime: templateForm.endTime,
-      breakDuration: templateForm.breakDuration,
-      color: templateForm.color,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setStandardShifts([...standardShifts, newTemplate]);
+    // Le modèle est enregistré en base : il ne vivait que dans l'onglet
+    // ouvert et disparaissait au rechargement de la page.
+    if (!simulationMode) {
+      try {
+        await creerModele.mutateAsync({
+          siteId: activeSiteIdRef.current,
+          name: templateForm.name,
+          startTime: templateForm.startTime,
+          endTime: templateForm.endTime,
+          breakDuration: templateForm.breakDuration,
+          color: templateForm.color,
+        });
+      } catch (e) {
+        console.error("Modèle non enregistré", e);
+      }
+    } else {
+      setStandardShifts([
+        ...standardShifts,
+        {
+          id: `std-${Date.now()}`,
+          siteId: activeSiteIdRef.current,
+          name: templateForm.name,
+          startTime: templateForm.startTime,
+          endTime: templateForm.endTime,
+          breakDuration: templateForm.breakDuration,
+          color: templateForm.color,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+    }
     setShowTemplateModal(false);
     setTemplateForm({
       name: "",
@@ -2946,7 +2966,7 @@ export function ScheduleView({
             },
             primary: {
               label: "Enregistrer",
-              onClick: handleSaveAsTemplate,
+              onClick: () => void handleSaveAsTemplate(),
             },
           }}
         >

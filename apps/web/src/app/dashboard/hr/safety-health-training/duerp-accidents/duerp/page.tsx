@@ -18,6 +18,7 @@ import {
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Plus, Trash2, FileDown, FileSpreadsheet } from "lucide-react";
 import { exportDuerpToPdf, exportDuerpToExcel } from "@/lib/duerp-export";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 interface Risk {
   risque: string;
@@ -368,7 +369,12 @@ const initialPostes: Poste[] = [
 ];
 
 export default function DUERPPage() {
-  const [postes, setPostes] = useState<Poste[]>(initialPostes);
+  // Les postes livrés restent dans le code ; les ajouts et les évaluations
+  // du client sont enregistrés en base.
+  const [postes, setPostes] = useListePersistante<Poste>("duerp_poste", {
+    reference: initialPostes,
+    cle: (poste) => poste.title,
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPosteTitle, setNewPosteTitle] = useState("");
   const [newRisks, setNewRisks] = useState<Risk[]>([]);

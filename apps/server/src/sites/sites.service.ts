@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "generated/prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import type {
   CreateSiteDto,
@@ -29,8 +30,13 @@ export class SitesService {
   }
 
   create(organizationId: string, data: CreateSiteDto) {
+    const { details, ...champs } = data;
     return this.prisma.site.create({
-      data: { ...data, organizationId },
+      data: {
+        ...champs,
+        organizationId,
+        ...(details ? { details: details as Prisma.InputJsonValue } : {}),
+      },
       include: { posts: true },
     });
   }
@@ -41,9 +47,15 @@ export class SitesService {
     data: UpdateSiteDto,
   ) {
     await this.get(organizationId, siteId);
+    const { details, ...champs } = data;
     return this.prisma.site.update({
       where: { id: siteId },
-      data,
+      data: {
+        ...champs,
+        ...(details !== undefined
+          ? { details: details as Prisma.InputJsonValue }
+          : {}),
+      },
       include: { posts: { orderBy: { name: "asc" } } },
     });
   }

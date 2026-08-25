@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Save, Eye, Plus, Trash2 } from "lucide-react";
 import { useBillingClients } from "@/hooks/billing";
+import { useCreateFiscalRecord } from "@/hooks/fiscal";
 import { mockBillingServices, computePriceTTC } from "@/data/billing-services";
 import { QuoteLine } from "@/data/billing-quotes";
 
@@ -35,6 +36,7 @@ function createEmptyLine(): QuoteLine {
 }
 
 export default function NewQuotePage() {
+  const creerDevis = useCreateFiscalRecord();
   const mockBillingClients = useBillingClients();
   const router = useRouter();
   const today = new Date().toISOString().split("T")[0];
@@ -104,7 +106,7 @@ export default function NewQuotePage() {
     return { subtotal: roundedSubtotal, vatAmount: roundedVat, total };
   }, [formData.lines]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.clientId || !formData.date) {
       alert("Veuillez remplir tous les champs obligatoires");
       return;
@@ -129,8 +131,22 @@ export default function NewQuotePage() {
       updatedAt: new Date().toISOString(),
     };
 
-    console.log("Nouveau devis:", newQuote);
-    alert("Devis enregistré avec succès");
+    // Le devis était seulement affiché dans la console : il est maintenant
+    // enregistré en base et se retrouve dans la liste des devis.
+    const { id: _sansId, ...donnees } = newQuote;
+    try {
+      await creerDevis.mutateAsync({
+        type: "devis",
+        period: (formData.date || new Date().toISOString()).slice(0, 7),
+        label: `${newQuote.quoteNumber} — ${newQuote.clientName || "client"}`,
+        status: "Brouillon",
+        amount: totals.total,
+        meta: donnees,
+      });
+    } catch {
+      alert("L'enregistrement du devis a échoué. Réessayez.");
+      return;
+    }
     router.push("/dashboard/billing/quotes");
   };
 
@@ -161,7 +177,7 @@ export default function NewQuotePage() {
             <Eye className="h-4 w-4 mr-2" />
             Aperçu
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={() => void handleSave()}>
             <Save className="h-4 w-4 mr-2" />
             Enregistrer
           </Button>

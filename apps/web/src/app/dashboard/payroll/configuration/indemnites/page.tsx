@@ -41,6 +41,7 @@ import {
   URSSAF_LIMITS_CURRENT,
 } from "@/data/payroll-indemnites";
 import { IndemniteType } from "@/lib/types.d";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 type ModalMode = "view" | "create" | "edit" | null;
 
@@ -56,8 +57,15 @@ const calculationMethodLabels: Record<
 };
 
 export default function IndemnitesConfigurationPage() {
-  const [indemnites, setIndemnites] =
-    useState<IndemniteType[]>(mockIndemniteTypes);
+  // La liste livrée reste dans le code ; les ajouts et modifications
+  // du client sont enregistrés en base.
+  const [indemnites, setIndemnites] = useListePersistante<IndemniteType>(
+    "indemnite",
+    {
+      reference: mockIndemniteTypes,
+      cle: (ligne) => ligne.code,
+    },
+  );
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedIndemnite, setSelectedIndemnite] =
     useState<IndemniteType | null>(null);

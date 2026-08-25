@@ -13,6 +13,7 @@ import {
 import { PatrolRouteSidebar } from "@/components/geolocation/PatrolRouteSidebar";
 import { PatrolRouteFormPanel } from "@/components/geolocation/PatrolRouteFormPanel";
 import { PatrolExecutionSidebar } from "@/components/geolocation/PatrolExecutionSidebar";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 import type {
   PatrolRoute,
   PatrolExecution,
@@ -37,7 +38,8 @@ type PatrolTab = "itineraires" | "en-cours";
 
 export default function RoundsPage() {
   // ── Data state ──────────────────────────────────────────────────
-  const [routes, setRoutes] = useState<PatrolRoute[]>(mockPatrolRoutes);
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [routes, setRoutes] = useListePersistante<PatrolRoute>("ronde");
   const [executions] = useState<PatrolExecution[]>(mockPatrolExecutions);
 
   // ── Tab & selection state ───────────────────────────────────────

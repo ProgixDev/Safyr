@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 import {
   Plus,
   CheckCircle,
@@ -52,9 +53,9 @@ const ssiapLevelLabels: Record<string, string> = {
 
 export default function SSIAPPage() {
   const mockEmployees = useEmployeesRH();
-  const [certifications, setCertifications] = useState<TrainingCertification[]>(
-    mockSSIAPCertifications,
-  );
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [certifications, setCertifications] =
+    useListePersistante<TrainingCertification>("ssiap");
   const [isCertificationModalOpen, setIsCertificationModalOpen] =
     useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);

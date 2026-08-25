@@ -493,6 +493,8 @@ model Site {
 
   notes  String?
   active Boolean @default(true)
+  /// Champs propres au planning : contact, contraintes, tarifs de facturation.
+  details Json?
 
   posts        Post[]
   logbookEvents LogbookEvent[]

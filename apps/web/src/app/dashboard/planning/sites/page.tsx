@@ -42,6 +42,7 @@ import {
 import type { Site, Poste, SiteFormData } from "@/lib/types";
 import { usePlanningSites } from "@/hooks/planning";
 import { mockSiteStats } from "@/data/sites";
+import { useCreateSite, useUpdateSite, useDeleteSite } from "@/hooks/sites";
 import {
   SITE_COLOR_MAP,
   SITE_COLOR_OPTIONS,
@@ -66,6 +67,9 @@ export default function SitesPage() {
     setPostes(mockPostes);
   }
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+  const creerSite = useCreateSite();
+  const modifierSite = useUpdateSite(selectedSite?.id ?? "");
+  const supprimerSite = useDeleteSite();
   const [isCreateSiteModalOpen, setIsCreateSiteModalOpen] = useState(false);
   const [isEditSiteModalOpen, setIsEditSiteModalOpen] = useState(false);
   const [isViewSiteModalOpen, setIsViewSiteModalOpen] = useState(false);
@@ -176,104 +180,69 @@ export default function SitesPage() {
     setIsEditSiteModalOpen(true);
   };
 
-  const handleSaveSite = () => {
-    if (selectedSite) {
-      // Update existing site
-      setSites(
-        sites.map((s) =>
-          s.id === selectedSite.id
-            ? {
-                ...s,
-                name: siteFormData.name,
-                color: siteFormData.color,
-                clientId: siteFormData.clientId,
-                clientName: siteFormData.clientId, // In real app, fetch from clients
-                address: {
-                  street: siteFormData.street,
-                  city: siteFormData.city,
-                  postalCode: siteFormData.postalCode,
-                  country: siteFormData.country,
-                },
-                contact: {
-                  name: siteFormData.contactName,
-                  phone: siteFormData.contactPhone,
-                  email: siteFormData.contactEmail,
-                  position: siteFormData.contactPosition,
-                },
-                constraints: {
-                  mandatoryHours: siteFormData.mandatoryHours
-                    ? [siteFormData.mandatoryHours]
-                    : [],
-                  requiredCertifications: siteFormData.requiredCertifications,
-                  accessInstructions: siteFormData.accessInstructions,
-                  specialRequirements: siteFormData.specialRequirements,
-                },
-                billing: {
-                  hourlyRate: siteFormData.hourlyRate,
-                  overtimeRate: siteFormData.overtimeRate,
-                  nightRate: siteFormData.nightRate,
-                  weekendRate: siteFormData.weekendRate,
-                  holidayRate: siteFormData.holidayRate,
-                },
-                status: siteFormData.status,
-                contractStartDate: new Date(siteFormData.contractStartDate),
-                contractEndDate: siteFormData.contractEndDate
-                  ? new Date(siteFormData.contractEndDate)
-                  : undefined,
-                notes: siteFormData.notes,
-                updatedAt: new Date(),
-              }
-            : s,
-        ),
+  /** Champs du planning qui n'ont pas de colonne dediee dans la table site. */
+  const detailsDuFormulaire = () => ({
+    color: siteFormData.color,
+    clientId: siteFormData.clientId,
+    contact: {
+      name: siteFormData.contactName,
+      phone: siteFormData.contactPhone,
+      email: siteFormData.contactEmail,
+      position: siteFormData.contactPosition,
+    },
+    constraints: {
+      mandatoryHours: siteFormData.mandatoryHours
+        ? [siteFormData.mandatoryHours]
+        : [],
+      requiredCertifications: siteFormData.requiredCertifications,
+      accessInstructions: siteFormData.accessInstructions,
+      specialRequirements: siteFormData.specialRequirements,
+    },
+    billing: {
+      hourlyRate: siteFormData.hourlyRate,
+      overtimeRate: siteFormData.overtimeRate,
+      nightRate: siteFormData.nightRate,
+      weekendRate: siteFormData.weekendRate,
+      holidayRate: siteFormData.holidayRate,
+    },
+    status: siteFormData.status,
+    contractStartDate: siteFormData.contractStartDate || undefined,
+    contractEndDate: siteFormData.contractEndDate || undefined,
+  });
+
+  /**
+   * Le site est enregistre en base (meme table que RH > Entreprise > Sites) :
+   * cet ecran ne faisait qu'ajouter une ligne dans l'etat React, perdue au
+   * rechargement de la page.
+   */
+  const handleSaveSite = async () => {
+    const charge = {
+      name: siteFormData.name,
+      clientName: siteFormData.clientId || undefined,
+      address: siteFormData.street || undefined,
+      city: siteFormData.city || undefined,
+      postalCode: /^\d{5}$/.test(siteFormData.postalCode)
+        ? siteFormData.postalCode
+        : undefined,
+      country: siteFormData.country || "France",
+      notes: siteFormData.notes || undefined,
+      details: detailsDuFormulaire(),
+    };
+    try {
+      if (selectedSite && isEditSiteModalOpen) {
+        await modifierSite.mutateAsync(charge);
+        setIsEditSiteModalOpen(false);
+      } else {
+        await creerSite.mutateAsync(charge);
+        setIsCreateSiteModalOpen(false);
+      }
+    } catch (erreur) {
+      alert(
+        erreur instanceof Error
+          ? `Enregistrement impossible : ${erreur.message}`
+          : "Enregistrement impossible.",
       );
-      setIsEditSiteModalOpen(false);
-    } else {
-      // Create new site
-      const newSite: Site = {
-        id: `site-${Date.now()}`,
-        name: siteFormData.name,
-        color: siteFormData.color,
-        clientId: siteFormData.clientId,
-        clientName: siteFormData.clientId, // In real app, fetch from clients
-        address: {
-          street: siteFormData.street,
-          city: siteFormData.city,
-          postalCode: siteFormData.postalCode,
-          country: siteFormData.country,
-        },
-        contact: {
-          name: siteFormData.contactName,
-          phone: siteFormData.contactPhone,
-          email: siteFormData.contactEmail,
-          position: siteFormData.contactPosition,
-        },
-        constraints: {
-          mandatoryHours: siteFormData.mandatoryHours
-            ? [siteFormData.mandatoryHours]
-            : [],
-          requiredCertifications: siteFormData.requiredCertifications,
-          accessInstructions: siteFormData.accessInstructions,
-          specialRequirements: siteFormData.specialRequirements,
-        },
-        billing: {
-          hourlyRate: siteFormData.hourlyRate,
-          overtimeRate: siteFormData.overtimeRate,
-          nightRate: siteFormData.nightRate,
-          weekendRate: siteFormData.weekendRate,
-          holidayRate: siteFormData.holidayRate,
-        },
-        status: siteFormData.status,
-        contractStartDate: new Date(siteFormData.contractStartDate),
-        contractEndDate: siteFormData.contractEndDate
-          ? new Date(siteFormData.contractEndDate)
-          : undefined,
-        postes: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        notes: siteFormData.notes,
-      };
-      setSites([...sites, newSite]);
-      setIsCreateSiteModalOpen(false);
+      return;
     }
     setSelectedSite(null);
   };
@@ -283,13 +252,20 @@ export default function SitesPage() {
     setIsDeleteSiteModalOpen(true);
   };
 
-  const confirmDeleteSite = () => {
-    if (siteToDelete) {
-      setSites(sites.filter((s) => s.id !== siteToDelete.id));
-      setPostes(postes.filter((p) => p.siteId !== siteToDelete.id));
-      setIsDeleteSiteModalOpen(false);
-      setSiteToDelete(null);
+  const confirmDeleteSite = async () => {
+    if (!siteToDelete) return;
+    try {
+      await supprimerSite.mutateAsync(siteToDelete.id);
+    } catch (erreur) {
+      alert(
+        erreur instanceof Error
+          ? `Suppression impossible : ${erreur.message}`
+          : "Suppression impossible.",
+      );
+      return;
     }
+    setIsDeleteSiteModalOpen(false);
+    setSiteToDelete(null);
   };
 
   const handleViewPoste = (poste: Poste) => {
@@ -809,7 +785,7 @@ export default function SitesPage() {
           >
             Annuler
           </Button>
-          <Button onClick={handleSaveSite}>Créer le site</Button>
+          <Button onClick={() => void handleSaveSite()}>Créer le site</Button>
         </div>
       </Modal>
 
@@ -1032,7 +1008,7 @@ export default function SitesPage() {
             >
               Annuler
             </Button>
-            <Button onClick={handleSaveSite}>Enregistrer</Button>
+            <Button onClick={() => void handleSaveSite()}>Enregistrer</Button>
           </div>
         </Modal>
       )}
@@ -1353,7 +1329,10 @@ export default function SitesPage() {
           >
             Annuler
           </Button>
-          <Button variant="destructive" onClick={confirmDeleteSite}>
+          <Button
+            variant="destructive"
+            onClick={() => void confirmDeleteSite()}
+          >
             Supprimer
           </Button>
         </div>

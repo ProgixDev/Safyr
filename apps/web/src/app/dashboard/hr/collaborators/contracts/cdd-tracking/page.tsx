@@ -38,6 +38,7 @@ import { CDDRegisterEntry } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
+import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 // Mock data
 const mockCDDRegister: CDDRegisterEntry[] = [];
@@ -73,7 +74,8 @@ const exitReasonLabels = {
 
 export default function CDDRegisterPage() {
   const mockEmployees = useEmployeeOptions();
-  const [entries, setEntries] = useState<CDDRegisterEntry[]>(mockCDDRegister);
+  // Enregistré en base : la liste ne vivait que dans le navigateur.
+  const [entries, setEntries] = useListePersistante<CDDRegisterEntry>("cdd");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<CDDRegisterEntry | null>(
