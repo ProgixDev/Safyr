@@ -10,7 +10,13 @@ export type FiscalRecordType =
   | "divers"
   | "courrier_organisme"
   | "equipement"
-  | "avantage";
+  | "avantage"
+  | "entretien_annuel"
+  | "entretien_professionnel"
+  | "objectif"
+  | "avertissement"
+  | "procedure_disciplinaire"
+  | "sanction";
 
 /** Ligne d'un registre administratif (TVA, CFE, PAS, courrier, AKTO). */
 export interface FiscalRecord {

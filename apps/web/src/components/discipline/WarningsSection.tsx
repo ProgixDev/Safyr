@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useEmployeeOptions } from "@/hooks/employees";
@@ -23,9 +23,21 @@ import { Warning } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
+import { useRegistre } from "@/hooks/fiscal/use-registre";
 
-// Mock data - replace with API call
-const mockWarnings: Warning[] = [];
+/** Ligne enregistrée en base : la date y est une chaîne ISO. */
+interface LigneAvertissement {
+  id: string;
+  employeeId: string;
+  date: string;
+  reason: string;
+  description: string;
+  issuedBy: string;
+  status: "active" | "lifted";
+}
+
+const EPOQUE = new Date(0);
+const CHAMPS_FICHIERS = ["document"] as const;
 
 const statusLabels = {
   active: "Active",
@@ -43,7 +55,27 @@ export function WarningsSection() {
     value: employee.id,
     label: employee.name,
   }));
-  const [warnings, setWarnings] = useState<Warning[]>(mockWarnings);
+  // Les avertissements sont enregistrés en base : ils restaient auparavant
+  // dans l'état React et disparaissaient au rechargement de la page.
+  const registre = useRegistre<LigneAvertissement>(
+    "avertissement",
+    CHAMPS_FICHIERS,
+  );
+  const warnings = useMemo<Warning[]>(
+    () =>
+      registre.lignes.map((ligne) => ({
+        id: ligne.id,
+        employeeId: ligne.employeeId ?? "",
+        date: ligne.date ? new Date(ligne.date) : EPOQUE,
+        reason: ligne.reason ?? "",
+        description: ligne.description ?? "",
+        issuedBy: ligne.issuedBy ?? "",
+        status: ligne.status ?? "active",
+        createdAt: EPOQUE,
+        updatedAt: EPOQUE,
+      })),
+    [registre.lignes],
+  );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingWarning, setEditingWarning] = useState<Warning | null>(null);
@@ -90,37 +122,30 @@ export function WarningsSection() {
 
   const handleDelete = (warningId: string) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cet avertissement ?")) {
-      setWarnings(warnings.filter((w) => w.id !== warningId));
+      void registre.supprimerLigne(warningId);
     }
   };
 
-  const handleSave = () => {
-    const warningData = {
+  const enregistrer = async (ligne: LigneAvertissement) => {
+    const nom =
+      mockEmployees.find((e) => e.id === ligne.employeeId)?.name ?? "Salarié";
+    await registre.enregistrer(ligne, {
+      period: (ligne.date || new Date().toISOString()).slice(0, 7),
+      label: `Avertissement — ${nom}`,
+      status: ligne.status,
+    });
+  };
+
+  const handleSave = async () => {
+    await enregistrer({
+      id: editingWarning?.id ?? "",
       employeeId: formData.employeeId,
-      date: new Date(formData.date),
+      date: formData.date,
       reason: formData.reason,
       description: formData.description,
       issuedBy: formData.issuedBy,
       status: formData.status,
-    };
-
-    if (editingWarning) {
-      setWarnings(
-        warnings.map((w) =>
-          w.id === editingWarning.id
-            ? { ...w, ...warningData, updatedAt: new Date() }
-            : w,
-        ),
-      );
-    } else {
-      const newWarning: Warning = {
-        id: Date.now().toString(),
-        ...warningData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setWarnings([...warnings, newWarning]);
-    }
+    });
     setIsCreateModalOpen(false);
   };
 
@@ -128,13 +153,17 @@ export function WarningsSection() {
     warningId: string,
     newStatus: Warning["status"],
   ) => {
-    setWarnings(
-      warnings.map((w) =>
-        w.id === warningId
-          ? { ...w, status: newStatus, updatedAt: new Date() }
-          : w,
-      ),
-    );
+    const avertissement = warnings.find((w) => w.id === warningId);
+    if (!avertissement) return;
+    void enregistrer({
+      id: avertissement.id,
+      employeeId: avertissement.employeeId,
+      date: avertissement.date.toISOString().split("T")[0],
+      reason: avertissement.reason,
+      description: avertissement.description,
+      issuedBy: avertissement.issuedBy,
+      status: newStatus,
+    });
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -261,7 +290,7 @@ export function WarningsSection() {
           },
           primary: {
             label: editingWarning ? "Enregistrer" : "Créer",
-            onClick: handleSave,
+            onClick: () => void handleSave(),
             disabled: !isFormValid,
           },
         }}

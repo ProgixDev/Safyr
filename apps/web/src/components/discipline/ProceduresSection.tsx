@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +36,7 @@ import { DisciplinaryProcedure, DisciplinaryStep } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
+import { useRegistre } from "@/hooks/fiscal/use-registre";
 
 // Mock data - replace with API call
 const standardSteps: DisciplinaryStep[] = [
@@ -60,7 +61,18 @@ const standardSteps: DisciplinaryStep[] = [
   },
 ];
 
-const mockProcedures: DisciplinaryProcedure[] = [];
+/** Ligne enregistrée en base : la date de début y est une chaîne ISO. */
+interface LigneProcedure {
+  id: string;
+  employeeId: string;
+  startDate: string;
+  steps: DisciplinaryStep[];
+  currentStep: number;
+  status: "ongoing" | "completed" | "cancelled";
+}
+
+const EPOQUE = new Date(0);
+const CHAMPS_FICHIERS = ["document"] as const;
 
 const statusLabels = {
   ongoing: "En cours",
@@ -80,8 +92,27 @@ export function ProceduresSection() {
     value: employee.id,
     label: employee.name,
   }));
-  const [procedures, setProcedures] =
-    useState<DisciplinaryProcedure[]>(mockProcedures);
+  // Les procédures sont enregistrées en base : elles restaient auparavant
+  // dans l'état React et disparaissaient au rechargement de la page.
+  const registre = useRegistre<LigneProcedure>(
+    "procedure_disciplinaire",
+    CHAMPS_FICHIERS,
+  );
+  const procedures = useMemo<DisciplinaryProcedure[]>(
+    () =>
+      registre.lignes.map((ligne) => ({
+        id: ligne.id,
+        employeeId: ligne.employeeId ?? "",
+        startDate: ligne.startDate ? new Date(ligne.startDate) : EPOQUE,
+        steps: ligne.steps ?? [],
+        currentStep: ligne.currentStep ?? 1,
+        status: ligne.status ?? "ongoing",
+        documents: [],
+        createdAt: EPOQUE,
+        updatedAt: EPOQUE,
+      })),
+    [registre.lignes],
+  );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingProcedure, setEditingProcedure] =
@@ -131,39 +162,34 @@ export function ProceduresSection() {
         "Êtes-vous sûr de vouloir supprimer cette procédure disciplinaire ?",
       )
     ) {
-      setProcedures(procedures.filter((p) => p.id !== procedureId));
+      void registre.supprimerLigne(procedureId);
     }
   };
 
-  const handleSave = () => {
-    const procedureData = {
-      employeeId: formData.employeeId,
-      startDate: new Date(formData.startDate),
-      steps: formData.steps,
-      currentStep:
-        formData.steps.findIndex((s) => !s.completed) + 1 ||
-        formData.steps.length,
-      status: formData.status,
-      documents: documentFile ? [`/files/procedure_${Date.now()}.pdf`] : [],
-    };
+  const enregistrer = async (ligne: LigneProcedure, fichier?: File | null) => {
+    const id = await registre.enregistrer(ligne, {
+      period: (ligne.startDate || new Date().toISOString()).slice(0, 7),
+      label: `Procédure disciplinaire — ${getEmployeeName(ligne.employeeId)}`,
+      status: ligne.status,
+    });
+    if (fichier) await registre.attacherFichier(id, "document", fichier);
+  };
 
-    if (editingProcedure) {
-      setProcedures(
-        procedures.map((p) =>
-          p.id === editingProcedure.id
-            ? { ...p, ...procedureData, updatedAt: new Date() }
-            : p,
-        ),
-      );
-    } else {
-      const newProcedure: DisciplinaryProcedure = {
-        id: Date.now().toString(),
-        ...procedureData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setProcedures([...procedures, newProcedure]);
-    }
+  const handleSave = async () => {
+    await enregistrer(
+      {
+        id: editingProcedure?.id ?? "",
+        employeeId: formData.employeeId,
+        startDate: formData.startDate,
+        steps: formData.steps,
+        currentStep:
+          formData.steps.findIndex((s) => !s.completed) + 1 ||
+          formData.steps.length,
+        status: formData.status,
+      },
+      documentFile,
+    );
+    setDocumentFile(null);
     setIsCreateModalOpen(false);
   };
 
@@ -171,13 +197,16 @@ export function ProceduresSection() {
     procedureId: string,
     newStatus: DisciplinaryProcedure["status"],
   ) => {
-    setProcedures(
-      procedures.map((p) =>
-        p.id === procedureId
-          ? { ...p, status: newStatus, updatedAt: new Date() }
-          : p,
-      ),
-    );
+    const procedure = procedures.find((p) => p.id === procedureId);
+    if (!procedure) return;
+    void enregistrer({
+      id: procedure.id,
+      employeeId: procedure.employeeId,
+      startDate: procedure.startDate.toISOString().split("T")[0],
+      steps: procedure.steps,
+      currentStep: procedure.currentStep,
+      status: newStatus,
+    });
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -358,7 +387,7 @@ export function ProceduresSection() {
           },
           primary: {
             label: editingProcedure ? "Enregistrer" : "Créer",
-            onClick: handleSave,
+            onClick: () => void handleSave(),
             disabled: !isFormValid,
           },
         }}

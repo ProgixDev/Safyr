@@ -40,6 +40,12 @@ const SCOPE: Record<FiscalRecordType, "tax" | "akto" | "divers"> = {
   courrier_organisme: "divers",
   equipement: "divers",
   avantage: "divers",
+  entretien_annuel: "divers",
+  entretien_professionnel: "divers",
+  objectif: "divers",
+  avertissement: "divers",
+  procedure_disciplinaire: "divers",
+  sanction: "divers",
 };
 
 export function useRegistre<T extends LigneRegistre>(
@@ -150,6 +156,18 @@ export function useRegistre<T extends LigneRegistre>(
     [attacher, enregistrer],
   );
 
+  /** Rattache un fichier déjà choisi dans un formulaire à une ligne connue. */
+  const attacherFichier = useCallback(
+    async (ligneId: string, champ: string, fichier: File) => {
+      await attacher.mutateAsync({
+        file: fichier,
+        scopeId: ligneId,
+        slot: champ,
+      });
+    },
+    [attacher],
+  );
+
   const retirerPiece = useCallback(
     async (ligneId: string, champ: string) => {
       const piece = pieces.find(
@@ -166,6 +184,7 @@ export function useRegistre<T extends LigneRegistre>(
     enregistrer,
     supprimerLigne,
     televerserPiece,
+    attacherFichier,
     retirerPiece,
   };
 }

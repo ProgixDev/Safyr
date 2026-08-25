@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,14 +29,37 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
 import { Progress } from "@/components/ui/progress";
+import { useRegistre } from "@/hooks/fiscal/use-registre";
 
-// Mock data for interviews
-const mockAnnualInterviews: Interview[] = [];
+/**
+ * Lignes telles qu'elles sont enregistrees en base : les dates y sont des
+ * chaines ISO, converties en Date a l'affichage.
+ */
+interface LigneEntretien {
+  id: string;
+  employeeId: string;
+  type: "annual" | "professional";
+  date: string;
+  interviewer: string;
+  notes: string;
+  objectives: string[];
+  status: "scheduled" | "completed" | "cancelled";
+}
 
-const mockProfessionalInterviews: Interview[] = [];
+interface LigneObjectif {
+  id: string;
+  employeeId: string;
+  title: string;
+  description: string;
+  category: "performance" | "development" | "career" | "skills";
+  targetDate: string;
+  progress: number;
+  status: "active" | "completed" | "cancelled";
+  notes: string;
+}
 
-// Mock data for objectives
-const mockObjectives: Objective[] = [];
+const CHAMPS_FICHIERS = ["document"] as const;
+const EPOQUE = new Date(0);
 
 const statusLabels = {
   scheduled: "Planifié",
@@ -92,12 +115,66 @@ export default function InterviewsPage() {
     value: employee.id,
     label: employee.name,
   }));
-  const [annualInterviews, setAnnualInterviews] =
-    useState<Interview[]>(mockAnnualInterviews);
-  const [professionalInterviews, setProfessionalInterviews] = useState<
-    Interview[]
-  >(mockProfessionalInterviews);
-  const [objectives, setObjectives] = useState<Objective[]>(mockObjectives);
+  // Entretiens, objectifs et pieces jointes sont enregistres en base :
+  // ils restaient auparavant dans l'etat React et disparaissaient au F5.
+  const registreAnnuel = useRegistre<LigneEntretien>(
+    "entretien_annuel",
+    CHAMPS_FICHIERS,
+  );
+  const registreProfessionnel = useRegistre<LigneEntretien>(
+    "entretien_professionnel",
+    CHAMPS_FICHIERS,
+  );
+  const registreObjectifs = useRegistre<LigneObjectif>(
+    "objectif",
+    CHAMPS_FICHIERS,
+  );
+
+  const versEntretien = (
+    ligne: LigneEntretien,
+    type: "annual" | "professional",
+  ): Interview => ({
+    id: ligne.id,
+    employeeId: ligne.employeeId ?? "",
+    type,
+    date: ligne.date ? new Date(ligne.date) : EPOQUE,
+    interviewer: ligne.interviewer ?? "",
+    notes: ligne.notes ?? "",
+    objectives: ligne.objectives ?? [],
+    status: ligne.status ?? "scheduled",
+    documents: [],
+    createdAt: EPOQUE,
+    updatedAt: EPOQUE,
+  });
+
+  const annualInterviews = useMemo(
+    () => registreAnnuel.lignes.map((l) => versEntretien(l, "annual")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [registreAnnuel.lignes],
+  );
+  const professionalInterviews = useMemo(
+    () =>
+      registreProfessionnel.lignes.map((l) => versEntretien(l, "professional")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [registreProfessionnel.lignes],
+  );
+  const objectives = useMemo<Objective[]>(
+    () =>
+      registreObjectifs.lignes.map((ligne) => ({
+        id: ligne.id,
+        employeeId: ligne.employeeId ?? "",
+        title: ligne.title ?? "",
+        description: ligne.description ?? "",
+        category: ligne.category ?? "performance",
+        targetDate: ligne.targetDate ? new Date(ligne.targetDate) : EPOQUE,
+        progress: ligne.progress ?? 0,
+        status: ligne.status ?? "active",
+        notes: ligne.notes ?? "",
+        createdAt: EPOQUE,
+        updatedAt: EPOQUE,
+      })),
+    [registreObjectifs.lignes],
+  );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CombinedItem | null>(null);
@@ -234,102 +311,68 @@ export default function InterviewsPage() {
       itemType === "objective"
         ? "Êtes-vous sûr de vouloir supprimer cet objectif ?"
         : "Êtes-vous sûr de vouloir supprimer cet entretien ?";
-    if (confirm(confirmMessage)) {
-      if (itemType === "interview") {
-        if (interviewType === "annual") {
-          setAnnualInterviews(annualInterviews.filter((i) => i.id !== id));
-        } else {
-          setProfessionalInterviews(
-            professionalInterviews.filter((i) => i.id !== id),
-          );
-        }
-      } else {
-        setObjectives(objectives.filter((o) => o.id !== id));
-      }
-    }
+    if (!confirm(confirmMessage)) return;
+    const registre =
+      itemType === "objective"
+        ? registreObjectifs
+        : interviewType === "annual"
+          ? registreAnnuel
+          : registreProfessionnel;
+    void registre.supprimerLigne(id);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const nomEmploye =
+      mockEmployees.find((e) => e.id === formData.employeeId)?.name ??
+      "Salarié";
+
     if (currentType === "objectives") {
-      const objectiveData = {
+      const ligne: LigneObjectif = {
+        id: editingItem?.originalId ?? "",
         employeeId: formData.employeeId,
         title: formData.title,
         description: formData.description,
         category: formData.category,
-        targetDate: new Date(formData.targetDate),
+        targetDate: formData.targetDate,
         progress: formData.progress,
-        status: "active" as const,
+        status: "active",
         notes: formData.notes,
       };
-
-      if (editingItem && "title" in editingItem) {
-        setObjectives(
-          objectives.map((objective) =>
-            objective.id === editingItem.originalId
-              ? {
-                  ...objective,
-                  ...objectiveData,
-                  updatedAt: new Date(),
-                }
-              : objective,
-          ),
-        );
-      } else {
-        const newObjective: Objective = {
-          id: Date.now().toString(),
-          ...objectiveData,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        setObjectives([...objectives, newObjective]);
+      const id = await registreObjectifs.enregistrer(ligne, {
+        period: (formData.targetDate || new Date().toISOString()).slice(0, 7),
+        label: formData.title || `Objectif — ${nomEmploye}`,
+        status: "active",
+      });
+      if (documentFile) {
+        await registreObjectifs.attacherFichier(id, "document", documentFile);
       }
     } else {
-      const interviewData = {
+      const registre =
+        currentType === "annual" ? registreAnnuel : registreProfessionnel;
+      const ligne: LigneEntretien = {
+        id: editingItem?.originalId ?? "",
         employeeId: formData.employeeId,
-        type: currentType as "annual" | "professional",
-        date: new Date(formData.date),
+        type: currentType,
+        date: formData.date,
         interviewer: formData.interviewer,
         notes: formData.notes,
         objectives: formData.objectives.filter((obj) => obj.trim() !== ""),
         status: formData.status,
-        documents: documentFile ? [`/files/interview_${Date.now()}.pdf`] : [],
       };
-
-      if (editingItem && "type" in editingItem) {
-        const setter =
+      const id = await registre.enregistrer(ligne, {
+        period: (formData.date || new Date().toISOString()).slice(0, 7),
+        label:
           currentType === "annual"
-            ? setAnnualInterviews
-            : setProfessionalInterviews;
-        const interviews =
-          currentType === "annual" ? annualInterviews : professionalInterviews;
-        setter(
-          interviews.map((interview) =>
-            interview.id === editingItem.originalId
-              ? {
-                  ...interview,
-                  ...interviewData,
-                  updatedAt: new Date(),
-                }
-              : interview,
-          ),
-        );
-      } else {
-        const newInterview: Interview = {
-          id: Date.now().toString(),
-          ...interviewData,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        const setter =
-          currentType === "annual"
-            ? setAnnualInterviews
-            : setProfessionalInterviews;
-        const interviews =
-          currentType === "annual" ? annualInterviews : professionalInterviews;
-        setter([...interviews, newInterview]);
+            ? `Entretien annuel — ${nomEmploye}`
+            : `Entretien professionnel — ${nomEmploye}`,
+        status: formData.status,
+      });
+      if (documentFile) {
+        await registre.attacherFichier(id, "document", documentFile);
       }
     }
 
+    setDocumentFile(null);
     setIsCreateModalOpen(false);
   };
 
@@ -526,7 +569,7 @@ export default function InterviewsPage() {
         actions={{
           primary: {
             label: editingItem ? "Modifier" : "Créer",
-            onClick: handleSave,
+            onClick: () => void handleSave(),
           },
           secondary: {
             label: "Annuler",

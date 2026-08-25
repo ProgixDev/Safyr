@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Registres administratifs tenus dans Entreprise et Formation. */
+/** Registres administratifs tenus dans Entreprise, Formation et Salariés. */
 export const FiscalRecordTypeSchema = z.enum([
   "tva",
   "cfe",
@@ -14,6 +14,13 @@ export const FiscalRecordTypeSchema = z.enum([
   // Dotations et avantages attribués à un salarié
   "equipement",
   "avantage",
+  // Registres RH tenus dans Salariés : entretiens, objectifs, discipline
+  "entretien_annuel",
+  "entretien_professionnel",
+  "objectif",
+  "avertissement",
+  "procedure_disciplinaire",
+  "sanction",
 ]);
 
 export const CreateFiscalRecordSchema = z.object({

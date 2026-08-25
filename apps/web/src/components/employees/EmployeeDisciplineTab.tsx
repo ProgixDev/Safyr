@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,10 @@ import type {
   Employee,
   Warning,
   DisciplinaryProcedure,
+  DisciplinaryStep,
   Sanction,
 } from "@/lib/types";
+import { useRegistre } from "@/hooks/fiscal/use-registre";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import {
   getEmployeeGeolocationSummary,
@@ -72,15 +74,97 @@ const hseColumns: ColumnDef<HSEIncident>[] = [
   { key: "description", label: "Description" },
 ];
 
+/** Ligne de registre disciplinaire telle qu'elle est enregistrée en base. */
+interface LigneDiscipline {
+  id: string;
+  employeeId?: string;
+  date?: string;
+  startDate?: string;
+  type?: string;
+  reason?: string;
+  description?: string;
+  issuedBy?: string;
+  status?: string;
+  severity?: string;
+  steps?: DisciplinaryStep[];
+  currentStep?: number;
+}
+
+const EPOQUE = new Date(0);
+const CHAMPS_FICHIERS = ["document"] as const;
+
 export function EmployeeDisciplineTab({
   employee,
 }: EmployeeDisciplineTabProps) {
-  // Mock data - in real app, this would come from API
-  const [warnings] = useState<Warning[]>([]);
+  // Les trois registres disciplinaires viennent de la base, filtrés sur ce
+  // salarié : cet onglet affichait auparavant des listes toujours vides.
+  const registreAvertissements = useRegistre<LigneDiscipline>(
+    "avertissement",
+    CHAMPS_FICHIERS,
+  );
+  const registreProcedures = useRegistre<LigneDiscipline>(
+    "procedure_disciplinaire",
+    CHAMPS_FICHIERS,
+  );
+  const registreSanctions = useRegistre<LigneDiscipline>(
+    "sanction",
+    CHAMPS_FICHIERS,
+  );
 
-  const [procedures] = useState<DisciplinaryProcedure[]>([]);
+  const warnings = useMemo<Warning[]>(
+    () =>
+      registreAvertissements.lignes
+        .filter((l) => l.employeeId === employee.id)
+        .map((l) => ({
+          id: l.id,
+          employeeId: l.employeeId ?? "",
+          date: l.date ? new Date(l.date) : EPOQUE,
+          reason: l.reason ?? "",
+          description: l.description ?? "",
+          issuedBy: l.issuedBy ?? "",
+          status: (l.status as Warning["status"]) ?? "active",
+          createdAt: EPOQUE,
+          updatedAt: EPOQUE,
+        })),
+    [registreAvertissements.lignes, employee.id],
+  );
 
-  const [sanctions] = useState<Sanction[]>([]);
+  const procedures = useMemo<DisciplinaryProcedure[]>(
+    () =>
+      registreProcedures.lignes
+        .filter((l) => l.employeeId === employee.id)
+        .map((l) => ({
+          id: l.id,
+          employeeId: l.employeeId ?? "",
+          startDate: l.startDate ? new Date(l.startDate) : EPOQUE,
+          steps: l.steps ?? [],
+          currentStep: l.currentStep ?? 1,
+          status: (l.status as DisciplinaryProcedure["status"]) ?? "ongoing",
+          documents: [],
+          createdAt: EPOQUE,
+          updatedAt: EPOQUE,
+        })),
+    [registreProcedures.lignes, employee.id],
+  );
+
+  const sanctions = useMemo<Sanction[]>(
+    () =>
+      registreSanctions.lignes
+        .filter((l) => l.employeeId === employee.id)
+        .map((l) => ({
+          id: l.id,
+          employeeId: l.employeeId ?? "",
+          date: l.date ? new Date(l.date) : EPOQUE,
+          type: l.type ?? "",
+          reason: l.reason ?? "",
+          description: l.description ?? "",
+          issuedBy: l.issuedBy ?? "",
+          severity: (l.severity as Sanction["severity"]) ?? "minor",
+          createdAt: EPOQUE,
+          updatedAt: EPOQUE,
+        })),
+    [registreSanctions.lignes, employee.id],
+  );
 
   const geolocationSummary = getEmployeeGeolocationSummary(employee.id);
   const hseIncidents = geolocationSummary?.hseIncidents ?? [];
