@@ -16,12 +16,20 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Plus, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { useEmployeeOptions } from "@/hooks/employees";
+import { Combobox } from "@/components/ui/combobox";
 import {
   mockMedicalVisits,
   type MedicalVisit,
 } from "@/data/hr-occupational-medicine";
 
 export default function OccupationalMedicinePage() {
+  // Le salarié se choisit dans la liste : c'était une saisie libre,
+  // sujette aux fautes de frappe et sans lien avec le dossier.
+  const optionsSalaries = useEmployeeOptions().map((salarie) => ({
+    value: salarie.name,
+    label: salarie.name,
+  }));
   const [visits, setVisits] = useState<MedicalVisit[]>(mockMedicalVisits);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -249,13 +257,15 @@ export default function OccupationalMedicinePage() {
         <div className="space-y-4">
           <div>
             <Label htmlFor="employeeName">Employé</Label>
-            <Input
-              id="employeeName"
+            <Combobox
+              options={optionsSalaries}
               value={formData.employeeName}
-              onChange={(e) =>
-                setFormData({ ...formData, employeeName: e.target.value })
+              onValueChange={(valeur) =>
+                setFormData({ ...formData, employeeName: valeur })
               }
-              placeholder="Nom de l'employé"
+              placeholder="Sélectionner un employé"
+              searchPlaceholder="Rechercher un employé..."
+              emptyMessage="Aucun employé trouvé."
             />
           </div>
 

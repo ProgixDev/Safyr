@@ -57,6 +57,8 @@ import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
+import { useEmployeeOptions } from "@/hooks/employees";
+import { Combobox } from "@/components/ui/combobox";
 
 // Types pour les documents du dossier salarié
 interface EmployeeDocument {
@@ -274,6 +276,12 @@ const documentTypeIcons = {
 };
 
 export default function OnboardingPage() {
+  // Le salarié se choisit dans la liste : c'était une saisie libre,
+  // sujette aux fautes de frappe et sans lien avec le dossier.
+  const optionsSalaries = useEmployeeOptions().map((salarie) => ({
+    value: salarie.name,
+    label: salarie.name,
+  }));
   const router = useRouter();
   const searchParams = useSearchParams();
   // Enregistré en base : la liste ne vivait que dans le navigateur.
@@ -812,14 +820,15 @@ export default function OnboardingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="employeeName">Nom de l&apos;employé *</Label>
-              <Input
-                id="employeeName"
+              <Combobox
+                options={optionsSalaries}
                 value={formData.employeeName}
-                onChange={(e) =>
-                  handleInputChange("employeeName", e.target.value)
+                onValueChange={(valeur) =>
+                  handleInputChange("employeeName", valeur)
                 }
-                placeholder="Ex: Marie Dupont"
-                required
+                placeholder="Sélectionner un employé"
+                searchPlaceholder="Rechercher un employé..."
+                emptyMessage="Aucun employé trouvé."
               />
             </div>
 

@@ -37,6 +37,8 @@ import {
   type StoredFile,
 } from "@/lib/document-files";
 import { useRegistre } from "@/hooks/fiscal";
+import { useEmployeeOptions } from "@/hooks/employees";
+import { Combobox } from "@/components/ui/combobox";
 
 /**
  * Pièces attendues d'un dossier de financement : devis du prestataire,
@@ -80,6 +82,12 @@ type DossierEnregistre = Omit<AKTOOPCODossier, "documents"> &
 const AKTO_URL = "https://www.akto.fr";
 
 export default function AKTOOPCOPage() {
+  // Le salarié se choisit dans la liste : c'était une saisie libre,
+  // sujette aux fautes de frappe et sans lien avec le dossier.
+  const optionsSalaries = useEmployeeOptions().map((salarie) => ({
+    value: salarie.name,
+    label: salarie.name,
+  }));
   // Dossiers enregistrés en base : ils ne vivaient qu'en mémoire, et les
   // pièces déposées disparaissaient à la déconnexion.
   const registre = useRegistre<DossierEnregistre>("akto", CHAMPS_PIECES);
@@ -463,13 +471,15 @@ export default function AKTOOPCOPage() {
             <Label htmlFor="employeeName">
               Employé (optionnel - laisser vide pour formation groupe)
             </Label>
-            <Input
-              id="employeeName"
+            <Combobox
+              options={optionsSalaries}
               value={formData.employeeName}
-              onChange={(e) =>
-                setFormData({ ...formData, employeeName: e.target.value })
+              onValueChange={(valeur) =>
+                setFormData({ ...formData, employeeName: valeur })
               }
-              placeholder="Nom de l'employé"
+              placeholder="Sélectionner un employé"
+              searchPlaceholder="Rechercher un employé..."
+              emptyMessage="Aucun employé trouvé."
             />
           </div>
 

@@ -37,11 +37,20 @@ import {
 } from "lucide-react";
 import type { TrainingCertification } from "@/lib/types";
 import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
+import { useEmployeeOptions } from "@/hooks/employees";
+import { Combobox } from "@/components/ui/combobox";
 
 // Mock data for SST certifications with recycles
 const mockSSTCertifications: TrainingCertification[] = [];
 
 export default function SSTPage() {
+  // Le salarié se choisit dans la liste : ce champ était une simple
+  // saisie libre, l'habilitation n'était donc rattachée à personne.
+  const salaries = useEmployeeOptions();
+  const optionsSalaries = salaries.map((salarie) => ({
+    value: salarie.employeeNumber,
+    label: salarie.name,
+  }));
   // Enregistré en base : la liste ne vivait que dans le navigateur.
   const [certifications, setCertifications] =
     useListePersistante<TrainingCertification>("sst");
@@ -638,7 +647,7 @@ export default function SSTPage() {
             label: isEditMode ? "Mettre à jour" : "Créer",
             onClick: handleCreateOrUpdateCertification,
             disabled:
-              !certificationForm.employeeName || !certificationForm.number,
+              !certificationForm.employeeId || !certificationForm.number,
           },
         }}
       >
@@ -647,16 +656,22 @@ export default function SSTPage() {
             <Label htmlFor="employee">
               Employé <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="employee"
-              value={certificationForm.employeeName}
-              onChange={(e) =>
+            <Combobox
+              options={optionsSalaries}
+              value={certificationForm.employeeId}
+              onValueChange={(valeur) => {
+                const salarie = salaries.find(
+                  (s) => s.employeeNumber === valeur,
+                );
                 setCertificationForm((prev) => ({
                   ...prev,
-                  employeeName: e.target.value,
-                }))
-              }
-              placeholder="Nom de l'employé"
+                  employeeId: valeur,
+                  employeeName: salarie?.name ?? "",
+                }));
+              }}
+              placeholder="Sélectionner un employé"
+              searchPlaceholder="Rechercher un employé..."
+              emptyMessage="Aucun employé trouvé."
             />
           </div>
 
