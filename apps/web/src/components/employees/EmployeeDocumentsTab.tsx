@@ -11,6 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
   Upload,
   Download,
@@ -523,8 +524,18 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
                     className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <FileText className="h-4 w-4 text-primary" />
+                      <div
+                        className={cn(
+                          "p-2 rounded-lg",
+                          c.document ? "bg-green-500/15" : "bg-primary/10",
+                        )}
+                      >
+                        <FileText
+                          className={cn(
+                            "h-4 w-4",
+                            c.document ? "text-green-600" : "text-primary",
+                          )}
+                        />
                       </div>
                       <div className="min-w-0">
                         <p className="truncate font-medium">

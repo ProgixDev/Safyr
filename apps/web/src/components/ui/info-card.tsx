@@ -13,16 +13,35 @@ interface InfoCardProps {
   className?: string;
 }
 
+/**
+ * Couleur de la pastille d'icône. Classes statiques (pas de construction
+ * dynamique de nom de classe) pour que Tailwind les inclue dans le build.
+ */
+const COULEURS: Record<string, string> = {
+  blue: "bg-blue-500/15 text-blue-500",
+  purple: "bg-purple-500/15 text-purple-500",
+  green: "bg-green-500/15 text-green-500",
+  red: "bg-red-500/15 text-red-500",
+  orange: "bg-orange-500/15 text-orange-500",
+  yellow: "bg-yellow-500/15 text-yellow-500",
+  amber: "bg-amber-500/15 text-amber-500",
+  teal: "bg-teal-500/15 text-teal-500",
+  cyan: "bg-cyan-500/15 text-cyan-500",
+  indigo: "bg-indigo-500/15 text-indigo-500",
+  pink: "bg-pink-500/15 text-pink-500",
+  slate: "bg-slate-500/15 text-slate-500",
+  gray: "bg-muted text-muted-foreground",
+};
+
 const InfoCard = React.forwardRef<HTMLDivElement, InfoCardProps>(
-  // `color` est conservé pour compatibilité avec les appels existants mais n'est
-  // plus utilisé : les cartes sont neutres (pas de fond/texte coloré).
-  ({ icon: Icon, title, value, subtext, className }, ref) => {
+  ({ icon: Icon, title, value, subtext, color, className }, ref) => {
+    const teinte = COULEURS[color] ?? COULEURS.gray;
     return (
       <Card ref={ref} className={cn("", className)}>
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-muted rounded-full">
-              <Icon className="h-6 w-6 text-muted-foreground" />
+            <div className={cn("p-3 rounded-full", teinte)}>
+              <Icon className="h-6 w-6" />
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">{title}</p>

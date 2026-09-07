@@ -43,7 +43,9 @@ export type FiscalRecordType =
   | "bon_commande"
   | "avoir_facture"
   | "publication_sociale"
-  | "client_crm";
+  | "client_crm"
+  | "client_contrat"
+  | "client_cadeau";
 
 /** Ligne d'un registre administratif (TVA, CFE, PAS, courrier, AKTO). */
 export interface FiscalRecord {

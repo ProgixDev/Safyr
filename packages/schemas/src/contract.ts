@@ -55,6 +55,7 @@ export const AttachedScopeSchema = z.enum([
   "akto",
   "divers",
   "contract",
+  "client",
 ]);
 
 export const AttachDocumentSchema = z.object({

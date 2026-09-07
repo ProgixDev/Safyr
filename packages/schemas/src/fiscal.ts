@@ -50,6 +50,8 @@ export const FiscalRecordTypeSchema = z.enum([
   "avoir_facture",
   "publication_sociale",
   "client_crm",
+  "client_contrat",
+  "client_cadeau",
 ]);
 
 export const CreateFiscalRecordSchema = z.object({

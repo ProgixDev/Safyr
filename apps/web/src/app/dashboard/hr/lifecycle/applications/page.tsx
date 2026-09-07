@@ -23,10 +23,44 @@ import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { candidateFromEmail } from "@/lib/candidate-from-email";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
-import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
+import { useRegistre } from "@/hooks/fiscal/use-registre";
+import { useAttachments, useAttachDocument } from "@/hooks/contracts";
+import { downloadStoredFile } from "@/lib/document-files";
 
-// Mock data - replace with API call
-const mockApplications: JobApplication[] = [];
+/** Ligne telle qu'enregistrée en base : les dates y sont des chaînes ISO. */
+interface LigneCandidature {
+  id: string;
+  employeeId?: string;
+  applicantName: string;
+  email: string;
+  phone: string;
+  position: string;
+  status: JobApplication["status"];
+  appliedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  notes?: string;
+}
+
+const EPOQUE = new Date(0);
+
+function versApplication(l: LigneCandidature): JobApplication {
+  return {
+    id: l.id,
+    employeeId: l.employeeId,
+    applicantName: l.applicantName ?? "",
+    email: l.email ?? "",
+    phone: l.phone ?? "",
+    position: l.position ?? "",
+    status: l.status ?? "pending",
+    appliedAt: l.appliedAt ? new Date(l.appliedAt) : EPOQUE,
+    reviewedAt: l.reviewedAt ? new Date(l.reviewedAt) : undefined,
+    reviewedBy: l.reviewedBy,
+    notes: l.notes,
+    createdAt: EPOQUE,
+    updatedAt: EPOQUE,
+  };
+}
 
 const statusLabels = {
   pending: "En attente",
@@ -48,8 +82,17 @@ const commonPositions = EMPLOYEE_POSTE_OPTIONS;
 
 export default function ApplicationsPage() {
   // Enregistré en base : la liste ne vivait que dans le navigateur.
-  const [applications, setApplications] =
-    useListePersistante<JobApplication>("candidature");
+  const registreCandidatures = useRegistre<LigneCandidature>("candidature", []);
+  const applications = registreCandidatures.lignes.map(versApplication);
+  // Le CV et la lettre de motivation sont de vraies pièces jointes : le
+  // formulaire ne faisait auparavant que fabriquer un chemin de fichier
+  // fictif, jamais réellement enregistré.
+  const attacherPieceCandidature = useAttachDocument("divers");
+  const { data: piecesCandidature = [] } = useAttachments("divers");
+  const cvDe = (id: string) =>
+    piecesCandidature.find((p) => p.scopeId === id && p.slot === "cv");
+  const lettreDe = (id: string) =>
+    piecesCandidature.find((p) => p.scopeId === id && p.slot === "lettre");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingApplication, setEditingApplication] =
@@ -104,44 +147,76 @@ export default function ApplicationsPage() {
 
   const handleDelete = (applicationId: string) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cette candidature ?")) {
-      setApplications(applications.filter((app) => app.id !== applicationId));
+      void registreCandidatures.supprimerLigne(applicationId);
     }
   };
 
-  const handleSave = () => {
-    const applicationData = {
-      applicantName: formData.applicantName,
-      email: formData.email,
-      phone: formData.phone,
-      position:
-        formData.position === "Autre"
-          ? formData.customPosition
-          : formData.position,
-      cv: cvFile ? `/files/cv_${Date.now()}.pdf` : undefined,
-      coverLetter: coverLetterFile
-        ? `/files/lettre_${Date.now()}.pdf`
-        : undefined,
-      notes: formData.notes || undefined,
-    };
+  const enregistrerCandidature = (
+    app: JobApplication,
+    champs: Partial<LigneCandidature>,
+  ) =>
+    registreCandidatures.enregistrer(
+      {
+        id: app.id,
+        employeeId: app.employeeId,
+        applicantName: app.applicantName,
+        email: app.email,
+        phone: app.phone,
+        position: app.position,
+        status: app.status,
+        appliedAt: app.appliedAt.toISOString(),
+        reviewedAt: app.reviewedAt?.toISOString(),
+        reviewedBy: app.reviewedBy,
+        notes: app.notes,
+        ...champs,
+      },
+      {
+        period: app.appliedAt.toISOString().slice(0, 7),
+        label: `${app.applicantName} — ${app.position}`,
+        status: champs.status ?? app.status,
+      },
+    );
 
-    if (editingApplication) {
-      setApplications(
-        applications.map((app) =>
-          app.id === editingApplication.id
-            ? { ...app, ...applicationData, updatedAt: new Date() }
-            : app,
-        ),
-      );
-    } else {
-      const newApplication: JobApplication = {
-        id: Date.now().toString(),
-        ...applicationData,
+  const handleSave = async () => {
+    const position =
+      formData.position === "Autre"
+        ? formData.customPosition
+        : formData.position;
+    const base: JobApplication =
+      editingApplication ??
+      ({
+        id: "",
+        applicantName: "",
+        email: "",
+        phone: "",
+        position: "",
         status: "pending",
         appliedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
-      setApplications([...applications, newApplication]);
+      } as JobApplication);
+    const id = await enregistrerCandidature(base, {
+      id: editingApplication?.id ?? "",
+      applicantName: formData.applicantName,
+      email: formData.email,
+      phone: formData.phone,
+      position,
+      notes: formData.notes || undefined,
+      appliedAt: (editingApplication?.appliedAt ?? new Date()).toISOString(),
+    });
+    if (cvFile) {
+      await attacherPieceCandidature.mutateAsync({
+        file: cvFile,
+        scopeId: id,
+        slot: "cv",
+      });
+    }
+    if (coverLetterFile) {
+      await attacherPieceCandidature.mutateAsync({
+        file: coverLetterFile,
+        scopeId: id,
+        slot: "lettre",
+      });
     }
     setIsCreateModalOpen(false);
   };
@@ -150,13 +225,12 @@ export default function ApplicationsPage() {
     applicationId: string,
     newStatus: JobApplication["status"],
   ) => {
-    setApplications(
-      applications.map((app) =>
-        app.id === applicationId
-          ? { ...app, status: newStatus, updatedAt: new Date() }
-          : app,
-      ),
-    );
+    const app = applications.find((a) => a.id === applicationId);
+    if (!app) return;
+    void enregistrerCandidature(app, {
+      status: newStatus,
+      reviewedAt: new Date().toISOString(),
+    });
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -331,7 +405,7 @@ export default function ApplicationsPage() {
           },
           primary: {
             label: editingApplication ? "Enregistrer" : "Créer",
-            onClick: handleSave,
+            onClick: () => void handleSave(),
             disabled: !isFormValid,
           },
         }}
@@ -544,34 +618,42 @@ export default function ApplicationsPage() {
               </div>
             </div>
 
-            {viewingApplication.cv && (
+            {cvDe(viewingApplication.id) && (
               <div>
                 <Label>CV</Label>
-                <Button variant="outline" size="sm" asChild>
-                  <a
-                    href={viewingApplication.cv}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Voir le CV
-                  </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const piece = cvDe(viewingApplication.id)!;
+                    void downloadStoredFile({
+                      name: piece.name,
+                      key: piece.storageKey,
+                    });
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Voir le CV
                 </Button>
               </div>
             )}
 
-            {viewingApplication.coverLetter && (
+            {lettreDe(viewingApplication.id) && (
               <div>
                 <Label>Lettre de motivation</Label>
-                <Button variant="outline" size="sm" asChild>
-                  <a
-                    href={viewingApplication.coverLetter}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Voir la lettre
-                  </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const piece = lettreDe(viewingApplication.id)!;
+                    void downloadStoredFile({
+                      name: piece.name,
+                      key: piece.storageKey,
+                    });
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Voir la lettre
                 </Button>
               </div>
             )}

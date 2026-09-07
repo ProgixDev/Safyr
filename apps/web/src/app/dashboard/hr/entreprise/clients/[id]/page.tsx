@@ -11,15 +11,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useRegistre } from "@/hooks/fiscal/use-registre";
+import {
+  useAttachments,
+  useAttachDocument,
+  useDeleteAttachment,
+} from "@/hooks/contracts";
+import { pickFile, downloadStoredFile } from "@/lib/document-files";
 import {
   Building2,
   FileText,
@@ -36,7 +44,6 @@ import {
   Gift,
   User,
   Eye,
-  MoreVertical,
   Receipt,
 } from "lucide-react";
 import { useClient, useUpdateClient, useDeleteClient } from "@/hooks/clients";
@@ -105,6 +112,8 @@ interface Document {
   expiryDate?: string;
   status: "valid" | "expiring" | "expired";
   required: boolean;
+  /** Clé du fichier réel dans le stockage, pour voir/télécharger. */
+  storageKey?: string;
 }
 
 const requiredDocuments = [
@@ -112,11 +121,29 @@ const requiredDocuments = [
   { type: "kbis_client", name: "Kbis du client", category: "juridique" },
 ];
 
-const mockContracts: ClientContract[] = [];
+/** Lignes telles qu'enregistrées en base (dates en chaînes ISO). */
+interface LigneContrat {
+  id: string;
+  clientId: string;
+  startDate: string;
+  endDate?: string;
+  description: string;
+  status: "active" | "expired" | "terminated";
+}
 
-const mockGifts: ClientGift[] = [];
+interface LigneCadeau {
+  id: string;
+  clientId: string;
+  giftDescription: string;
+  date: string;
+  valueHT?: number;
+  tva?: number;
+  valueTTC?: number;
+  notes?: string;
+}
 
-const mockDocuments: Document[] = [];
+const EPOQUE = new Date(0);
+const CHAMPS_FICHIERS: readonly string[] = [];
 
 // Champ "lecture / édition" avec cadre — même rendu que Mon entreprise.
 function Field({
@@ -268,28 +295,97 @@ export default function ClientDetailPage({
     setClient(toEditableClient(apiClient));
   }
 
-  const [contracts, setContracts] = useState<ClientContract[]>(
-    mockContracts.filter((c) => c.clientId === id),
+  // Contrats, cadeaux et documents sont enregistrés en base : ces trois
+  // listes ne vivaient auparavant que dans l'état React, et les boutons
+  // « Nouveau contrat » / « Nouveau cadeau » n'avaient aucun gestionnaire.
+  const registreContrats = useRegistre<LigneContrat>(
+    "client_contrat",
+    CHAMPS_FICHIERS,
   );
-  const [gifts, setGifts] = useState<ClientGift[]>(
-    mockGifts.filter((g) => g.clientId === id),
+  const registreCadeaux = useRegistre<LigneCadeau>(
+    "client_cadeau",
+    CHAMPS_FICHIERS,
   );
+  const contracts = registreContrats.lignes
+    .filter((l) => l.clientId === id)
+    .map(
+      (l): ClientContract => ({
+        id: l.id,
+        clientId: l.clientId,
+        startDate: l.startDate ? new Date(l.startDate) : EPOQUE,
+        endDate: l.endDate ? new Date(l.endDate) : undefined,
+        description: l.description ?? "",
+        status: l.status ?? "active",
+      }),
+    );
+  const gifts = registreCadeaux.lignes
+    .filter((l) => l.clientId === id)
+    .map(
+      (l): ClientGift => ({
+        id: l.id,
+        clientId: l.clientId,
+        giftDescription: l.giftDescription ?? "",
+        date: l.date ? new Date(l.date) : EPOQUE,
+        valueHT: l.valueHT,
+        tva: l.tva,
+        valueTTC: l.valueTTC,
+        notes: l.notes,
+      }),
+    );
   const [viewContract, setViewContract] = useState<ClientContract | null>(null);
   const [viewGift, setViewGift] = useState<ClientGift | null>(null);
-  const [giftReceipts, setGiftReceipts] = useState<Record<string, string>>({});
-  const [documents, setDocuments] = useState<Document[]>(
-    mockDocuments.filter((doc) => doc.clientId === id),
+  const [isContractFormOpen, setIsContractFormOpen] = useState(false);
+  const [editingContract, setEditingContract] = useState<ClientContract | null>(
+    null,
   );
+  const [contractForm, setContractForm] = useState({
+    startDate: "",
+    endDate: "",
+    description: "",
+    status: "active" as ClientContract["status"],
+  });
+  const [isGiftFormOpen, setIsGiftFormOpen] = useState(false);
+  const [editingGift, setEditingGift] = useState<ClientGift | null>(null);
+  const [giftForm, setGiftForm] = useState({
+    giftDescription: "",
+    date: "",
+    valueHT: "",
+    tva: "",
+    valueTTC: "",
+    notes: "",
+  });
+  // Documents et reçus de cadeaux : pièces jointes réelles, scope "client".
+  // Le reçu d'un cadeau est une pièce dont le slot vaut "recu-<idCadeau>".
+  const { data: pieces = [] } = useAttachments("client", id);
+  const attacherPiece = useAttachDocument("client", id);
+  const detacherPiece = useDeleteAttachment("client", id);
+  const recuDe = (giftId: string) =>
+    pieces.find((p) => p.slot === `recu-${giftId}`);
+  const documents: Document[] = pieces
+    .filter((p) => !p.slot.startsWith("recu-"))
+    .map((p) => {
+      const docType = requiredDocuments.find((d) => d.type === p.slot);
+      return {
+        id: p.id,
+        clientId: id,
+        name: p.name,
+        type: p.slot,
+        uploadDate: p.createdAt,
+        status: "valid",
+        required: !!docType,
+        storageKey: p.storageKey,
+      };
+    });
   const [isEditing, setIsEditing] = useState(
     searchParams.get("edit") === "true",
   );
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [isCustomDocModalOpen, setIsCustomDocModalOpen] = useState(false);
-  const [newCustomDoc, setNewCustomDoc] = useState({
-    name: "",
-    description: "",
-  });
+  const [newCustomDoc, setNewCustomDoc] = useState({ name: "" });
+  const [fichierPersonnalise, setFichierPersonnalise] = useState<File | null>(
+    null,
+  );
 
   if (isLoading) {
     return (
@@ -362,27 +458,23 @@ export default function ClientDetailPage({
   };
 
   const handlePreview = (doc: Document) => {
-    console.log("Preview:", doc);
-    // In a real app, open a modal or new window with the document
+    if (!doc.storageKey) {
+      alert("Ce document n a pas de fichier associe.");
+      return;
+    }
+    void downloadStoredFile({ name: doc.name, key: doc.storageKey });
   };
 
-  const handleDownload = (doc: Document) => {
-    console.log("Download:", doc);
-    // In a real app, trigger download of the file
-  };
+  const handleDownload = handlePreview;
 
-  const handleUpload = (docType: { name: string; type: string }) => {
-    // For mock purposes, simulate upload by adding the document
-    const newDoc: Document = {
-      id: Date().toString(),
-      clientId: id,
-      name: docType.name,
-      type: docType.type,
-      uploadDate: new Date().toISOString().split("T")[0],
-      status: "valid",
-      required: true,
-    };
-    setDocuments([...documents, newDoc]);
+  const handleUpload = async (docType: { name: string; type: string }) => {
+    const fichier = await pickFile();
+    if (!fichier) return;
+    await attacherPiece.mutateAsync({
+      file: fichier,
+      scopeId: id,
+      slot: docType.type,
+    });
   };
 
   const handleCancel = () => {
@@ -407,33 +499,115 @@ export default function ClientDetailPage({
   };
 
   const handleBulkDownload = () => {
-    console.log("Downloading documents:", selectedDocuments);
+    for (const docId of selectedDocuments) {
+      const doc = documents.find((d) => d.id === docId);
+      if (doc) handleDownload(doc);
+    }
+  };
+
+  const handleCreateContract = () => {
+    setEditingContract(null);
+    setContractForm({
+      startDate: new Date().toISOString().split("T")[0],
+      endDate: "",
+      description: "",
+      status: "active",
+    });
+    setIsContractFormOpen(true);
+  };
+
+  const handleEditContract = (c: ClientContract) => {
+    setEditingContract(c);
+    setContractForm({
+      startDate: c.startDate.toISOString().split("T")[0],
+      endDate: c.endDate ? c.endDate.toISOString().split("T")[0] : "",
+      description: c.description,
+      status: c.status,
+    });
+    setIsContractFormOpen(true);
+  };
+
+  const handleSaveContract = async () => {
+    const ligne: LigneContrat = {
+      id: editingContract?.id ?? "",
+      clientId: id,
+      startDate: contractForm.startDate,
+      endDate: contractForm.endDate || undefined,
+      description: contractForm.description,
+      status: contractForm.status,
+    };
+    await registreContrats.enregistrer(ligne, {
+      period: contractForm.startDate.slice(0, 7),
+      label: contractForm.description || `Contrat — ${client.name}`,
+      status: contractForm.status,
+    });
+    setIsContractFormOpen(false);
   };
 
   const handleDeleteContract = (c: ClientContract) =>
-    setContracts((prev) => prev.filter((x) => x.id !== c.id));
+    void registreContrats.supprimerLigne(c.id);
+
+  const handleCreateGift = () => {
+    setEditingGift(null);
+    setGiftForm({
+      giftDescription: "",
+      date: new Date().toISOString().split("T")[0],
+      valueHT: "",
+      tva: "",
+      valueTTC: "",
+      notes: "",
+    });
+    setIsGiftFormOpen(true);
+  };
+
+  const handleEditGift = (g: ClientGift) => {
+    setEditingGift(g);
+    setGiftForm({
+      giftDescription: g.giftDescription,
+      date: g.date.toISOString().split("T")[0],
+      valueHT: g.valueHT?.toString() ?? "",
+      tva: g.tva?.toString() ?? "",
+      valueTTC: g.valueTTC?.toString() ?? "",
+      notes: g.notes ?? "",
+    });
+    setIsGiftFormOpen(true);
+  };
+
+  const handleSaveGift = async () => {
+    const ligne: LigneCadeau = {
+      id: editingGift?.id ?? "",
+      clientId: id,
+      giftDescription: giftForm.giftDescription,
+      date: giftForm.date,
+      valueHT: giftForm.valueHT ? Number(giftForm.valueHT) : undefined,
+      tva: giftForm.tva ? Number(giftForm.tva) : undefined,
+      valueTTC: giftForm.valueTTC ? Number(giftForm.valueTTC) : undefined,
+      notes: giftForm.notes || undefined,
+    };
+    await registreCadeaux.enregistrer(ligne, {
+      period: giftForm.date.slice(0, 7),
+      label: giftForm.giftDescription || `Cadeau — ${client.name}`,
+    });
+    setIsGiftFormOpen(false);
+  };
 
   const handleDeleteGift = (g: ClientGift) =>
-    setGifts((prev) => prev.filter((x) => x.id !== g.id));
+    void registreCadeaux.supprimerLigne(g.id);
 
-  const handleUploadReceipt = (g: ClientGift) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*,application/pdf";
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) setGiftReceipts((prev) => ({ ...prev, [g.id]: file.name }));
-    };
-    input.click();
+  const handleUploadReceipt = async (g: ClientGift) => {
+    const fichier = await pickFile();
+    if (!fichier) return;
+    await attacherPiece.mutateAsync({
+      file: fichier,
+      scopeId: id,
+      slot: `recu-${g.id}`,
+    });
   };
 
   const handleDownloadReceipt = (g: ClientGift) => {
-    // Mock : le reçu/facture sera servi par le backend une fois branché.
-    console.log(
-      "Télécharger le reçu/facture du cadeau:",
-      g.id,
-      giftReceipts[g.id],
-    );
+    const recu = recuDe(g.id);
+    if (!recu) return;
+    void downloadStoredFile({ name: recu.name, key: recu.storageKey });
   };
 
   const contractColumns: ColumnDef<ClientContract>[] = [
@@ -538,14 +712,11 @@ export default function ClientDetailPage({
       sortable: true,
       render: (doc) => {
         const docType = requiredDocuments.find((d) => d.type === doc.type);
-        return docType?.name || doc.type;
+        if (docType) return docType.name;
+        return doc.type.startsWith("custom-")
+          ? "Document personnalisé"
+          : doc.type;
       },
-    },
-    {
-      key: "description",
-      label: "Description",
-      sortable: false,
-      render: (doc) => doc.description || "-",
     },
     {
       key: "uploadDate",
@@ -584,6 +755,17 @@ export default function ClientDetailPage({
           </Badge>
         );
       },
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (doc) => (
+        <RowActionsMenu
+          onView={() => handlePreview(doc)}
+          onDownload={() => handleDownload(doc)}
+          onDelete={() => void detacherPiece.mutateAsync(doc.id)}
+        />
+      ),
     },
   ];
 
@@ -756,7 +938,7 @@ export default function ClientDetailPage({
                   <FileText className="h-5 w-5" />
                   Contrats
                 </CardTitle>
-                <Button size="sm">
+                <Button size="sm" onClick={handleCreateContract}>
                   <Calendar className="h-4 w-4 mr-2" />
                   Nouveau contrat
                 </Button>
@@ -765,39 +947,17 @@ export default function ClientDetailPage({
             <CardContent>
               <DataTable
                 data={contracts}
+                isLoading={registreContrats.isLoading}
                 columns={contractColumns}
                 searchKey="description"
                 searchPlaceholder="Rechercher un contrat..."
                 onRowClick={(c) => setViewContract(c)}
                 actions={(c) => (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setViewContract(c)}>
-                        <Eye className="mr-2 h-4 w-4 text-green-600" />
-                        Voir
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setViewContract(c)}>
-                        <Edit3 className="mr-2 h-4 w-4 text-orange-500" />
-                        Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => handleDeleteContract(c)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <RowActionsMenu
+                    onView={() => setViewContract(c)}
+                    onEdit={() => handleEditContract(c)}
+                    onDelete={() => handleDeleteContract(c)}
+                  />
                 )}
               />
             </CardContent>
@@ -812,7 +972,7 @@ export default function ClientDetailPage({
                   <Gift className="h-5 w-5" />
                   Suivi des cadeaux
                 </CardTitle>
-                <Button size="sm">
+                <Button size="sm" onClick={handleCreateGift}>
                   <Gift className="h-4 w-4 mr-2" />
                   Nouveau cadeau
                 </Button>
@@ -821,51 +981,30 @@ export default function ClientDetailPage({
             <CardContent>
               <DataTable
                 data={gifts}
+                isLoading={registreCadeaux.isLoading}
                 columns={giftColumns}
                 searchKey="giftDescription"
                 searchPlaceholder="Rechercher un cadeau..."
                 onRowClick={(g) => setViewGift(g)}
                 actions={(g) => (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setViewGift(g)}>
-                        <Eye className="mr-2 h-4 w-4 text-green-600" />
-                        Voir
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setViewGift(g)}>
-                        <Edit3 className="mr-2 h-4 w-4 text-orange-500" />
-                        Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          giftReceipts[g.id]
-                            ? handleDownloadReceipt(g)
-                            : handleUploadReceipt(g)
-                        }
-                      >
-                        <Receipt className="mr-2 h-4 w-4" />
-                        {giftReceipts[g.id]
+                  <RowActionsMenu
+                    onView={() => setViewGift(g)}
+                    onEdit={() => handleEditGift(g)}
+                    onDelete={() => handleDeleteGift(g)}
+                    extraItems={[
+                      {
+                        label: recuDe(g.id)
                           ? "Télécharger le reçu/facture"
-                          : "Téléverser un reçu/facture"}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => handleDeleteGift(g)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          : "Téléverser un reçu/facture",
+                        icon: Receipt,
+                        tone: recuDe(g.id) ? "download" : "upload",
+                        onClick: () =>
+                          recuDe(g.id)
+                            ? handleDownloadReceipt(g)
+                            : void handleUploadReceipt(g),
+                      },
+                    ]}
+                  />
                 )}
               />
             </CardContent>
@@ -1005,24 +1144,28 @@ export default function ClientDetailPage({
         open={isCustomDocModalOpen}
         onOpenChange={setIsCustomDocModalOpen}
         type="form"
-        title="Ajouter un document personnalisé"
+        title="Ajouter un document"
         actions={{
           primary: {
             label: "Ajouter",
+            disabled: !fichierPersonnalise || !newCustomDoc.name,
             onClick: () => {
-              const newDoc: Document = {
-                id: Date.now().toString(),
-                clientId: id,
-                name: newCustomDoc.name,
-                type: "custom",
-                description: newCustomDoc.description,
-                uploadDate: new Date().toISOString().split("T")[0],
-                status: "valid",
-                required: false,
-              };
-              setDocuments([...documents, newDoc]);
-              setIsCustomDocModalOpen(false);
-              setNewCustomDoc({ name: "", description: "" });
+              if (!fichierPersonnalise) return;
+              // Le nom affiché vient du fichier lui-même côté serveur : on
+              // renomme l'objet File pour que le libellé saisi soit conservé.
+              const renomme = new File(
+                [fichierPersonnalise],
+                newCustomDoc.name,
+                { type: fichierPersonnalise.type },
+              );
+              const slot = `custom-${Date.now()}`;
+              void attacherPiece
+                .mutateAsync({ file: renomme, scopeId: id, slot })
+                .then(() => {
+                  setIsCustomDocModalOpen(false);
+                  setNewCustomDoc({ name: "" });
+                  setFichierPersonnalise(null);
+                });
             },
           },
           secondary: {
@@ -1045,17 +1188,185 @@ export default function ClientDetailPage({
             />
           </div>
           <div>
-            <Label htmlFor="doc-description">Description</Label>
+            <Label htmlFor="doc-file">Fichier</Label>
             <Input
-              id="doc-description"
-              value={newCustomDoc.description}
+              id="doc-file"
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx"
               onChange={(e) =>
-                setNewCustomDoc({
-                  ...newCustomDoc,
+                setFichierPersonnalise(e.target.files?.[0] ?? null)
+              }
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={isContractFormOpen}
+        onOpenChange={setIsContractFormOpen}
+        type="form"
+        title={editingContract ? "Modifier le contrat" : "Nouveau contrat"}
+        actions={{
+          primary: {
+            label: editingContract ? "Enregistrer" : "Créer",
+            onClick: () => void handleSaveContract(),
+            disabled: !contractForm.description || !contractForm.startDate,
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setIsContractFormOpen(false),
+            variant: "outline" as const,
+          },
+        }}
+      >
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="contract-description">Description</Label>
+            <Input
+              id="contract-description"
+              value={contractForm.description}
+              onChange={(e) =>
+                setContractForm({
+                  ...contractForm,
                   description: e.target.value,
                 })
               }
-              placeholder="Description du document"
+              placeholder="Ex : Contrat de prestation gardiennage"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="contract-start">Date de début</Label>
+              <Input
+                id="contract-start"
+                type="date"
+                value={contractForm.startDate}
+                onChange={(e) =>
+                  setContractForm({
+                    ...contractForm,
+                    startDate: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="contract-end">Date de fin</Label>
+              <Input
+                id="contract-end"
+                type="date"
+                value={contractForm.endDate}
+                onChange={(e) =>
+                  setContractForm({ ...contractForm, endDate: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="contract-status">Statut</Label>
+            <Select
+              value={contractForm.status}
+              onValueChange={(v: ClientContract["status"]) =>
+                setContractForm({ ...contractForm, status: v })
+              }
+            >
+              <SelectTrigger id="contract-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Actif</SelectItem>
+                <SelectItem value="expired">Expiré</SelectItem>
+                <SelectItem value="terminated">Résilié</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={isGiftFormOpen}
+        onOpenChange={setIsGiftFormOpen}
+        type="form"
+        title={editingGift ? "Modifier le cadeau" : "Nouveau cadeau"}
+        actions={{
+          primary: {
+            label: editingGift ? "Enregistrer" : "Créer",
+            onClick: () => void handleSaveGift(),
+            disabled: !giftForm.giftDescription || !giftForm.date,
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setIsGiftFormOpen(false),
+            variant: "outline" as const,
+          },
+        }}
+      >
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="gift-description">Description</Label>
+            <Input
+              id="gift-description"
+              value={giftForm.giftDescription}
+              onChange={(e) =>
+                setGiftForm({ ...giftForm, giftDescription: e.target.value })
+              }
+              placeholder="Ex : Coffret gastronomique"
+            />
+          </div>
+          <div>
+            <Label htmlFor="gift-date">Date</Label>
+            <Input
+              id="gift-date"
+              type="date"
+              value={giftForm.date}
+              onChange={(e) =>
+                setGiftForm({ ...giftForm, date: e.target.value })
+              }
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="gift-ht">Valeur HT (€)</Label>
+              <Input
+                id="gift-ht"
+                type="number"
+                value={giftForm.valueHT}
+                onChange={(e) =>
+                  setGiftForm({ ...giftForm, valueHT: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="gift-tva">TVA (€)</Label>
+              <Input
+                id="gift-tva"
+                type="number"
+                value={giftForm.tva}
+                onChange={(e) =>
+                  setGiftForm({ ...giftForm, tva: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="gift-ttc">Valeur TTC (€)</Label>
+              <Input
+                id="gift-ttc"
+                type="number"
+                value={giftForm.valueTTC}
+                onChange={(e) =>
+                  setGiftForm({ ...giftForm, valueTTC: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="gift-notes">Notes</Label>
+            <Textarea
+              id="gift-notes"
+              value={giftForm.notes}
+              onChange={(e) =>
+                setGiftForm({ ...giftForm, notes: e.target.value })
+              }
+              rows={3}
             />
           </div>
         </div>
@@ -1135,19 +1446,19 @@ export default function ClientDetailPage({
               <DetailRow label="Notes" value={viewGift.notes || "-"} />
               <DetailRow
                 label="Reçu / Facture"
-                value={giftReceipts[viewGift.id] ?? "Aucun"}
+                value={recuDe(viewGift.id)?.name ?? "Aucun"}
               />
             </div>
             <div className="flex gap-2 pt-1">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleUploadReceipt(viewGift)}
+                onClick={() => void handleUploadReceipt(viewGift)}
               >
                 <Upload className="mr-2 h-4 w-4 text-blue-500" />
                 Téléverser un reçu
               </Button>
-              {giftReceipts[viewGift.id] && (
+              {recuDe(viewGift.id) && (
                 <Button
                   variant="outline"
                   size="sm"

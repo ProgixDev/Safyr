@@ -9,7 +9,6 @@ import {
   Users,
   Calendar,
   Wallet,
-  UserCog,
   ShieldCheck,
   Workflow,
   Briefcase,
@@ -36,31 +35,12 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    // Le menu "Cycle de vie" a été supprimé à la demande du client : ses
+    // quatre écrans (candidatures, vérifications, intégration, départs)
+    // rejoignent ce menu plutôt que de devenir inaccessibles.
     label: "Collaborateurs",
     shortLabel: "Salariés",
     icon: Users,
-    children: [
-      {
-        label: "Registre Unique du Personnel",
-        href: "/dashboard/hr/collaborators/personnel-register",
-      },
-      {
-        label: "Dossiers salariés",
-        href: "/dashboard/hr/collaborators",
-      },
-      {
-        label: "Entretiens & Évaluations",
-        href: "/dashboard/hr/collaborators/interviews",
-      },
-      {
-        label: "Discipline & Sanctions",
-        href: "/dashboard/hr/collaborators/discipline",
-      },
-    ],
-  },
-  {
-    label: "Cycle de vie",
-    icon: UserCog,
     children: [
       {
         label: "Candidatures",
@@ -75,8 +55,24 @@ const navItems: NavItem[] = [
         href: "/dashboard/hr/lifecycle/onboarding",
       },
       {
-        label: "Parcours de départ",
+        label: "Dossiers salariés",
+        href: "/dashboard/hr/collaborators",
+      },
+      {
+        label: "Entretiens & Évaluations",
+        href: "/dashboard/hr/collaborators/interviews",
+      },
+      {
+        label: "Discipline & Sanctions",
+        href: "/dashboard/hr/collaborators/discipline",
+      },
+      {
+        label: "Sortie salariés",
         href: "/dashboard/hr/lifecycle/offboarding",
+      },
+      {
+        label: "Registre Unique du Personnel",
+        href: "/dashboard/hr/collaborators/personnel-register",
       },
     ],
   },

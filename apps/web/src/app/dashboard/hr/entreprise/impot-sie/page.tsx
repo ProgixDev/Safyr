@@ -113,7 +113,7 @@ interface PrelevementDocument {
   periode: string;
   declaration: StoredFile | null;
   bordereau: StoredFile | null;
-  statut: "declare" | "en_attente" | "en_retard";
+  statut: "en_attente" | "traite" | "paye";
   montant: number;
 }
 
@@ -124,7 +124,7 @@ interface Courrier {
   objet: string;
   document: StoredFile | null;
   organisme: "impots" | "urssaf" | "tresor_public";
-  statut: "traite" | "en_cours" | "en_attente";
+  statut: "en_attente" | "traite" | "archive";
 }
 
 const CHAMPS_TVA = [
@@ -168,8 +168,12 @@ export default function ImpotSIEPage() {
   );
   const registreCourrier = useRegistre<Courrier>("courrier", CHAMPS_COURRIER);
 
-  const tvaDossiers = registreTva.lignes;
-  const cfeDossiers = registreCfe.lignes;
+  // Le statut affiché est toujours recalculé à partir des documents
+  // réellement déposés (et non simplement relu depuis la base) : les
+  // dossiers déjà enregistrés avant ce correctif s'affichent donc, eux
+  // aussi, avec le bon statut sans qu'il faille les retoucher un par un.
+  const tvaDossiers = registreTva.lignes.map(withTvaStatut);
+  const cfeDossiers = registreCfe.lignes.map(withCfeStatut);
   const prelevements = registrePrelevement.lignes;
   const courriers = registreCourrier.lignes;
 
@@ -265,8 +269,14 @@ export default function ImpotSIEPage() {
     paiement: "Paiement TVA",
   };
 
-  /** Recalcule le statut d'un dossier TVA d'après les documents déposés. */
-  const withTvaStatut = (dossier: TVADocument): TVADocument => {
+  /**
+   * Recalcule le statut d'un dossier TVA d'après les documents déposés.
+   * Déclaration de fonction (et non `const`) : elle est hissée en haut de la
+   * portée du composant, ce qui permet de l'utiliser dès `tvaDossiers`
+   * ci-dessous pour que l'affichage reste correct même sur les dossiers
+   * enregistrés avant ce correctif.
+   */
+  function withTvaStatut(dossier: TVADocument): TVADocument {
     const docs = [
       dossier.grandLivre,
       dossier.declaration,
@@ -283,7 +293,7 @@ export default function ImpotSIEPage() {
             ? "manquant"
             : "partiel",
     };
-  };
+  }
 
   /**
    * Attache un document à un dossier TVA. Le tableau affiche les 12 mois même
@@ -302,6 +312,15 @@ export default function ImpotSIEPage() {
         `${TVA_DOC_LABELS[field]} — ${dossier.mois} ${dossier.annee}`,
         depose.nom,
       );
+      // Le statut manquant/partiel/complet suit les documents réellement
+      // déposés : il ne changeait pas tant qu'on ne le forçait pas à la main.
+      const misAJour = withTvaStatut({
+        ...dossier,
+        [field]: { name: depose.nom },
+      });
+      if (misAJour.statut !== dossier.statut) {
+        void registreTva.enregistrer(misAJour, infosTva(misAJour));
+      }
     } catch (e) {
       alert(
         `Échec du téléversement : ${e instanceof Error ? e.message : "Erreur inconnue"}`,
@@ -312,6 +331,10 @@ export default function ImpotSIEPage() {
   /** Retire un document d'un dossier TVA. */
   const handleDeleteTva = (dossier: TVADocument, field: TvaDocField) => {
     void registreTva.retirerPiece(dossier.id, field);
+    const misAJour = withTvaStatut({ ...dossier, [field]: null });
+    if (misAJour.statut !== dossier.statut) {
+      void registreTva.enregistrer(misAJour, infosTva(misAJour));
+    }
   };
 
   const [viewedTva, setViewedTva] = useState<TVADocument | null>(null);
@@ -332,7 +355,9 @@ export default function ImpotSIEPage() {
     paiement: "Justificatif de paiement",
   };
 
-  const withCfeStatut = (dossier: CFEDocument): CFEDocument => {
+  // Déclaration de fonction : hissée en haut de la portée du composant, comme
+  // withTvaStatut ci-dessus, pour rester utilisable dès cfeDossiers.
+  function withCfeStatut(dossier: CFEDocument): CFEDocument {
     const docs = [dossier.declaration, dossier.avis, dossier.paiement];
     const presents = docs.filter(Boolean).length;
     return {
@@ -344,7 +369,7 @@ export default function ImpotSIEPage() {
             ? "manquant"
             : "partiel",
     };
-  };
+  }
 
   const handleUploadCfe = async (dossier: CFEDocument, field: CfeDocField) => {
     try {
@@ -355,6 +380,13 @@ export default function ImpotSIEPage() {
       );
       if (!depose) return;
       confirmUpload(`${CFE_DOC_LABELS[field]} ${dossier.annee}`, depose.nom);
+      const misAJour = withCfeStatut({
+        ...dossier,
+        [field]: { name: depose.nom },
+      });
+      if (misAJour.statut !== dossier.statut) {
+        void registreCfe.enregistrer(misAJour, infosCfe(misAJour));
+      }
     } catch (e) {
       alert(
         `Échec du téléversement : ${e instanceof Error ? e.message : "Erreur inconnue"}`,
@@ -364,6 +396,10 @@ export default function ImpotSIEPage() {
 
   const handleDeleteCfeDoc = (dossier: CFEDocument, field: CfeDocField) => {
     void registreCfe.retirerPiece(dossier.id, field);
+    const misAJour = withCfeStatut({ ...dossier, [field]: null });
+    if (misAJour.statut !== dossier.statut) {
+      void registreCfe.enregistrer(misAJour, infosCfe(misAJour));
+    }
   };
 
   const [viewedCfe, setViewedCfe] = useState<CFEDocument | null>(null);
@@ -450,15 +486,14 @@ export default function ImpotSIEPage() {
   const getStatutColor = (statut: string) => {
     switch (statut) {
       case "complet":
-      case "declare":
       case "traite":
+      case "paye":
+      case "archive":
         return "bg-green-500";
       case "partiel":
       case "en_attente":
         return "bg-orange-500";
       case "manquant":
-      case "en_retard":
-      case "en_cours":
         return "bg-red-500";
       default:
         return "bg-gray-500";
@@ -473,16 +508,14 @@ export default function ImpotSIEPage() {
         return "Partiel";
       case "manquant":
         return "Manquant";
-      case "declare":
-        return "Déclaré";
       case "en_attente":
         return "En attente";
-      case "en_retard":
-        return "En retard";
       case "traite":
         return "Traité";
-      case "en_cours":
-        return "En cours";
+      case "paye":
+        return "Payé";
+      case "archive":
+        return "Archivé";
       default:
         return "Inconnu";
     }
@@ -668,33 +701,12 @@ export default function ImpotSIEPage() {
     {
       key: "statut",
       label: "Statut",
+      // Calculé d'après les documents réellement déposés : manquant → partiel
+      // → complet. Ce n'est plus une valeur qu'on peut forcer à la main.
       render: (dossier) => (
-        <Select
-          value={dossier.statut}
-          onValueChange={(value: "complet" | "partiel" | "manquant") => {
-            const misAJour = { ...dossier, statut: value };
-            void registreTva.enregistrer(misAJour, infosTva(misAJour));
-          }}
-        >
-          <SelectTrigger className="w-32 h-8">
-            <SelectValue>
-              <Badge className={getStatutColor(dossier.statut)}>
-                {getStatutText(dossier.statut)}
-              </Badge>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="complet">
-              <Badge className="bg-green-500">Complet</Badge>
-            </SelectItem>
-            <SelectItem value="partiel">
-              <Badge className="bg-orange-500">Partiel</Badge>
-            </SelectItem>
-            <SelectItem value="manquant">
-              <Badge className="bg-red-500">Manquant</Badge>
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <Badge className={getStatutColor(dossier.statut)}>
+          {getStatutText(dossier.statut)}
+        </Badge>
       ),
     },
   ];
@@ -785,15 +797,16 @@ export default function ImpotSIEPage() {
       </div>
 
       {/* Accès direct au portail fiscal, commun aux quatre onglets. */}
-      <a
-        href="https://cfspro.impots.gouv.fr"
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-2 text-sm text-primary underline underline-offset-4 hover:opacity-80"
-      >
-        <ExternalLink className="h-4 w-4" />
-        Connexion à l&apos;espace professionnel | impots.gouv.fr
-      </a>
+      <Button variant="outline" size="sm" className="gap-2" asChild>
+        <a
+          href="https://cfspro.impots.gouv.fr"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Impôt
+        </a>
+      </Button>
 
       {/* Confirmation visible du dernier téléversement */}
       {uploadNotice && (
@@ -853,7 +866,7 @@ export default function ImpotSIEPage() {
             courriers.filter(
               (c) =>
                 c.date.startsWith(selectedYear.toString()) &&
-                c.statut === "en_cours",
+                c.statut === "en_attente",
             ).length
           }
           color="orange"
@@ -1040,6 +1053,17 @@ export default function ImpotSIEPage() {
                     ),
                   },
                 ]}
+                filters={[
+                  {
+                    key: "statut",
+                    label: "Statut",
+                    options: [
+                      { value: "en_attente", label: "En attente" },
+                      { value: "traite", label: "Traité" },
+                      { value: "paye", label: "Payé" },
+                    ],
+                  },
+                ]}
                 searchKey="periode"
                 searchPlaceholder="Rechercher une période..."
                 actions={(prelevement) => (
@@ -1133,9 +1157,34 @@ export default function ImpotSIEPage() {
                     key: "statut",
                     label: "Statut",
                     render: (courrier) => (
-                      <Badge className={getStatutColor(courrier.statut)}>
-                        {getStatutText(courrier.statut)}
-                      </Badge>
+                      <Select
+                        value={courrier.statut}
+                        onValueChange={(
+                          value: "en_attente" | "traite" | "archive",
+                        ) => {
+                          const misAJour = { ...courrier, statut: value };
+                          void registreCourrier.enregistrer(
+                            misAJour,
+                            infosCourrier(misAJour),
+                          );
+                        }}
+                      >
+                        <SelectTrigger
+                          className="w-32 h-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <SelectValue>
+                            <Badge className={getStatutColor(courrier.statut)}>
+                              {getStatutText(courrier.statut)}
+                            </Badge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="en_attente">En attente</SelectItem>
+                          <SelectItem value="traite">Traité</SelectItem>
+                          <SelectItem value="archive">Archivé</SelectItem>
+                        </SelectContent>
+                      </Select>
                     ),
                   },
                   {
@@ -1143,7 +1192,13 @@ export default function ImpotSIEPage() {
                     label: "Actions",
                     render: (courrier) => (
                       <DocumentActionsMenu
-                        onView={() => handleViewCourrier(courrier)}
+                        // « Voir » ouvre directement le fichier déposé, sans
+                        // passer par la fenêtre de détail du courrier.
+                        onView={
+                          courrier.document
+                            ? () => void downloadStoredFile(courrier.document!)
+                            : undefined
+                        }
                         onUpload={() => void handleUploadCourrier(courrier)}
                         onDownload={
                           courrier.document
@@ -1153,6 +1208,17 @@ export default function ImpotSIEPage() {
                         onDelete={() => handleDeleteCourrier(courrier)}
                       />
                     ),
+                  },
+                ]}
+                filters={[
+                  {
+                    key: "statut",
+                    label: "Statut",
+                    options: [
+                      { value: "en_attente", label: "En attente" },
+                      { value: "traite", label: "Traité" },
+                      { value: "archive", label: "Archivé" },
+                    ],
                   },
                 ]}
                 searchKey="objet"
@@ -1323,24 +1389,8 @@ export default function ImpotSIEPage() {
                 }
               />
             </div>
-            <div>
-              <Label htmlFor="tva-statut">Statut</Label>
-              <Select
-                value={editedTva.statut}
-                onValueChange={(value: "complet" | "partiel" | "manquant") =>
-                  setEditedTva({ ...editedTva, statut: value })
-                }
-              >
-                <SelectTrigger id="tva-statut">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="complet">Complet</SelectItem>
-                  <SelectItem value="partiel">Partiel</SelectItem>
-                  <SelectItem value="manquant">Manquant</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Le statut est calculé d'après les documents déposés — il ne
+                se règle plus à la main ici. */}
           </div>
         )}
       </Modal>
@@ -1451,24 +1501,8 @@ export default function ImpotSIEPage() {
                 }
               />
             </div>
-            <div>
-              <Label htmlFor="cfe-statut">Statut</Label>
-              <Select
-                value={editedCfe.statut}
-                onValueChange={(value: "complet" | "partiel" | "manquant") =>
-                  setEditedCfe({ ...editedCfe, statut: value })
-                }
-              >
-                <SelectTrigger id="cfe-statut">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="complet">Complet</SelectItem>
-                  <SelectItem value="partiel">Partiel</SelectItem>
-                  <SelectItem value="manquant">Manquant</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Le statut est calculé d'après les documents déposés — il ne
+                se règle plus à la main ici. */}
           </div>
         )}
       </Modal>
@@ -1614,9 +1648,7 @@ export default function ImpotSIEPage() {
               <Label htmlFor="pas-statut">Statut</Label>
               <Select
                 value={editedPrelevement.statut}
-                onValueChange={(
-                  value: "declare" | "en_attente" | "en_retard",
-                ) =>
+                onValueChange={(value: "en_attente" | "traite" | "paye") =>
                   setEditedPrelevement({ ...editedPrelevement, statut: value })
                 }
               >
@@ -1624,9 +1656,9 @@ export default function ImpotSIEPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="declare">Déclaré</SelectItem>
                   <SelectItem value="en_attente">En attente</SelectItem>
-                  <SelectItem value="en_retard">En retard</SelectItem>
+                  <SelectItem value="traite">Traité</SelectItem>
+                  <SelectItem value="paye">Payé</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1840,22 +1872,12 @@ export default function ImpotSIEPage() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="organisme">Organisme</Label>
-                <Select
-                  value={newDocument.organisme}
-                  onValueChange={(
-                    value: "impots" | "urssaf" | "tresor_public",
-                  ) => setNewDocument({ ...newDocument, organisme: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="impots">DGI</SelectItem>
-                    <SelectItem value="urssaf">URSSAF</SelectItem>
-                    <SelectItem value="tresor_public">Trésor Public</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Organisme</Label>
+                {/* Cet écran ne concerne que les impôts : un seul organisme
+                    a du sens ici, pas de choix à proposer. */}
+                <p className="text-sm text-muted-foreground border rounded-md px-3 py-2">
+                  Impôts (DGI)
+                </p>
               </div>
             </div>
           )}

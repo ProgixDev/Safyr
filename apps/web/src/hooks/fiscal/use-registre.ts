@@ -73,6 +73,8 @@ const SCOPE: Record<FiscalRecordType, "tax" | "akto" | "divers"> = {
   avoir_facture: "divers",
   publication_sociale: "divers",
   client_crm: "divers",
+  client_contrat: "divers",
+  client_cadeau: "divers",
 };
 
 export function useRegistre<T extends LigneRegistre>(
@@ -169,7 +171,7 @@ export function useRegistre<T extends LigneRegistre>(
         status?: string;
         amount?: number;
       },
-    ): Promise<{ nom: string } | null> => {
+    ): Promise<{ nom: string; id: string } | null> => {
       const fichier = await pickFile();
       if (!fichier) return null;
       const recordId = await enregistrer(ligne, infos);
@@ -178,7 +180,7 @@ export function useRegistre<T extends LigneRegistre>(
         scopeId: recordId,
         slot: champ,
       });
-      return { nom: fichier.name };
+      return { nom: fichier.name, id: recordId };
     },
     [attacher, enregistrer],
   );

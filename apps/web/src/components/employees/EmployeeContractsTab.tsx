@@ -285,6 +285,15 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
                 </p>
               </div>
               <RowActionsMenu
+                onView={
+                  pieceDe(contrat.id)
+                    ? () =>
+                        void downloadStoredFile({
+                          name: pieceDe(contrat.id)!.name,
+                          key: pieceDe(contrat.id)!.storageKey,
+                        })
+                    : undefined
+                }
                 onEdit={() => ouvrirEdition(contrat)}
                 onDelete={() => setASupprimer(contrat)}
                 uploadLabel={

@@ -16,15 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Modal } from "@/components/ui/modal";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import {
   Select,
   SelectContent,
@@ -32,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import {
   FileText,
   Upload,
@@ -49,8 +41,6 @@ import {
   Calculator,
   Phone,
   Landmark,
-  MoreVertical,
-  Eye,
   CheckCircle2,
   Clock,
 } from "lucide-react";
@@ -131,10 +121,21 @@ export default function DiversDocumentsPage() {
   const [selectedOrganisme, setSelectedOrganisme] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
-  const [showUrgentOnly, setShowUrgentOnly] = useState(false);
   const [isAddingOrganisme, setIsAddingOrganisme] = useState(false);
   const [docStatuts, setDocStatuts] = useState<Record<string, string>>({});
-  const [viewDoc, setViewDoc] = useState<DocumentEnregistre | null>(null);
+  // Organisme visé par un dépôt, en attente du choix du type de document.
+  const [organismeDocAAjouter, setOrganismeDocAAjouter] = useState<
+    string | null
+  >(null);
+  const [typeDocAAjouter, setTypeDocAAjouter] = useState("attestation");
+  const [isAddingCourrier, setIsAddingCourrier] = useState(false);
+  const [newCourrier, setNewCourrier] = useState({
+    objet: "",
+    type: "recu" as "recu" | "envoye",
+    date: new Date().toISOString().split("T")[0],
+    expediteur: "",
+    destinataire: "",
+  });
   const [newOrganisme, setNewOrganisme] = useState({
     nom: "",
     type: "",
@@ -190,10 +191,6 @@ export default function DiversDocumentsPage() {
       filtered = filtered.filter((doc) => doc.type === selectedType);
     }
 
-    if (showUrgentOnly) {
-      filtered = filtered.filter((doc) => doc.urgent);
-    }
-
     return filtered;
   };
 
@@ -239,7 +236,7 @@ export default function DiversDocumentsPage() {
    * stockage et la ligne est créée en base. Les deux boutons d'ajout de cette
    * page n'étaient reliés à rien.
    */
-  const handleAjouterDocument = async (organismeId: string) => {
+  const handleAjouterDocument = async (organismeId: string, type: string) => {
     setErreurDepot(null);
     const organisme = organismes.find((o) => o.id === organismeId);
     if (!organisme) {
@@ -251,7 +248,7 @@ export default function DiversDocumentsPage() {
       id: `doc-${Date.now()}`,
       organismeId,
       nom: "Document",
-      type: "attestation",
+      type,
       dateAjout: aujourdhui,
       dateModification: aujourdhui,
       taille: "",
@@ -266,21 +263,38 @@ export default function DiversDocumentsPage() {
         { period: aujourdhui.slice(0, 4), label: organisme.nom },
       );
       if (!depose) return;
-      // Le nom du fichier déposé devient le libellé de la ligne.
-      const ligne = registreDocuments.lignes.find(
-        (d) => d.organismeId === organismeId && d.nom === "Document",
+      // Le nom du fichier déposé devient le libellé de la ligne. On cible la
+      // ligne par son identifiant réel, pas par une recherche sur son nom
+      // provisoire : sur un organisme ayant déjà plusieurs documents, cette
+      // recherche pouvait renommer — ou paraître corrompre — la mauvaise ligne.
+      await registreDocuments.enregistrer(
+        { ...brouillon, id: depose.id, nom: depose.nom },
+        { period: aujourdhui.slice(0, 4), label: organisme.nom },
       );
-      if (ligne) {
-        await registreDocuments.enregistrer(
-          { ...ligne, nom: depose.nom },
-          { period: aujourdhui.slice(0, 4), label: organisme.nom },
-        );
-      }
     } catch (e) {
       setErreurDepot(
         e instanceof Error ? e.message : "Le dépôt du document a échoué.",
       );
     }
+  };
+
+  /** Supprime un organisme ainsi que ses documents et courriers. */
+  const handleDeleteOrganisme = async (organisme: Organisme) => {
+    if (
+      !confirm(
+        `Supprimer l'organisme « ${organisme.nom} » ? Ses documents et courriers seront également supprimés.`,
+      )
+    ) {
+      return;
+    }
+    const docs = documents.filter((d) => d.organismeId === organisme.id);
+    const lettres = courriers.filter((c) => c.organismeId === organisme.id);
+    await Promise.all([
+      ...docs.map((d) => registreDocuments.supprimerLigne(d.id)),
+      ...lettres.map((c) => registreCourriers.supprimerLigne(c.id)),
+    ]);
+    await registreOrganismes.supprimerLigne(organisme.id);
+    if (selectedOrganisme === organisme.id) setSelectedOrganisme("");
   };
 
   const handleAddOrganisme = () => {
@@ -321,6 +335,14 @@ export default function DiversDocumentsPage() {
 
   return (
     <div className="space-y-6">
+      {erreurDepot && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {erreurDepot}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Divers Documents</h1>
@@ -345,7 +367,10 @@ export default function DiversDocumentsPage() {
                 ? undefined
                 : "Ouvrez d'abord un organisme pour y déposer un document"
             }
-            onClick={() => void handleAjouterDocument(selectedOrganisme)}
+            onClick={() => {
+              setTypeDocAAjouter("attestation");
+              setOrganismeDocAAjouter(selectedOrganisme);
+            }}
           >
             <Upload className="h-4 w-4" />
             Nouveau Document
@@ -360,8 +385,8 @@ export default function DiversDocumentsPage() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-blue-100 rounded-full">
-                    <Building className="h-6 w-6 text-blue-600" />
+                  <div className="p-3 bg-blue-500/15 rounded-full">
+                    <Building className="h-6 w-6 text-blue-500" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
@@ -376,8 +401,8 @@ export default function DiversDocumentsPage() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-green-100 rounded-full">
-                    <FileText className="h-6 w-6 text-green-600" />
+                  <div className="p-3 bg-green-500/15 rounded-full">
+                    <FileText className="h-6 w-6 text-green-500" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
@@ -392,8 +417,8 @@ export default function DiversDocumentsPage() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-red-100 rounded-full">
-                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                  <div className="p-3 bg-red-500/15 rounded-full">
+                    <AlertTriangle className="h-6 w-6 text-red-500" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
@@ -410,8 +435,8 @@ export default function DiversDocumentsPage() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-orange-100 rounded-full">
-                    <Mail className="h-6 w-6 text-orange-600" />
+                  <div className="p-3 bg-orange-500/15 rounded-full">
+                    <Mail className="h-6 w-6 text-orange-500" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
@@ -442,16 +467,25 @@ export default function DiversDocumentsPage() {
                   const courriersCount = courriers.filter(
                     (courrier) => courrier.organismeId === organisme.id,
                   ).length;
-                  const urgentCount = documents.filter(
-                    (doc) => doc.organismeId === organisme.id && doc.urgent,
-                  ).length;
 
                   return (
                     <Card
                       key={organisme.id}
-                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      className="cursor-pointer hover:shadow-md transition-shadow relative"
                       onClick={() => setSelectedOrganisme(organisme.id)}
                     >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-2 h-7 w-7 text-red-500 hover:text-red-500"
+                        title="Supprimer l'organisme"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDeleteOrganisme(organisme);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                       <CardContent className="p-6">
                         <div className="flex items-center gap-3 mb-4">
                           <div
@@ -474,7 +508,7 @@ export default function DiversDocumentsPage() {
                           {organisme.description}
                         </p>
 
-                        <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="text-center">
                             <p className="font-medium">{docsCount}</p>
                             <p className="text-muted-foreground">Documents</p>
@@ -482,14 +516,6 @@ export default function DiversDocumentsPage() {
                           <div className="text-center">
                             <p className="font-medium">{courriersCount}</p>
                             <p className="text-muted-foreground">Courriers</p>
-                          </div>
-                          <div className="text-center">
-                            <p
-                              className={`font-medium ${urgentCount > 0 ? "text-red-500" : "text-gray-500"}`}
-                            >
-                              {urgentCount}
-                            </p>
-                            <p className="text-muted-foreground">Urgents</p>
                           </div>
                         </div>
                       </CardContent>
@@ -551,17 +577,6 @@ export default function DiversDocumentsPage() {
                       ))}
                   </SelectContent>
                 </Select>
-
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="urgent-only"
-                    checked={showUrgentOnly}
-                    onCheckedChange={setShowUrgentOnly}
-                  />
-                  <Label htmlFor="urgent-only" className="text-sm">
-                    Urgents uniquement
-                  </Label>
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -665,47 +680,21 @@ export default function DiversDocumentsPage() {
                                   ))}
                                 </SelectContent>
                               </Select>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => setViewDoc(document)}
-                                  >
-                                    <Eye className="mr-2 h-4 w-4 text-green-600" />
-                                    Voir
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      ouvrirPiece(
-                                        document.fichier,
-                                        document.nom,
-                                      )
-                                    }
-                                  >
-                                    <Download className="mr-2 h-4 w-4 text-violet-500" />
-                                    Télécharger
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    onClick={() =>
-                                      void registreDocuments.supprimerLigne(
-                                        document.id,
-                                      )
-                                    }
-                                    className="text-red-600"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                                    Supprimer
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <RowActionsMenu
+                                // « Voir » ouvre directement le fichier déposé,
+                                // sans passer par la fenêtre de détail.
+                                onView={() =>
+                                  ouvrirPiece(document.fichier, document.nom)
+                                }
+                                onDownload={() =>
+                                  ouvrirPiece(document.fichier, document.nom)
+                                }
+                                onDelete={() =>
+                                  void registreDocuments.supprimerLigne(
+                                    document.id,
+                                  )
+                                }
+                              />
                             </div>
                           </div>
                         </div>
@@ -715,9 +704,10 @@ export default function DiversDocumentsPage() {
 
                   <Button
                     className="w-full mt-4"
-                    onClick={() =>
-                      void handleAjouterDocument(selectedOrganisme)
-                    }
+                    onClick={() => {
+                      setTypeDocAAjouter("attestation");
+                      setOrganismeDocAAjouter(selectedOrganisme);
+                    }}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Ajouter un document
@@ -754,8 +744,8 @@ export default function DiversDocumentsPage() {
                                 <Mail
                                   className={`h-4 w-4 ${
                                     courrier.type === "recu"
-                                      ? "text-blue-600"
-                                      : "text-green-600"
+                                      ? "text-blue-500"
+                                      : "text-green-500"
                                   }`}
                                 />
                               </div>
@@ -807,17 +797,27 @@ export default function DiversDocumentsPage() {
                                   <Download className="h-4 w-4" />
                                 </Button>
                               )}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() =>
+                              <RowActionsMenu
+                                onView={
+                                  courrier.piece
+                                    ? () =>
+                                        ouvrirPiece(
+                                          courrier.piece,
+                                          courrier.objet,
+                                        )
+                                    : undefined
+                                }
+                                onDelete={() =>
+                                  void registreCourriers.supprimerLigne(
+                                    courrier.id,
+                                  )
+                                }
+                                extraItems={[
+                                  {
+                                    label: "Marquer en cours",
+                                    icon: Clock,
+                                    tone: "history" as const,
+                                    onClick: () =>
                                       void registreCourriers.enregistrer(
                                         { ...courrier, statut: "en_cours" },
                                         {
@@ -828,14 +828,13 @@ export default function DiversDocumentsPage() {
                                           label: courrier.objet,
                                           status: "en_cours",
                                         },
-                                      )
-                                    }
-                                  >
-                                    <Clock className="mr-2 h-4 w-4 text-blue-500" />
-                                    Marquer en cours
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() =>
+                                      ),
+                                  },
+                                  {
+                                    label: "Marquer comme traité",
+                                    icon: CheckCircle2,
+                                    tone: "validate" as const,
+                                    onClick: () =>
                                       void registreCourriers.enregistrer(
                                         { ...courrier, statut: "traite" },
                                         {
@@ -846,27 +845,10 @@ export default function DiversDocumentsPage() {
                                           label: courrier.objet,
                                           status: "traite",
                                         },
-                                      )
-                                    }
-                                  >
-                                    <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />
-                                    Marquer comme traité
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    onClick={() =>
-                                      void registreCourriers.supprimerLigne(
-                                        courrier.id,
-                                      )
-                                    }
-                                    className="text-red-600"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                                    Supprimer
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                                      ),
+                                  },
+                                ]}
+                              />
                             </div>
                           </div>
                         </div>
@@ -874,7 +856,10 @@ export default function DiversDocumentsPage() {
                     )}
                   </div>
 
-                  <Button className="w-full mt-4">
+                  <Button
+                    className="w-full mt-4"
+                    onClick={() => setIsAddingCourrier(true)}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Nouveau courrier
                   </Button>
@@ -957,69 +942,167 @@ export default function DiversDocumentsPage() {
         </div>
       </Modal>
 
+      {/* Choix du type avant dépôt : tout partait auparavant en "attestation". */}
       <Modal
-        open={!!viewDoc}
-        onOpenChange={(o) => !o && setViewDoc(null)}
+        open={!!organismeDocAAjouter}
+        onOpenChange={(o) => !o && setOrganismeDocAAjouter(null)}
         type="form"
-        title="Détail du document"
+        title="Type de document"
+        description="Choisissez le type avant de sélectionner le fichier."
+        size="sm"
         actions={{
           primary: {
-            label: "Fermer",
-            onClick: () => setViewDoc(null),
+            label: "Choisir le fichier",
+            onClick: () => {
+              if (!organismeDocAAjouter) return;
+              const organismeId = organismeDocAAjouter;
+              setOrganismeDocAAjouter(null);
+              void handleAjouterDocument(organismeId, typeDocAAjouter);
+            },
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setOrganismeDocAAjouter(null),
             variant: "outline" as const,
           },
         }}
       >
-        {viewDoc && (
-          <div className="space-y-3 text-base">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="text-lg font-semibold">{viewDoc.nom}</h3>
-              <Badge
-                className={getStatutColor(
-                  docStatuts[viewDoc.id] ?? "en_attente",
-                )}
-              >
-                {getStatutText(docStatuts[viewDoc.id] ?? "en_attente")}
-              </Badge>
-            </div>
-            <p className="text-muted-foreground">{viewDoc.description}</p>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">Type : </span>
-                {viewDoc.type}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Taille : </span>
-                {viewDoc.taille}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Ajouté le : </span>
-                {new Date(viewDoc.dateAjout).toLocaleDateString("fr-FR")}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Modifié le : </span>
-                {new Date(viewDoc.dateModification).toLocaleDateString("fr-FR")}
-              </div>
-            </div>
-            {viewDoc.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {viewDoc.tags.map((t) => (
-                  <Badge key={t} variant="outline" className="text-xs">
-                    #{t}
-                  </Badge>
+        <div>
+          <Label htmlFor="type-doc-a-ajouter">Type de document</Label>
+          <Select value={typeDocAAjouter} onValueChange={setTypeDocAAjouter}>
+            <SelectTrigger id="type-doc-a-ajouter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {typesDocuments
+                .filter((t) => t !== "all")
+                .map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </SelectItem>
                 ))}
-              </div>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => ouvrirPiece(viewDoc.fichier, viewDoc.nom)}
-            >
-              <Download className="mr-2 h-4 w-4 text-violet-500" />
-              Télécharger
-            </Button>
+            </SelectContent>
+          </Select>
+        </div>
+      </Modal>
+
+      {/* Création d'un courrier : le bouton "Nouveau courrier" n'était relié
+          à rien. */}
+      <Modal
+        open={isAddingCourrier}
+        onOpenChange={setIsAddingCourrier}
+        type="form"
+        title="Nouveau courrier"
+        size="md"
+        actions={{
+          primary: {
+            label: "Créer",
+            disabled: !newCourrier.objet,
+            onClick: () => {
+              if (!selectedOrganisme) return;
+              const ligne: CourrierEnregistre = {
+                id: `courrier-${Date.now()}`,
+                organismeId: selectedOrganisme,
+                objet: newCourrier.objet,
+                type: newCourrier.type,
+                date: newCourrier.date,
+                expediteur: newCourrier.expediteur,
+                destinataire: newCourrier.destinataire,
+                statut: "non_lu",
+                piece: null,
+              };
+              void registreCourriers.enregistrer(ligne, {
+                period: newCourrier.date.slice(0, 7),
+                label: newCourrier.objet,
+              });
+              setIsAddingCourrier(false);
+              setNewCourrier({
+                objet: "",
+                type: "recu",
+                date: new Date().toISOString().split("T")[0],
+                expediteur: "",
+                destinataire: "",
+              });
+            },
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setIsAddingCourrier(false),
+            variant: "outline" as const,
+          },
+        }}
+      >
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="courrier-objet">Objet</Label>
+            <Input
+              id="courrier-objet"
+              value={newCourrier.objet}
+              onChange={(e) =>
+                setNewCourrier({ ...newCourrier, objet: e.target.value })
+              }
+              placeholder="Ex : Relance déclaration TVA"
+            />
           </div>
-        )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="courrier-type">Type</Label>
+              <Select
+                value={newCourrier.type}
+                onValueChange={(v: "recu" | "envoye") =>
+                  setNewCourrier({ ...newCourrier, type: v })
+                }
+              >
+                <SelectTrigger id="courrier-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recu">Reçu</SelectItem>
+                  <SelectItem value="envoye">Envoyé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="courrier-date">Date</Label>
+              <Input
+                id="courrier-date"
+                type="date"
+                value={newCourrier.date}
+                onChange={(e) =>
+                  setNewCourrier({ ...newCourrier, date: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="courrier-expediteur">Expéditeur</Label>
+              <Input
+                id="courrier-expediteur"
+                value={newCourrier.expediteur}
+                onChange={(e) =>
+                  setNewCourrier({
+                    ...newCourrier,
+                    expediteur: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="courrier-destinataire">Destinataire</Label>
+              <Input
+                id="courrier-destinataire"
+                value={newCourrier.destinataire}
+                onChange={(e) =>
+                  setNewCourrier({
+                    ...newCourrier,
+                    destinataire: e.target.value,
+                  })
+                }
+              />
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );
