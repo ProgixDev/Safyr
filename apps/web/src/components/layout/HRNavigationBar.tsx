@@ -38,8 +38,13 @@ const navItems: NavItem[] = [
     // Le menu "Cycle de vie" a été supprimé à la demande du client : ses
     // quatre écrans (candidatures, vérifications, intégration, départs)
     // rejoignent ce menu plutôt que de devenir inaccessibles.
-    label: "Collaborateurs",
-    shortLabel: "Salariés",
+    //
+    // Pas de shortLabel ici : au-delà de 1700px de large, ModuleNavigationBar
+    // affiche "label" et masque "shortLabel" (voir son rendu de libellé) ;
+    // le client voyait donc "Collaborateurs" en grand écran et "Salariés"
+    // seulement une fois la fenêtre réduite. Un seul et même libellé règle
+    // le problème plutôt que d'ajuster le seuil de largeur.
+    label: "Salariés",
     icon: Users,
     children: [
       {
