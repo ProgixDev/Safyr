@@ -35,9 +35,13 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    // Le menu "Cycle de vie" a été supprimé à la demande du client : ses
-    // quatre écrans (candidatures, vérifications, intégration, départs)
-    // rejoignent ce menu plutôt que de devenir inaccessibles.
+    // Menu demandé tel quel par le client : exactement ces six écrans, dans
+    // cet ordre. "Vérifications réglementaires" et "Parcours d'intégration"
+    // (qui vivaient dans l'ancien menu "Cycle de vie", supprimé) n'en font
+    // pas partie — voir la note dans la conversation avec Wissem : leurs
+    // pages existent toujours (/dashboard/hr/lifecycle/verifications et
+    // /onboarding) mais ne sont plus reliées à aucun menu, en attendant de
+    // savoir où le client veut les voir.
     //
     // Pas de shortLabel ici : au-delà de 1700px de large, ModuleNavigationBar
     // affiche "label" et masque "shortLabel" (voir son rendu de libellé) ;
@@ -48,27 +52,19 @@ const navItems: NavItem[] = [
     icon: Users,
     children: [
       {
-        label: "Candidatures",
+        label: "Candidature",
         href: "/dashboard/hr/lifecycle/applications",
-      },
-      {
-        label: "Vérifications réglementaires",
-        href: "/dashboard/hr/lifecycle/verifications",
-      },
-      {
-        label: "Parcours d'intégration",
-        href: "/dashboard/hr/lifecycle/onboarding",
       },
       {
         label: "Dossiers salariés",
         href: "/dashboard/hr/collaborators",
       },
       {
-        label: "Entretiens & Évaluations",
+        label: "Entretiens et évaluations",
         href: "/dashboard/hr/collaborators/interviews",
       },
       {
-        label: "Discipline & Sanctions",
+        label: "Discipline et Sanctions",
         href: "/dashboard/hr/collaborators/discipline",
       },
       {
