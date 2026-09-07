@@ -155,6 +155,7 @@ export default function ImpotSIEPage() {
     type: "recu" as "recu" | "envoye",
     objet: "",
     organisme: "impots" as "impots" | "urssaf" | "tresor_public",
+    statut: "en_attente" as "en_attente" | "traite" | "archive",
     montant: 0,
   });
 
@@ -648,7 +649,7 @@ export default function ImpotSIEPage() {
         objet: newDocument.objet,
         document: null,
         organisme: newDocument.organisme,
-        statut: "en_attente",
+        statut: newDocument.statut,
       };
       void registreCourrier.enregistrer(
         newCourrier,
@@ -666,6 +667,7 @@ export default function ImpotSIEPage() {
       type: "recu",
       objet: "",
       organisme: "impots",
+      statut: "en_attente",
       montant: 0,
     });
   };
@@ -1878,6 +1880,24 @@ export default function ImpotSIEPage() {
                 <p className="text-sm text-muted-foreground border rounded-md px-3 py-2">
                   Impôts (DGI)
                 </p>
+              </div>
+              <div>
+                <Label htmlFor="courrier-statut-creation">Statut</Label>
+                <Select
+                  value={newDocument.statut}
+                  onValueChange={(value: "en_attente" | "traite" | "archive") =>
+                    setNewDocument({ ...newDocument, statut: value })
+                  }
+                >
+                  <SelectTrigger id="courrier-statut-creation">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en_attente">En attente</SelectItem>
+                    <SelectItem value="traite">Traité</SelectItem>
+                    <SelectItem value="archive">Archivé</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
