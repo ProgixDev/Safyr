@@ -195,28 +195,37 @@ export default function ApplicationsPage() {
         createdAt: new Date(),
         updatedAt: new Date(),
       } as JobApplication);
-    const id = await enregistrerCandidature(base, {
-      id: editingApplication?.id ?? "",
-      applicantName: formData.applicantName,
-      email: formData.email,
-      phone: formData.phone,
-      position,
-      notes: formData.notes || undefined,
-      appliedAt: (editingApplication?.appliedAt ?? new Date()).toISOString(),
-    });
-    if (cvFile) {
-      await attacherPieceCandidature.mutateAsync({
-        file: cvFile,
-        scopeId: id,
-        slot: "cv",
+    try {
+      const id = await enregistrerCandidature(base, {
+        id: editingApplication?.id ?? "",
+        applicantName: formData.applicantName,
+        email: formData.email,
+        phone: formData.phone,
+        position,
+        notes: formData.notes || undefined,
+        appliedAt: (editingApplication?.appliedAt ?? new Date()).toISOString(),
       });
-    }
-    if (coverLetterFile) {
-      await attacherPieceCandidature.mutateAsync({
-        file: coverLetterFile,
-        scopeId: id,
-        slot: "lettre",
-      });
+      if (cvFile) {
+        await attacherPieceCandidature.mutateAsync({
+          file: cvFile,
+          scopeId: id,
+          slot: "cv",
+        });
+      }
+      if (coverLetterFile) {
+        await attacherPieceCandidature.mutateAsync({
+          file: coverLetterFile,
+          scopeId: id,
+          slot: "lettre",
+        });
+      }
+    } catch (erreur) {
+      alert(
+        erreur instanceof Error
+          ? `Échec de l'enregistrement : ${erreur.message}`
+          : "Échec de l'enregistrement.",
+      );
+      return;
     }
     setIsCreateModalOpen(false);
   };

@@ -470,11 +470,19 @@ export default function ClientDetailPage({
   const handleUpload = async (docType: { name: string; type: string }) => {
     const fichier = await pickFile();
     if (!fichier) return;
-    await attacherPiece.mutateAsync({
-      file: fichier,
-      scopeId: id,
-      slot: docType.type,
-    });
+    try {
+      await attacherPiece.mutateAsync({
+        file: fichier,
+        scopeId: id,
+        slot: docType.type,
+      });
+    } catch (erreur) {
+      alert(
+        erreur instanceof Error
+          ? `Échec du téléversement : ${erreur.message}`
+          : "Échec du téléversement.",
+      );
+    }
   };
 
   const handleCancel = () => {
@@ -597,11 +605,19 @@ export default function ClientDetailPage({
   const handleUploadReceipt = async (g: ClientGift) => {
     const fichier = await pickFile();
     if (!fichier) return;
-    await attacherPiece.mutateAsync({
-      file: fichier,
-      scopeId: id,
-      slot: `recu-${g.id}`,
-    });
+    try {
+      await attacherPiece.mutateAsync({
+        file: fichier,
+        scopeId: id,
+        slot: `recu-${g.id}`,
+      });
+    } catch (erreur) {
+      alert(
+        erreur instanceof Error
+          ? `Échec du téléversement : ${erreur.message}`
+          : "Échec du téléversement.",
+      );
+    }
   };
 
   const handleDownloadReceipt = (g: ClientGift) => {
@@ -1165,6 +1181,13 @@ export default function ClientDetailPage({
                   setIsCustomDocModalOpen(false);
                   setNewCustomDoc({ name: "" });
                   setFichierPersonnalise(null);
+                })
+                .catch((erreur: unknown) => {
+                  alert(
+                    erreur instanceof Error
+                      ? `Échec du téléversement : ${erreur.message}`
+                      : "Échec du téléversement.",
+                  );
                 });
             },
           },
