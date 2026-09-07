@@ -107,8 +107,14 @@ const CommandItem = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.Item
     ref={ref}
+    // cmdk pose data-disabled="true"/"false" sur CHAQUE item (contrairement
+    // aux primitives Radix, qui omettent l'attribut quand il ne s'applique
+    // pas). Le variant Tailwind "data-disabled:" ne teste que la présence
+    // de l'attribut, pas sa valeur : il matchait donc sur tous les items,
+    // rendant la liste entière insensible au clic souris (le clavier
+    // fonctionnait, lui, puisqu'il ne passe pas par pointer-events).
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
       className,
     )}
     {...props}
