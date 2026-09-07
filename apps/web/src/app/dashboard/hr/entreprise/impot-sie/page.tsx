@@ -313,15 +313,16 @@ export default function ImpotSIEPage() {
         `${TVA_DOC_LABELS[field]} — ${dossier.mois} ${dossier.annee}`,
         depose.nom,
       );
-      // Le statut manquant/partiel/complet suit les documents réellement
-      // déposés : il ne changeait pas tant qu'on ne le forçait pas à la main.
-      const misAJour = withTvaStatut({
-        ...dossier,
-        [field]: { name: depose.nom },
-      });
-      if (misAJour.statut !== dossier.statut) {
-        void registreTva.enregistrer(misAJour, infosTva(misAJour));
-      }
+      // Le statut manquant/partiel/complet s'affiche déjà recalculé en
+      // direct depuis les documents présents (voir tvaDossiers plus haut) :
+      // pas besoin de le réenregistrer ici. Un essai précédent le faisait
+      // via registreTva.enregistrer(dossier, ...), mais sur un mois qui
+      // n'avait encore aucun document, "dossier" ne portait que l'identifiant
+      // provisoire de la ligne affichée (pas celui, réel, que
+      // televerserPiece vient de créer) : l'appel créait alors une SECONDE
+      // ligne pour le même mois — avec le bon statut mais sans le fichier,
+      // resté attaché à la première. D'où « aucun fichier déposé » un coup
+      // sur deux, selon la ligne que la page choisissait d'afficher.
     } catch (e) {
       alert(
         `Échec du téléversement : ${e instanceof Error ? e.message : "Erreur inconnue"}`,
@@ -381,13 +382,10 @@ export default function ImpotSIEPage() {
       );
       if (!depose) return;
       confirmUpload(`${CFE_DOC_LABELS[field]} ${dossier.annee}`, depose.nom);
-      const misAJour = withCfeStatut({
-        ...dossier,
-        [field]: { name: depose.nom },
-      });
-      if (misAJour.statut !== dossier.statut) {
-        void registreCfe.enregistrer(misAJour, infosCfe(misAJour));
-      }
+      // Voir le commentaire de handleUploadTva : le statut est déjà
+      // recalculé en direct à l'affichage, pas besoin de le réenregistrer
+      // ici — et le faire via l'identifiant provisoire de la ligne créait
+      // une ligne en double sur un exercice sans document existant.
     } catch (e) {
       alert(
         `Échec du téléversement : ${e instanceof Error ? e.message : "Erreur inconnue"}`,

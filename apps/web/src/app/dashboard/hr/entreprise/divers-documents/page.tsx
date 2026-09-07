@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRegistre } from "@/hooks/fiscal";
+import { useRegistre, useUpdateFiscalRecord } from "@/hooks/fiscal";
 import { downloadStoredFile, type StoredFile } from "@/lib/document-files";
 import {
   Card,
@@ -113,6 +113,16 @@ export default function DiversDocumentsPage() {
     "courrier_organisme",
     ["piece"],
   );
+  // Renomme "Document" → le nom réel une fois le fichier déposé (voir
+  // handleAjouterDocument). Appel direct plutôt que registreDocuments.
+  // enregistrer(...) : celui-ci s'appuie sur la liste "records" capturée au
+  // rendu précédent pour savoir si la ligne existe déjà, or elle vient
+  // d'être créée par le même appel — la liste est encore l'ancienne. Il
+  // concluait donc à tort "ligne inconnue" et EN CRÉAIT UNE SECONDE, avec le
+  // bon nom mais sans le fichier (resté attaché à la première, restée
+  // nommée "Document"). Une mise à jour directe sur l'identifiant connu
+  // n'a pas ce problème.
+  const renommerDocument = useUpdateFiscalRecord();
 
   const organismes = registreOrganismes.lignes;
   const documents = registreDocuments.lignes;
@@ -264,14 +274,17 @@ export default function DiversDocumentsPage() {
         { period: aujourdhui.slice(0, 4), label: organisme.nom },
       );
       if (!depose) return;
-      // Le nom du fichier déposé devient le libellé de la ligne. On cible la
-      // ligne par son identifiant réel, pas par une recherche sur son nom
-      // provisoire : sur un organisme ayant déjà plusieurs documents, cette
-      // recherche pouvait renommer — ou paraître corrompre — la mauvaise ligne.
-      await registreDocuments.enregistrer(
-        { ...brouillon, id: depose.id, nom: depose.nom },
-        { period: aujourdhui.slice(0, 4), label: organisme.nom },
-      );
+      // Le nom du fichier déposé devient le libellé de la ligne, sur la
+      // ligne réellement créée par le dépôt ci-dessus.
+      const { id: _brouillonId, ...champsMeta } = brouillon;
+      await renommerDocument.mutateAsync({
+        recordId: depose.id,
+        payload: {
+          period: aujourdhui.slice(0, 4),
+          label: organisme.nom,
+          meta: { ...champsMeta, nom: depose.nom },
+        },
+      });
     } catch (e) {
       setErreurDepot(
         e instanceof Error ? e.message : "Le dépôt du document a échoué.",
