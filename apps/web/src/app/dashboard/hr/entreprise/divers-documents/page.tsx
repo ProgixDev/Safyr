@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -381,73 +382,32 @@ export default function DiversDocumentsPage() {
       {!selectedOrganisme ? (
         <div className="space-y-6">
           {/* Statistiques */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-blue-500/15 rounded-full">
-                    <Building className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Organismes
-                    </p>
-                    <p className="text-2xl font-bold">{organismes.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-green-500/15 rounded-full">
-                    <FileText className="h-6 w-6 text-green-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Documents
-                    </p>
-                    <p className="text-2xl font-bold">{documents.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-red-500/15 rounded-full">
-                    <AlertTriangle className="h-6 w-6 text-red-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Urgents
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {documents.filter((doc) => doc.urgent).length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-orange-500/15 rounded-full">
-                    <Mail className="h-6 w-6 text-orange-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Courriers
-                    </p>
-                    <p className="text-2xl font-bold">{courriers.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <InfoCardContainer className="md:grid-cols-4">
+            <InfoCard
+              icon={Building}
+              title="Organismes"
+              value={organismes.length}
+              color="blue"
+            />
+            <InfoCard
+              icon={FileText}
+              title="Documents"
+              value={documents.length}
+              color="green"
+            />
+            <InfoCard
+              icon={AlertTriangle}
+              title="Urgents"
+              value={documents.filter((doc) => doc.urgent).length}
+              color="red"
+            />
+            <InfoCard
+              icon={Mail}
+              title="Courriers"
+              value={courriers.length}
+              color="orange"
+            />
+          </InfoCardContainer>
 
           {/* Liste des organismes */}
           <Card>
