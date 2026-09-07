@@ -285,15 +285,22 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
                 </p>
               </div>
               <RowActionsMenu
-                onView={
-                  pieceDe(contrat.id)
-                    ? () =>
-                        void downloadStoredFile({
-                          name: pieceDe(contrat.id)!.name,
-                          key: pieceDe(contrat.id)!.storageKey,
-                        })
-                    : undefined
-                }
+                // « Voir » est toujours proposé : le client demandait de
+                // l'ajouter au menu, or il n'apparaissait que sur les
+                // contrats ayant déjà un contrat signé déposé.
+                onView={() => {
+                  const piece = pieceDe(contrat.id);
+                  if (!piece) {
+                    alert(
+                      "Aucun contrat signé n'a été déposé pour ce contrat.",
+                    );
+                    return;
+                  }
+                  void downloadStoredFile({
+                    name: piece.name,
+                    key: piece.storageKey,
+                  });
+                }}
                 onEdit={() => ouvrirEdition(contrat)}
                 onDelete={() => setASupprimer(contrat)}
                 uploadLabel={
