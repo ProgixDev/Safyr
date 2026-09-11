@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sendCommunicationEmail } from "@safyr/api-client";
 import { useRegistre } from "@/hooks/fiscal";
 import { CATALOGUE_EQUIPEMENTS, versDotation } from "@/lib/equipment-catalog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -212,7 +213,9 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
     (eq) => eq.status === "returned" || eq.status === "exhausted",
   );
 
-  const handleAssignEquipment = () => {
+  const [envoiSignatureEnCours, setEnvoiSignatureEnCours] = useState(false);
+
+  const handleAssignEquipment = async () => {
     if (!selectedEquipmentId) return;
 
     let equipmentToAssign: Equipment;
@@ -257,6 +260,27 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
           ipAddress: "192.168.1.100",
         },
       };
+    }
+
+    // Envoie un email de remise au salarié, à signer/confirmer de son côté.
+    if (employee.email) {
+      setEnvoiSignatureEnCours(true);
+      try {
+        await sendCommunicationEmail({
+          recipients: [employee.email],
+          subject: `Remise de matériel — ${equipmentToAssign.name}`,
+          body:
+            `Bonjour ${employee.firstName},\n\n` +
+            `Le matériel suivant vous a été remis : ${equipmentToAssign.name}` +
+            `${equipmentToAssign.serialNumber ? ` (n° ${equipmentToAssign.serialNumber})` : ""}.\n\n` +
+            `Merci de confirmer réception en répondant à cet email.\n\nCordialement.`,
+        });
+        equipmentToAssign.emailEnvoye = true;
+      } catch {
+        equipmentToAssign.emailEnvoye = false;
+      } finally {
+        setEnvoiSignatureEnCours(false);
+      }
     }
 
     setEquipment((prev) => [...prev, equipmentToAssign]);
@@ -419,6 +443,12 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <FileSignature className="h-3 w-3" />
               Signé
+            </div>
+          )}
+          {item.emailEnvoye && (
+            <div className="flex items-center gap-1 text-xs text-green-600">
+              <CheckCircle className="h-3 w-3" />
+              Email de signature envoyé
             </div>
           )}
         </div>
@@ -685,9 +715,10 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
         description={`Sélectionnez un équipement à assigner à ${employee.firstName} ${employee.lastName}`}
         actions={{
           primary: {
-            label: "Assigner",
-            onClick: handleAssignEquipment,
+            label: envoiSignatureEnCours ? "Envoi…" : "Assigner",
+            onClick: () => void handleAssignEquipment(),
             disabled:
+              envoiSignatureEnCours ||
               !selectedEquipmentId ||
               (selectedEquipmentId === "add-new" && !newEquipmentData.name),
             icon: <UserCheck className="h-4 w-4" />,

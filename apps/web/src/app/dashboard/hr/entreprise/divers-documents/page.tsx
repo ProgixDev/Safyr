@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sendCommunicationEmail } from "@safyr/api-client";
 import { useRegistre, useUpdateFiscalRecord } from "@/hooks/fiscal";
 import { downloadStoredFile, type StoredFile } from "@/lib/document-files";
 import {
@@ -16,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Modal } from "@/components/ui/modal";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import {
@@ -28,11 +28,11 @@ import {
 } from "@/components/ui/select";
 import {
   FileText,
-  Upload,
   Download,
   AlertTriangle,
   Building,
   Mail,
+  Send,
   Plus,
   Trash2,
   Search,
@@ -93,6 +93,84 @@ interface Courrier {
   destinataire: string;
   statut: "lu" | "non_lu" | "traite" | "en_cours";
   pieceJointe: string | null;
+  /** Adresse email utilisée pour l'envoi réel, le cas échéant (courriers sortants). */
+  emailDestinataire?: string;
+  /** Corps du message envoyé par email. */
+  message?: string;
+  /** Document à l'origine de ce courrier, s'il a été créé depuis son menu. */
+  documentId?: string;
+}
+
+/**
+ * Organismes reconnus : logo (icône) et couleur cohérents à la création,
+ * plutôt que la même icône "building" bleue pour tout le monde. Détection
+ * sur le nom saisi, insensible à la casse/accents.
+ */
+const ORGANISMES_CONNUS: {
+  motsCles: string[];
+  icon: string;
+  couleur: string;
+}[] = [
+  { motsCles: ["urssaf"], icon: "shield", couleur: "orange" },
+  {
+    motsCles: ["dgfip", "impot", "impots", "sie", "dgi"],
+    icon: "landmark",
+    couleur: "green",
+  },
+  { motsCles: ["akto", "opco"], icon: "users", couleur: "purple" },
+  {
+    motsCles: ["tresor", "trésor"],
+    icon: "landmark",
+    couleur: "teal",
+  },
+  {
+    motsCles: ["mutuelle", "assurance", "prevoyance", "prévoyance"],
+    icon: "heart",
+    couleur: "red",
+  },
+  {
+    motsCles: ["carsat", "retraite", "caisse"],
+    icon: "calculator",
+    couleur: "indigo",
+  },
+  {
+    motsCles: ["pole emploi", "pôle emploi", "france travail"],
+    icon: "phone",
+    couleur: "blue",
+  },
+];
+
+function normaliser(texte: string): string {
+  return texte
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
+function styleOrganisme(nom: string): { icon: string; couleur: string } {
+  const nomNormalise = normaliser(nom);
+  const connu = ORGANISMES_CONNUS.find((o) =>
+    o.motsCles.some((mot) => nomNormalise.includes(mot)),
+  );
+  return connu ?? { icon: "building", couleur: "blue" };
+}
+
+/**
+ * Types de documents acceptés pour un organisme donné. URSSAF ne traite ici
+ * que du courrier ; DGFIP/Impôts, du courrier et des attestations. Les
+ * autres organismes gardent la liste complète.
+ */
+function typesDocumentsPour(nom: string): string[] {
+  const nomNormalise = normaliser(nom);
+  if (nomNormalise.includes("urssaf")) return ["courrier"];
+  if (
+    ["dgfip", "impot", "impots", "sie", "dgi"].some((mot) =>
+      nomNormalise.includes(mot),
+    )
+  ) {
+    return ["courrier", "attestation"];
+  }
+  return ["attestation", "contrat", "courrier", "releve", "facture", "devis", "convention"];
 }
 
 /** Document d'organisme tel qu'enregistré : la pièce est un champ à part. */
@@ -140,12 +218,19 @@ export default function DiversDocumentsPage() {
   >(null);
   const [typeDocAAjouter, setTypeDocAAjouter] = useState("attestation");
   const [isAddingCourrier, setIsAddingCourrier] = useState(false);
+  // Document depuis lequel "Envoyer un courrier" a été déclenché, s'il y en a un.
+  const [documentPourCourrier, setDocumentPourCourrier] = useState<
+    string | null
+  >(null);
+  const [envoiCourrierEnCours, setEnvoiCourrierEnCours] = useState(false);
   const [newCourrier, setNewCourrier] = useState({
     objet: "",
     type: "recu" as "recu" | "envoye",
     date: new Date().toISOString().split("T")[0],
     expediteur: "",
     destinataire: "",
+    emailDestinataire: "",
+    message: "",
   });
   const [newOrganisme, setNewOrganisme] = useState({
     nom: "",
@@ -313,13 +398,14 @@ export default function DiversDocumentsPage() {
 
   const handleAddOrganisme = () => {
     if (newOrganisme.nom && newOrganisme.type) {
+      const { icon, couleur } = styleOrganisme(newOrganisme.nom);
       const organisme: Organisme = {
         id: Date.now().toString(),
         nom: newOrganisme.nom,
         type: newOrganisme.type,
         description: newOrganisme.description,
-        icon: "building",
-        couleur: "blue",
+        icon,
+        couleur,
       };
       void registreOrganismes.enregistrer(organisme, {
         period: String(new Date().getFullYear()),
@@ -327,6 +413,66 @@ export default function DiversDocumentsPage() {
       });
       setNewOrganisme({ nom: "", type: "", description: "" });
       setIsAddingOrganisme(false);
+    }
+  };
+
+  /**
+   * Enregistre le courrier et, s'il est "Envoyé" avec une adresse email,
+   * l'envoie réellement via le centre de communication (même API que
+   * l'envoi d'emails RH) plutôt que de se contenter d'archiver une ligne.
+   */
+  const handleCreerCourrier = async () => {
+    if (!selectedOrganisme || !newCourrier.objet) return;
+    setEnvoiCourrierEnCours(true);
+    try {
+      let statutInitial: CourrierEnregistre["statut"] = "non_lu";
+      if (newCourrier.type === "envoye" && newCourrier.emailDestinataire) {
+        try {
+          await sendCommunicationEmail({
+            recipients: [newCourrier.emailDestinataire],
+            subject: newCourrier.objet,
+            body: newCourrier.message || newCourrier.objet,
+          });
+          statutInitial = "traite";
+        } catch (e) {
+          alert(
+            `Le courrier a été enregistré mais l'email n'a pas pu être envoyé : ${
+              e instanceof Error ? e.message : "erreur inconnue"
+            }`,
+          );
+        }
+      }
+      const ligne: CourrierEnregistre = {
+        id: `courrier-${Date.now()}`,
+        organismeId: selectedOrganisme,
+        objet: newCourrier.objet,
+        type: newCourrier.type,
+        date: newCourrier.date,
+        expediteur: newCourrier.expediteur,
+        destinataire: newCourrier.destinataire,
+        emailDestinataire: newCourrier.emailDestinataire || undefined,
+        message: newCourrier.message || undefined,
+        documentId: documentPourCourrier ?? undefined,
+        statut: statutInitial,
+        piece: null,
+      };
+      await registreCourriers.enregistrer(ligne, {
+        period: newCourrier.date.slice(0, 7),
+        label: newCourrier.objet,
+      });
+      setIsAddingCourrier(false);
+      setDocumentPourCourrier(null);
+      setNewCourrier({
+        objet: "",
+        type: "recu",
+        date: new Date().toISOString().split("T")[0],
+        expediteur: "",
+        destinataire: "",
+        emailDestinataire: "",
+        message: "",
+      });
+    } finally {
+      setEnvoiCourrierEnCours(false);
     }
   };
 
@@ -338,6 +484,7 @@ export default function DiversDocumentsPage() {
     "releve",
     "facture",
     "devis",
+    "convention",
   ];
   const typesOrganismes = [
     "organisme_social",
@@ -372,22 +519,6 @@ export default function DiversDocumentsPage() {
           >
             <Plus className="h-4 w-4" />
             Ajouter Organisme
-          </Button>
-          <Button
-            className="flex items-center gap-2"
-            disabled={!selectedOrganisme}
-            title={
-              selectedOrganisme
-                ? undefined
-                : "Ouvrez d'abord un organisme pour y déposer un document"
-            }
-            onClick={() => {
-              setTypeDocAAjouter("attestation");
-              setOrganismeDocAAjouter(selectedOrganisme);
-            }}
-          >
-            <Upload className="h-4 w-4" />
-            Nouveau Document
           </Button>
         </div>
       </div>
@@ -554,292 +685,292 @@ export default function DiversDocumentsPage() {
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="documents" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="documents" className="text-lg font-semibold">
-                Documents ({getOrganismeDocuments(selectedOrganisme).length})
-              </TabsTrigger>
-              <TabsTrigger value="courriers" className="text-lg font-semibold">
-                Courriers ({getOrganismeCourriers(selectedOrganisme).length})
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="documents">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <FileText className="h-5 w-5" />
-                    Documents
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {getOrganismeDocuments(selectedOrganisme).map(
-                      (document) => (
-                        <div
-                          key={document.id}
-                          className="border rounded-lg p-4"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <FileText className="h-5 w-5 text-muted-foreground" />
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="text-lg font-semibold">
-                                    {document.nom}
-                                  </h3>
-                                  <Badge
-                                    className={getStatutColor(
-                                      docStatuts[document.id] ?? "en_attente",
-                                    )}
-                                  >
-                                    {getStatutText(
-                                      docStatuts[document.id] ?? "en_attente",
-                                    )}
-                                  </Badge>
-                                  {document.urgent && (
-                                    <Badge className="bg-red-500">
-                                      <AlertTriangle className="h-3 w-3 mr-1" />
-                                      Urgent
-                                    </Badge>
-                                  )}
-                                  <Badge variant="outline">
-                                    {document.type}
-                                  </Badge>
-                                </div>
-                                <p className="text-base text-muted-foreground mt-1">
-                                  {document.description}
-                                </p>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
-                                  <span>
-                                    Ajouté le{" "}
-                                    {new Date(
-                                      document.dateAjout,
-                                    ).toLocaleDateString("fr-FR")}
-                                  </span>
-                                  <span>Taille: {document.taille}</span>
-                                  <div className="flex gap-1">
-                                    {document.tags.map((tag) => (
-                                      <Badge
-                                        key={tag}
-                                        variant="outline"
-                                        className="text-xs"
-                                      >
-                                        #{tag}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Select
-                                value={docStatuts[document.id] ?? "en_attente"}
-                                onValueChange={(v) =>
-                                  setDocStatuts((prev) => ({
-                                    ...prev,
-                                    [document.id]: v,
-                                  }))
-                                }
-                              >
-                                <SelectTrigger className="h-8 w-[150px] text-sm">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {DOC_STATUTS.map((s) => (
-                                    <SelectItem key={s.value} value={s.value}>
-                                      {s.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <RowActionsMenu
-                                // « Voir » ouvre directement le fichier déposé,
-                                // sans passer par la fenêtre de détail.
-                                onView={() =>
-                                  ouvrirPiece(document.fichier, document.nom)
-                                }
-                                onDownload={() =>
-                                  ouvrirPiece(document.fichier, document.nom)
-                                }
-                                onDelete={() =>
-                                  void registreDocuments.supprimerLigne(
-                                    document.id,
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ),
-                    )}
-                  </div>
-
-                  <Button
-                    className="w-full mt-4"
-                    onClick={() => {
-                      setTypeDocAAjouter("attestation");
-                      setOrganismeDocAAjouter(selectedOrganisme);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Ajouter un document
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="courriers">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Mail className="h-5 w-5" />
-                    Courriers
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {getOrganismeCourriers(selectedOrganisme).map(
-                      (courrier) => (
-                        <div
-                          key={courrier.id}
-                          className="border rounded-lg p-4"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`p-2 rounded-full ${
-                                  courrier.type === "recu"
-                                    ? "bg-blue-100"
-                                    : "bg-green-100"
-                                }`}
-                              >
-                                <Mail
-                                  className={`h-4 w-4 ${
-                                    courrier.type === "recu"
-                                      ? "text-blue-500"
-                                      : "text-green-500"
-                                  }`}
-                                />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="text-lg font-semibold">
-                                    {courrier.objet}
-                                  </h3>
-                                  <Badge
-                                    variant="outline"
-                                    className={
-                                      courrier.type === "recu"
-                                        ? "border-blue-200"
-                                        : "border-green-200"
-                                    }
-                                  >
-                                    {courrier.type === "recu"
-                                      ? "Reçu"
-                                      : "Envoyé"}
-                                  </Badge>
-                                </div>
-                                <div className="text-base text-muted-foreground mt-1">
-                                  <p>
-                                    De: {courrier.expediteur} → À:{" "}
-                                    {courrier.destinataire}
-                                  </p>
-                                  <p>
-                                    {new Date(courrier.date).toLocaleDateString(
-                                      "fr-FR",
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                className={getStatutColor(courrier.statut)}
-                              >
-                                {getStatutText(courrier.statut)}
-                              </Badge>
-                              {courrier.piece && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    ouvrirPiece(courrier.piece, courrier.objet)
-                                  }
-                                >
-                                  <Download className="h-4 w-4" />
-                                </Button>
+          {/* Une seule liste "Documents" : les courriers y apparaissent
+              comme n'importe quel autre document, avec leur propre rendu
+              (icône enveloppe, statut lu/traité…). Chaque document propose
+              en plus une action "Envoyer un courrier" dans son menu, plutôt
+              que d'avoir un onglet Courriers séparé et un bouton "Nouveau
+              document" redondant. */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="h-5 w-5" />
+                Documents
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({getOrganismeDocuments(selectedOrganisme).length} document
+                  {getOrganismeDocuments(selectedOrganisme).length > 1
+                    ? "s"
+                    : ""}{" "}
+                  · {getOrganismeCourriers(selectedOrganisme).length} courrier
+                  {getOrganismeCourriers(selectedOrganisme).length > 1
+                    ? "s"
+                    : ""}
+                  )
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {getOrganismeDocuments(selectedOrganisme).map((document) => (
+                  <div key={document.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-semibold">
+                              {document.nom}
+                            </h3>
+                            <Badge
+                              className={getStatutColor(
+                                docStatuts[document.id] ?? "en_attente",
                               )}
-                              <RowActionsMenu
-                                onView={
-                                  courrier.piece
-                                    ? () =>
-                                        ouvrirPiece(
-                                          courrier.piece,
-                                          courrier.objet,
-                                        )
-                                    : undefined
-                                }
-                                onDelete={() =>
-                                  void registreCourriers.supprimerLigne(
-                                    courrier.id,
-                                  )
-                                }
-                                extraItems={[
-                                  {
-                                    label: "Marquer en cours",
-                                    icon: Clock,
-                                    tone: "history" as const,
-                                    onClick: () =>
-                                      void registreCourriers.enregistrer(
-                                        { ...courrier, statut: "en_cours" },
-                                        {
-                                          period: (courrier.date ?? "").slice(
-                                            0,
-                                            4,
-                                          ),
-                                          label: courrier.objet,
-                                          status: "en_cours",
-                                        },
-                                      ),
-                                  },
-                                  {
-                                    label: "Marquer comme traité",
-                                    icon: CheckCircle2,
-                                    tone: "validate" as const,
-                                    onClick: () =>
-                                      void registreCourriers.enregistrer(
-                                        { ...courrier, statut: "traite" },
-                                        {
-                                          period: (courrier.date ?? "").slice(
-                                            0,
-                                            4,
-                                          ),
-                                          label: courrier.objet,
-                                          status: "traite",
-                                        },
-                                      ),
-                                  },
-                                ]}
-                              />
+                            >
+                              {getStatutText(
+                                docStatuts[document.id] ?? "en_attente",
+                              )}
+                            </Badge>
+                            {document.urgent && (
+                              <Badge className="bg-red-500">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Urgent
+                              </Badge>
+                            )}
+                            <Badge variant="outline">{document.type}</Badge>
+                          </div>
+                          <p className="text-base text-muted-foreground mt-1">
+                            {document.description}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                            <span>
+                              Ajouté le{" "}
+                              {new Date(document.dateAjout).toLocaleDateString(
+                                "fr-FR",
+                              )}
+                            </span>
+                            <span>Taille: {document.taille}</span>
+                            <div className="flex gap-1">
+                              {document.tags.map((tag) => (
+                                <Badge
+                                  key={tag}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
+                                  #{tag}
+                                </Badge>
+                              ))}
                             </div>
                           </div>
                         </div>
-                      ),
-                    )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={docStatuts[document.id] ?? "en_attente"}
+                          onValueChange={(v) =>
+                            setDocStatuts((prev) => ({
+                              ...prev,
+                              [document.id]: v,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[150px] text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DOC_STATUTS.map((s) => (
+                              <SelectItem key={s.value} value={s.value}>
+                                {s.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <RowActionsMenu
+                          // « Voir » ouvre directement le fichier déposé,
+                          // sans passer par la fenêtre de détail.
+                          onView={() =>
+                            ouvrirPiece(document.fichier, document.nom)
+                          }
+                          onDownload={() =>
+                            ouvrirPiece(document.fichier, document.nom)
+                          }
+                          onDelete={() =>
+                            void registreDocuments.supprimerLigne(document.id)
+                          }
+                          extraItems={[
+                            {
+                              label: "Envoyer un courrier",
+                              icon: Send,
+                              tone: "send" as const,
+                              onClick: () => {
+                                setDocumentPourCourrier(document.id);
+                                setNewCourrier({
+                                  objet: document.nom,
+                                  type: "envoye",
+                                  date: new Date()
+                                    .toISOString()
+                                    .split("T")[0],
+                                  expediteur: "",
+                                  destinataire: "",
+                                  emailDestinataire: "",
+                                  message: "",
+                                });
+                                setIsAddingCourrier(true);
+                              },
+                            },
+                          ]}
+                        />
+                      </div>
+                    </div>
                   </div>
+                ))}
 
-                  <Button
-                    className="w-full mt-4"
-                    onClick={() => setIsAddingCourrier(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nouveau courrier
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                {getOrganismeCourriers(selectedOrganisme).map((courrier) => (
+                  <div key={courrier.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2 rounded-full ${
+                            courrier.type === "recu"
+                              ? "bg-blue-100"
+                              : "bg-green-100"
+                          }`}
+                        >
+                          <Mail
+                            className={`h-4 w-4 ${
+                              courrier.type === "recu"
+                                ? "text-blue-500"
+                                : "text-green-500"
+                            }`}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-semibold">
+                              {courrier.objet}
+                            </h3>
+                            <Badge
+                              variant="outline"
+                              className={
+                                courrier.type === "recu"
+                                  ? "border-blue-200"
+                                  : "border-green-200"
+                              }
+                            >
+                              {courrier.type === "recu" ? "Reçu" : "Envoyé"}
+                            </Badge>
+                          </div>
+                          <div className="text-base text-muted-foreground mt-1">
+                            <p>
+                              De: {courrier.expediteur} → À:{" "}
+                              {courrier.destinataire}
+                              {courrier.emailDestinataire
+                                ? ` (${courrier.emailDestinataire})`
+                                : ""}
+                            </p>
+                            <p>
+                              {new Date(courrier.date).toLocaleDateString(
+                                "fr-FR",
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={getStatutColor(courrier.statut)}>
+                          {getStatutText(courrier.statut)}
+                        </Badge>
+                        {courrier.piece && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              ouvrirPiece(courrier.piece, courrier.objet)
+                            }
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <RowActionsMenu
+                          onView={
+                            courrier.piece
+                              ? () => ouvrirPiece(courrier.piece, courrier.objet)
+                              : undefined
+                          }
+                          onDelete={() =>
+                            void registreCourriers.supprimerLigne(courrier.id)
+                          }
+                          extraItems={[
+                            {
+                              label: "Marquer en cours",
+                              icon: Clock,
+                              tone: "history" as const,
+                              onClick: () =>
+                                void registreCourriers.enregistrer(
+                                  { ...courrier, statut: "en_cours" },
+                                  {
+                                    period: (courrier.date ?? "").slice(0, 4),
+                                    label: courrier.objet,
+                                    status: "en_cours",
+                                  },
+                                ),
+                            },
+                            {
+                              label: "Marquer comme traité",
+                              icon: CheckCircle2,
+                              tone: "validate" as const,
+                              onClick: () =>
+                                void registreCourriers.enregistrer(
+                                  { ...courrier, statut: "traite" },
+                                  {
+                                    period: (courrier.date ?? "").slice(0, 4),
+                                    label: courrier.objet,
+                                    status: "traite",
+                                  },
+                                ),
+                            },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {getOrganismeDocuments(selectedOrganisme).length === 0 &&
+                  getOrganismeCourriers(selectedOrganisme).length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Aucun document ni courrier pour cet organisme.
+                    </p>
+                  )}
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    const typesAutorises = typesDocumentsPour(
+                      organismes.find((o) => o.id === selectedOrganisme)
+                        ?.nom ?? "",
+                    );
+                    setTypeDocAAjouter(typesAutorises[0] ?? "attestation");
+                    setOrganismeDocAAjouter(selectedOrganisme);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Ajouter un document
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDocumentPourCourrier(null);
+                    setIsAddingCourrier(true);
+                  }}
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Nouveau courrier
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -947,13 +1078,17 @@ export default function DiversDocumentsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {typesDocuments
-                .filter((t) => t !== "all")
-                .map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </SelectItem>
-                ))}
+              {(organismeDocAAjouter
+                ? typesDocumentsPour(
+                    organismes.find((o) => o.id === organismeDocAAjouter)
+                      ?.nom ?? "",
+                  )
+                : typesDocuments.filter((t) => t !== "all")
+              ).map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -963,40 +1098,18 @@ export default function DiversDocumentsPage() {
           à rien. */}
       <Modal
         open={isAddingCourrier}
-        onOpenChange={setIsAddingCourrier}
+        onOpenChange={(o) => {
+          setIsAddingCourrier(o);
+          if (!o) setDocumentPourCourrier(null);
+        }}
         type="form"
         title="Nouveau courrier"
         size="md"
         actions={{
           primary: {
-            label: "Créer",
-            disabled: !newCourrier.objet,
-            onClick: () => {
-              if (!selectedOrganisme) return;
-              const ligne: CourrierEnregistre = {
-                id: `courrier-${Date.now()}`,
-                organismeId: selectedOrganisme,
-                objet: newCourrier.objet,
-                type: newCourrier.type,
-                date: newCourrier.date,
-                expediteur: newCourrier.expediteur,
-                destinataire: newCourrier.destinataire,
-                statut: "non_lu",
-                piece: null,
-              };
-              void registreCourriers.enregistrer(ligne, {
-                period: newCourrier.date.slice(0, 7),
-                label: newCourrier.objet,
-              });
-              setIsAddingCourrier(false);
-              setNewCourrier({
-                objet: "",
-                type: "recu",
-                date: new Date().toISOString().split("T")[0],
-                expediteur: "",
-                destinataire: "",
-              });
-            },
+            label: envoiCourrierEnCours ? "Envoi…" : "Créer",
+            disabled: !newCourrier.objet || envoiCourrierEnCours,
+            onClick: () => void handleCreerCourrier(),
           },
           secondary: {
             label: "Annuler",
@@ -1075,6 +1188,43 @@ export default function DiversDocumentsPage() {
               />
             </div>
           </div>
+          {newCourrier.type === "envoye" && (
+            <>
+              <div>
+                <Label htmlFor="courrier-email">
+                  Email du destinataire (optionnel — envoie réellement le
+                  courrier)
+                </Label>
+                <Input
+                  id="courrier-email"
+                  type="email"
+                  value={newCourrier.emailDestinataire}
+                  onChange={(e) =>
+                    setNewCourrier({
+                      ...newCourrier,
+                      emailDestinataire: e.target.value,
+                    })
+                  }
+                  placeholder="contact@organisme.fr"
+                />
+              </div>
+              <div>
+                <Label htmlFor="courrier-message">Message</Label>
+                <Textarea
+                  id="courrier-message"
+                  value={newCourrier.message}
+                  onChange={(e) =>
+                    setNewCourrier({
+                      ...newCourrier,
+                      message: e.target.value,
+                    })
+                  }
+                  rows={4}
+                  placeholder="Corps de l'email envoyé…"
+                />
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

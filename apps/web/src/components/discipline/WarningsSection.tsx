@@ -18,12 +18,13 @@ import {
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, CheckCircle } from "lucide-react";
+import { Plus, CheckCircle, Send } from "lucide-react";
 import { Warning } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
 import { useRegistre } from "@/hooks/fiscal/use-registre";
+import { sendCommunicationEmail } from "@safyr/api-client";
 
 /** Ligne enregistrée en base : la date y est une chaîne ISO. */
 interface LigneAvertissement {
@@ -80,6 +81,14 @@ export function WarningsSection() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingWarning, setEditingWarning] = useState<Warning | null>(null);
   const [viewingWarning, setViewingWarning] = useState<Warning | null>(null);
+  const [courrierWarning, setCourrierWarning] = useState<Warning | null>(
+    null,
+  );
+  const [courrierForm, setCourrierForm] = useState({
+    subject: "",
+    message: "",
+  });
+  const [envoiCourrierEnCours, setEnvoiCourrierEnCours] = useState(false);
   const [formData, setFormData] = useState({
     employeeId: "",
     date: "",
@@ -170,6 +179,41 @@ export function WarningsSection() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleOpenCourrier = (warning: Warning) => {
+    setCourrierWarning(warning);
+    setCourrierForm({
+      subject: `Avertissement du ${warning.date.toLocaleDateString("fr-FR")}`,
+      message: `Bonjour,\n\nNous vous notifions par la présente un avertissement pour le motif suivant : ${warning.reason}.\n\n${warning.description}\n\nCordialement,\n${warning.issuedBy}`,
+    });
+  };
+
+  const handleEnvoyerCourrier = async () => {
+    if (!courrierWarning) return;
+    const employee = mockEmployees.find(
+      (e) => e.id === courrierWarning.employeeId,
+    );
+    if (!employee?.email) {
+      alert("Ce salarié n'a pas d'adresse email enregistrée.");
+      return;
+    }
+    setEnvoiCourrierEnCours(true);
+    try {
+      const result = await sendCommunicationEmail({
+        recipients: [employee.email],
+        subject: courrierForm.subject,
+        body: courrierForm.message,
+      });
+      alert(`Courrier envoyé à ${result.sent} destinataire(s).`);
+      setCourrierWarning(null);
+    } catch (e) {
+      alert(
+        `Échec de l'envoi du courrier : ${e instanceof Error ? e.message : "erreur inconnue"}`,
+      );
+    } finally {
+      setEnvoiCourrierEnCours(false);
+    }
+  };
+
   const isFormValid =
     formData.employeeId &&
     formData.date &&
@@ -224,18 +268,24 @@ export function WarningsSection() {
         <RowActionsMenu
           onView={() => handleView(warning)}
           onEdit={() => handleEdit(warning)}
-          extraItems={
-            warning.status === "active"
+          extraItems={[
+            {
+              label: "Envoyer un courrier",
+              icon: Send,
+              tone: "send",
+              onClick: () => handleOpenCourrier(warning),
+            },
+            ...(warning.status === "active"
               ? [
                   {
                     label: "Lever l'avertissement",
                     icon: CheckCircle,
-                    tone: "validate",
+                    tone: "validate" as const,
                     onClick: () => handleStatusChange(warning.id, "lifted"),
                   },
                 ]
-              : []
-          }
+              : []),
+          ]}
           onDelete={() => handleDelete(warning.id)}
         />
       ),
@@ -435,6 +485,62 @@ export function WarningsSection() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Envoi d'un courrier au salarié concerné */}
+      <Modal
+        open={!!courrierWarning}
+        onOpenChange={(o) => !o && setCourrierWarning(null)}
+        type="form"
+        title="Envoyer un courrier"
+        description={
+          courrierWarning
+            ? `À ${getEmployeeName(courrierWarning.employeeId)}`
+            : ""
+        }
+        size="lg"
+        actions={{
+          primary: {
+            label: envoiCourrierEnCours ? "Envoi…" : "Envoyer",
+            onClick: () => void handleEnvoyerCourrier(),
+            disabled: envoiCourrierEnCours || !courrierForm.subject,
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setCourrierWarning(null),
+            variant: "outline",
+          },
+        }}
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="courrier-subject">Objet</Label>
+            <Input
+              id="courrier-subject"
+              value={courrierForm.subject}
+              onChange={(e) =>
+                setCourrierForm((prev) => ({
+                  ...prev,
+                  subject: e.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="courrier-message">Message</Label>
+            <Textarea
+              id="courrier-message"
+              value={courrierForm.message}
+              onChange={(e) =>
+                setCourrierForm((prev) => ({
+                  ...prev,
+                  message: e.target.value,
+                }))
+              }
+              rows={8}
+            />
+          </div>
+        </div>
       </Modal>
     </div>
   );

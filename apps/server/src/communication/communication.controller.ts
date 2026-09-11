@@ -36,11 +36,20 @@ export class CommunicationController {
 
   @Post("send-email")
   async sendEmail(@Req() req: FastifyRequest, @Body() body: unknown) {
-    // Garantit une organisation active (sécurité / scoping).
-    await resolveOrgId(req, this.prisma);
+    const orgId = await resolveOrgId(req, this.prisma);
 
     const dto = parseOrThrow(SendEmailSchema, body);
     const html = textToHtml(dto.body);
+
+    // L'envoi reste techniquement fait depuis l'adresse de la plateforme,
+    // mais les réponses arrivent sur l'adresse pro de l'entreprise si elle
+    // en a renseigné une (fiche "Mon entreprise") : les destinataires
+    // répondent ainsi directement à l'entreprise, pas à Safyr.
+    const organisation = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { email: true },
+    });
+    const replyTo = organisation?.email || undefined;
 
     await Promise.all(
       dto.recipients.map((to) =>
@@ -49,6 +58,7 @@ export class CommunicationController {
           subject: dto.subject,
           html,
           meta: { archived: dto.saveInArchive ?? false },
+          replyTo,
         }),
       ),
     );

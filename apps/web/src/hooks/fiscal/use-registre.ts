@@ -75,6 +75,8 @@ const SCOPE: Record<FiscalRecordType, "tax" | "akto" | "divers"> = {
   client_crm: "divers",
   client_contrat: "divers",
   client_cadeau: "divers",
+  conge: "divers",
+  solde_conges: "divers",
 };
 
 export function useRegistre<T extends LigneRegistre>(

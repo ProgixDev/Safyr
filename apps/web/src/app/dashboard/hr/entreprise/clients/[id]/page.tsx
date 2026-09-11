@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use } from "react";
+import { useState, useRef, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -361,6 +361,9 @@ export default function ClientDetailPage({
   const detacherPiece = useDeleteAttachment("client", id);
   const recuDe = (giftId: string) =>
     pieces.find((p) => p.slot === `recu-${giftId}`);
+  // Le fichier d'un contrat est une pièce dont le slot vaut "contrat-<idContrat>".
+  const fichierContratDe = (contractId: string) =>
+    pieces.find((p) => p.slot === `contrat-${contractId}`);
   const documents: Document[] = pieces
     .filter((p) => !p.slot.startsWith("recu-"))
     .map((p) => {
@@ -386,6 +389,7 @@ export default function ClientDetailPage({
   const [fichierPersonnalise, setFichierPersonnalise] = useState<File | null>(
     null,
   );
+  const customDocFileInputRef = useRef<HTMLInputElement>(null);
 
   if (isLoading) {
     return (
@@ -624,6 +628,30 @@ export default function ClientDetailPage({
     const recu = recuDe(g.id);
     if (!recu) return;
     void downloadStoredFile({ name: recu.name, key: recu.storageKey });
+  };
+
+  const handleUploadContractFile = async (c: ClientContract) => {
+    const fichier = await pickFile();
+    if (!fichier) return;
+    try {
+      await attacherPiece.mutateAsync({
+        file: fichier,
+        scopeId: id,
+        slot: `contrat-${c.id}`,
+      });
+    } catch (erreur) {
+      alert(
+        erreur instanceof Error
+          ? `Échec du téléversement : ${erreur.message}`
+          : "Échec du téléversement.",
+      );
+    }
+  };
+
+  const handleDownloadContractFile = (c: ClientContract) => {
+    const fichier = fichierContratDe(c.id);
+    if (!fichier) return;
+    void downloadStoredFile({ name: fichier.name, key: fichier.storageKey });
   };
 
   const contractColumns: ColumnDef<ClientContract>[] = [
@@ -973,6 +1001,12 @@ export default function ClientDetailPage({
                     onView={() => setViewContract(c)}
                     onEdit={() => handleEditContract(c)}
                     onDelete={() => handleDeleteContract(c)}
+                    onUpload={() => void handleUploadContractFile(c)}
+                    onDownload={
+                      fichierContratDe(c.id)
+                        ? () => handleDownloadContractFile(c)
+                        : undefined
+                    }
                   />
                 )}
               />
@@ -1212,14 +1246,27 @@ export default function ClientDetailPage({
           </div>
           <div>
             <Label htmlFor="doc-file">Fichier</Label>
-            <Input
+            <input
+              ref={customDocFileInputRef}
               id="doc-file"
               type="file"
               accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx"
+              className="hidden"
               onChange={(e) =>
                 setFichierPersonnalise(e.target.files?.[0] ?? null)
               }
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start gap-2 font-normal"
+              onClick={() => customDocFileInputRef.current?.click()}
+            >
+              <Upload className="h-4 w-4" />
+              {fichierPersonnalise
+                ? fichierPersonnalise.name
+                : "Choisir un fichier"}
+            </Button>
           </div>
         </div>
       </Modal>
@@ -1429,6 +1476,30 @@ export default function ClientDetailPage({
               label="Statut"
               value={getStatusText(viewContract.status)}
             />
+            <DetailRow
+              label="Fichier"
+              value={fichierContratDe(viewContract.id)?.name ?? "Aucun"}
+            />
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleUploadContractFile(viewContract)}
+              >
+                <Upload className="mr-2 h-4 w-4 text-blue-500" />
+                Téléverser le contrat
+              </Button>
+              {fichierContratDe(viewContract.id) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownloadContractFile(viewContract)}
+                >
+                  <Download className="mr-2 h-4 w-4 text-violet-500" />
+                  Télécharger
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </Modal>

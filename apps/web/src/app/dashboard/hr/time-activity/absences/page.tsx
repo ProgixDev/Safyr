@@ -43,14 +43,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { TimeOffRequest } from "@/lib/types";
-import {
-  mockTimeOffRequests,
-  mockTimeManagementStats,
-} from "@/data/time-management";
+import { useEmployeeOptions } from "@/hooks/employees";
+import { useRegistre } from "@/hooks/fiscal";
+
+/** Ligne enregistrée en base : les dates y sont des chaînes ISO. */
+function raviverDemande(ligne: Record<string, unknown>): TimeOffRequest {
+  const enDate = (v: unknown) => (v ? new Date(v as string) : undefined);
+  return {
+    ...(ligne as unknown as TimeOffRequest),
+    startDate: enDate(ligne.startDate) ?? new Date(),
+    endDate: enDate(ligne.endDate) ?? new Date(),
+    createdAt: enDate(ligne.createdAt) ?? new Date(),
+    updatedAt: enDate(ligne.updatedAt) ?? new Date(),
+    validatedAt: enDate(ligne.validatedAt),
+  };
+}
 
 export default function TimeManagementPage() {
-  const [requests, setRequests] =
-    useState<TimeOffRequest[]>(mockTimeOffRequests);
+  // Les demandes sont enregistrées en base : elles ne vivaient auparavant
+  // que dans l'état React ("TODO: Save to database via API") et
+  // disparaissaient au rechargement de la page.
+  const registre = useRegistre<TimeOffRequest & { id: string }>("conge", []);
+  const requests = registre.lignes.map((l) =>
+    raviverDemande(l as unknown as Record<string, unknown>),
+  );
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -85,56 +101,16 @@ export default function TimeManagementPage() {
     null,
   );
 
-  // Mock employee data for selection
-  const mockEmployees = [
-    { id: "1", name: "Jean Dupont", number: "EMP001", department: "Sécurité" },
-    {
-      id: "2",
-      name: "Marie Martin",
-      number: "EMP002",
-      department: "Direction",
-    },
-    { id: "3", name: "Pierre Bernard", number: "EMP003", department: "RH" },
-    {
-      id: "4",
-      name: "Sophie Dubois",
-      number: "EMP004",
-      department: "Commercial",
-    },
-    { id: "5", name: "Luc Moreau", number: "EMP005", department: "Sécurité" },
-    {
-      id: "6",
-      name: "Claire Petit",
-      number: "EMP006",
-      department: "Direction",
-    },
-    { id: "7", name: "Thomas Roux", number: "EMP007", department: "RH" },
-    { id: "8", name: "Emma Leroy", number: "EMP008", department: "Commercial" },
-    {
-      id: "9",
-      name: "Alexandre Simon",
-      number: "EMP009",
-      department: "Sécurité",
-    },
-    {
-      id: "10",
-      name: "Julie Laurent",
-      number: "EMP010",
-      department: "Direction",
-    },
-    { id: "11", name: "Michel Blanc", number: "EMP011", department: "RH" },
-    {
-      id: "12",
-      name: "Céline Garnier",
-      number: "EMP012",
-      department: "Commercial",
-    },
-  ];
+  // Salariés réels de l'entreprise : cet écran proposait auparavant douze
+  // noms fictifs (Jean Dupont, Marie Martin…) au lieu du dossier du personnel.
+  const mockEmployees = useEmployeeOptions();
 
   const filteredEmployees = mockEmployees.filter(
     (employee) =>
       employee.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
-      employee.number.toLowerCase().includes(employeeSearch.toLowerCase()) ||
+      employee.employeeNumber
+        .toLowerCase()
+        .includes(employeeSearch.toLowerCase()) ||
       employee.department.toLowerCase().includes(employeeSearch.toLowerCase()),
   );
 
@@ -214,7 +190,7 @@ export default function TimeManagementPage() {
       id: `REQ${Date.now()}`,
       employeeId: newRequestData.employeeId,
       employeeName: selectedEmployee?.name || "Unknown Employee",
-      employeeNumber: selectedEmployee?.number || "Unknown",
+      employeeNumber: selectedEmployee?.employeeNumber || "Unknown",
       department: selectedEmployee?.department || "Unknown",
       type: newRequestData.type,
       startDate: new Date(newRequestData.startDate),
@@ -226,8 +202,11 @@ export default function TimeManagementPage() {
       updatedAt: new Date(),
     };
 
-    // TODO: Save to database via API
-    console.log("New time-off request:", newRequest);
+    void registre.enregistrer(newRequest, {
+      period: newRequestData.startDate.slice(0, 7),
+      label: `${newRequest.employeeName} — ${getTypeLabel(newRequest.type)}`,
+      status: newRequest.status,
+    });
 
     // Reset form and close modal
     setNewRequestData({
@@ -244,7 +223,7 @@ export default function TimeManagementPage() {
 
   const handleEmployeeSelect = (employee: (typeof mockEmployees)[0]) => {
     setNewRequestData((prev) => ({ ...prev, employeeId: employee.id }));
-    setEmployeeSearch(`${employee.name} (${employee.number})`);
+    setEmployeeSearch(`${employee.name} (${employee.employeeNumber})`);
     setIsEmployeeDropdownOpen(false);
   };
 
@@ -254,32 +233,30 @@ export default function TimeManagementPage() {
     setIsDetailsModalOpen(true);
   };
 
+  const toIso = (d: Date) => new Date(d).toISOString().split("T")[0];
+
+  const enregistrerDemande = (demande: TimeOffRequest) =>
+    registre.enregistrer(demande, {
+      period: toIso(demande.startDate).slice(0, 7),
+      label: `${demande.employeeName} — ${getTypeLabel(demande.type)}`,
+      status: demande.status,
+    });
+
   const handleValidation = (
     approved: boolean,
     requestId: string,
     comment?: string,
   ) => {
-    // TODO: API call to validate/reject request
-    console.log("Validation:", {
-      approved,
-      comment,
-      requestId,
-    });
+    const request = requests.find((r) => r.id === requestId);
+    if (!request) return;
 
-    // Update requests
-    setRequests((prev) =>
-      prev.map((req) =>
-        req.id === requestId
-          ? {
-              ...req,
-              status: approved ? "approved" : "rejected",
-              validatedBy: "Current User",
-              validatedAt: new Date(),
-              validationComment: comment || "",
-            }
-          : req,
-      ),
-    );
+    void enregistrerDemande({
+      ...request,
+      status: approved ? "approved" : "rejected",
+      validatedBy: "Current User",
+      validatedAt: new Date(),
+      validationComment: comment || "",
+    });
 
     // If modal is open for this request, close it
     if (selectedRequest?.id === requestId) {
@@ -296,13 +273,11 @@ export default function TimeManagementPage() {
 
   const handleDeleteConfirm = () => {
     if (requestToDelete) {
-      setRequests(requests.filter((r) => r.id !== requestToDelete.id));
+      void registre.supprimerLigne(requestToDelete.id);
       setIsDeleteModalOpen(false);
       setRequestToDelete(null);
     }
   };
-
-  const toIso = (d: Date) => new Date(d).toISOString().split("T")[0];
 
   const handleEdit = (request: TimeOffRequest) => {
     setEditingRequest(request);
@@ -323,21 +298,15 @@ export default function TimeManagementPage() {
       1,
       Math.round((end.getTime() - start.getTime()) / 86400000) + 1,
     );
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === editingRequest.id
-          ? {
-              ...r,
-              type: editData.type,
-              startDate: start,
-              endDate: end,
-              reason: editData.reason,
-              totalDays,
-              updatedAt: new Date(),
-            }
-          : r,
-      ),
-    );
+    void enregistrerDemande({
+      ...editingRequest,
+      type: editData.type,
+      startDate: start,
+      endDate: end,
+      reason: editData.reason,
+      totalDays,
+      updatedAt: new Date(),
+    });
     setIsEditModalOpen(false);
     setEditingRequest(null);
   };
@@ -478,6 +447,38 @@ export default function TimeManagementPage() {
     </DropdownMenu>
   );
 
+  // Statistiques calculées depuis les vraies demandes plutôt que depuis un
+  // objet fictif déconnecté de la liste affichée.
+  const now = new Date();
+  const totalAbsenceDays = requests.reduce((sum, r) => sum + r.totalDays, 0);
+  const pendingRequests = requests.filter(
+    (r) => r.status === "pending",
+  ).length;
+  const approvedRequests = requests.filter(
+    (r) => r.status === "approved",
+  ).length;
+  const dureesReponse = requests
+    .filter((r) => r.validatedAt)
+    .map(
+      (r) =>
+        (r.validatedAt!.getTime() - r.createdAt.getTime()) / (1000 * 60 * 60),
+    );
+  const averageResponseTime = dureesReponse.length
+    ? Math.round(
+        dureesReponse.reduce((sum, h) => sum + h, 0) / dureesReponse.length,
+      )
+    : 0;
+  const employeesOnLeave = new Set(
+    requests
+      .filter(
+        (r) =>
+          r.status === "approved" &&
+          r.startDate <= now &&
+          r.endDate >= now,
+      )
+      .map((r) => r.employeeId),
+  ).size;
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -501,35 +502,35 @@ export default function TimeManagementPage() {
         <InfoCard
           icon={Calendar}
           title="Total Demandes"
-          value={mockTimeManagementStats.totalRequests}
-          subtext={`${mockTimeManagementStats.totalAbsenceDays} jours au total`}
+          value={requests.length}
+          subtext={`${totalAbsenceDays} jours au total`}
           color="gray"
         />
 
         <InfoCard
           icon={Clock}
           title="En attente"
-          value={mockTimeManagementStats.pendingRequests}
-          subtext={`Temps moyen: ${mockTimeManagementStats.averageResponseTime}h`}
+          value={pendingRequests}
+          subtext={`Temps moyen: ${averageResponseTime}h`}
           color="orange"
         />
 
         <InfoCard
           icon={CheckCircle}
           title="Approuvées"
-          value={mockTimeManagementStats.approvedRequests}
-          subtext={`${(
-            (mockTimeManagementStats.approvedRequests /
-              mockTimeManagementStats.totalRequests) *
-            100
-          ).toFixed(0)}% du total`}
+          value={approvedRequests}
+          subtext={`${
+            requests.length
+              ? ((approvedRequests / requests.length) * 100).toFixed(0)
+              : 0
+          }% du total`}
           color="green"
         />
 
         <InfoCard
           icon={Users}
           title="Employés absents"
-          value={mockTimeManagementStats.employeesOnLeave}
+          value={employeesOnLeave}
           subtext="Actuellement en congé"
           color="blue"
         />
@@ -654,7 +655,7 @@ export default function TimeManagementPage() {
                       >
                         <div className="font-medium">{employee.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          {employee.number} - {employee.department}
+                          {employee.employeeNumber} - {employee.department}
                         </div>
                       </button>
                     ))
@@ -672,7 +673,7 @@ export default function TimeManagementPage() {
                       >
                         <div className="font-medium">{employee.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          {employee.number} - {employee.department}
+                          {employee.employeeNumber} - {employee.department}
                         </div>
                       </button>
                     ))

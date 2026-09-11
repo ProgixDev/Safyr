@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useEmployeeOptions } from "@/hooks/employees";
+import { useRegistre } from "@/hooks/fiscal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,12 +62,70 @@ interface LeaveHistory {
   status: "approved" | "pending" | "cancelled";
 }
 
-const mockLeaveData: PaidLeaveData[] = [];
-
-const mockLeaveHistory: LeaveHistory[] = [];
+/** Ligne enregistrée en base : un solde par salarié, identifié "solde-<id>". */
+function calculerBalances(
+  base: Omit<
+    PaidLeaveData,
+    "cpN2Balance" | "cpN1Balance" | "cpNBalance" | "totalBalance"
+  >,
+): PaidLeaveData {
+  const cpN2Balance = base.cpN2Acquired - base.cpN2Taken;
+  const cpN1Balance = base.cpN1Acquired - base.cpN1Taken;
+  const cpNBalance = base.cpNAcquired - base.cpNTaken;
+  return {
+    ...base,
+    cpN2Balance,
+    cpN1Balance,
+    cpNBalance,
+    totalBalance: cpN2Balance + cpN1Balance + cpNBalance,
+  };
+}
 
 export default function PaidLeaveTrackingPage() {
-  const [leaveData, setLeaveData] = useState<PaidLeaveData[]>(mockLeaveData);
+  // Un solde par salarié réel de l'entreprise : ce tableau était vide en dur
+  // (aucune donnée, aucun moyen d'en ajouter) plutôt que branché sur le
+  // dossier du personnel. Chaque salarié apparaît désormais avec un solde à
+  // 0 tant qu'il n'a pas été renseigné ou importé depuis la Paie.
+  const employees = useEmployeeOptions();
+  const registre = useRegistre<PaidLeaveData>("solde_conges", []);
+  const soldesParEmploye = new Map(
+    registre.lignes.map((l) => [l.employeeId, l]),
+  );
+  const leaveData: PaidLeaveData[] = employees.map((employee) => {
+    const existant = soldesParEmploye.get(employee.id);
+    if (existant) return existant;
+    return calculerBalances({
+      id: `solde-${employee.id}`,
+      employeeId: employee.id,
+      employeeName: employee.name,
+      position: employee.poste,
+      cpN2Acquired: 0,
+      cpN2Taken: 0,
+      cpN1Acquired: 0,
+      cpN1Taken: 0,
+      cpNAcquired: 0,
+      cpNTaken: 0,
+      dataSource: "manual",
+    });
+  });
+
+  // Historique des congés payés effectivement pris : dérivé des demandes
+  // d'absence approuvées de type "vacation" (voir la page Absences).
+  const demandesConges = useRegistre<
+    import("@/lib/types").TimeOffRequest & { id: string }
+  >("conge", []).lignes;
+  const leaveHistory: LeaveHistory[] = demandesConges
+    .filter((d) => d.type === "vacation" && d.status === "approved")
+    .map((d) => ({
+      id: d.id,
+      employeeId: d.employeeId,
+      startDate: new Date(d.startDate),
+      endDate: new Date(d.endDate),
+      days: d.totalDays,
+      year: new Date(d.startDate).getFullYear().toString(),
+      status: "approved" as const,
+    }));
+
   const [selectedEmployee, setSelectedEmployee] =
     useState<PaidLeaveData | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -94,25 +154,18 @@ export default function PaidLeaveTrackingPage() {
   };
 
   const handleSaveEdit = () => {
-    if (selectedEmployee && editForm) {
-      setLeaveData(
-        leaveData.map((emp) =>
-          emp.id === selectedEmployee.id
-            ? {
-                ...emp,
-                ...editForm,
-                totalBalance:
-                  (editForm.cpN2Balance || 0) +
-                  (editForm.cpN1Balance || 0) +
-                  (editForm.cpNBalance || 0),
-                dataSource: "manual",
-              }
-            : emp,
-        ),
-      );
-      setIsEditModalOpen(false);
-      setSelectedEmployee(null);
-    }
+    if (!selectedEmployee || !editForm) return;
+    const ligne = calculerBalances({
+      ...selectedEmployee,
+      ...editForm,
+      dataSource: "manual",
+    });
+    void registre.enregistrer(ligne, {
+      period: String(currentYear),
+      label: ligne.employeeName,
+    });
+    setIsEditModalOpen(false);
+    setSelectedEmployee(null);
   };
 
   const handleImportFromPayroll = () => {
@@ -284,7 +337,7 @@ export default function PaidLeaveTrackingPage() {
     },
   ];
 
-  const employeeHistory = mockLeaveHistory.filter(
+  const employeeHistory = leaveHistory.filter(
     (h) => h.employeeId === selectedEmployee?.employeeId,
   );
 

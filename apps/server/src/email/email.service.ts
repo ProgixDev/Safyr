@@ -69,6 +69,7 @@ export class EmailService {
     subject: string;
     html: string;
     meta?: Record<string, unknown>;
+    replyTo?: string;
   }): void {
     this.logger.log(
       `[DEV] Email suppressed — to=${payload.to} subject="${payload.subject}"` +
@@ -92,11 +93,18 @@ export class EmailService {
     subject: string;
     html: string;
     meta?: Record<string, unknown>;
+    /**
+     * Adresse à laquelle les réponses doivent arriver. L'envoi passe
+     * toujours par l'adresse SMTP de la plateforme (SMTP_FROM) : c'est ce
+     * champ qui permet à une organisation d'être jointe sur sa propre
+     * adresse professionnelle malgré tout.
+     */
+    replyTo?: string;
   }): Promise<void> {
-    const { to, subject, html, meta } = params;
+    const { to, subject, html, meta, replyTo } = params;
 
     if (this.isDev || !this.transport) {
-      this.logDevEmail({ to, subject, html, meta });
+      this.logDevEmail({ to, subject, html, meta, replyTo });
       return;
     }
 
@@ -105,6 +113,7 @@ export class EmailService {
       to,
       subject,
       html,
+      replyTo,
     });
   }
 

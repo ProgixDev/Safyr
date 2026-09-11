@@ -527,13 +527,21 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
                       <div
                         className={cn(
                           "p-2 rounded-lg",
-                          c.document ? "bg-green-500/15" : "bg-primary/10",
+                          c.document
+                            ? "bg-green-500/15"
+                            : c.requirement.isRequired
+                              ? "bg-red-500/15"
+                              : "bg-orange-500/15",
                         )}
                       >
                         <FileText
                           className={cn(
                             "h-4 w-4",
-                            c.document ? "text-green-600" : "text-primary",
+                            c.document
+                              ? "text-green-600"
+                              : c.requirement.isRequired
+                                ? "text-red-600"
+                                : "text-orange-600",
                           )}
                         />
                       </div>

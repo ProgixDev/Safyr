@@ -45,7 +45,9 @@ export type FiscalRecordType =
   | "publication_sociale"
   | "client_crm"
   | "client_contrat"
-  | "client_cadeau";
+  | "client_cadeau"
+  | "conge"
+  | "solde_conges";
 
 /** Ligne d'un registre administratif (TVA, CFE, PAS, courrier, AKTO). */
 export interface FiscalRecord {

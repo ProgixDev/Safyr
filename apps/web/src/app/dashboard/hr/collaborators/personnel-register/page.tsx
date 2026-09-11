@@ -518,6 +518,7 @@ export default function PersonnelRegisterPage() {
             onRowClick={handleView}
             columns={columns}
             data={filteredEntries}
+            itemsPerPage={50}
           />
         </CardContent>
       </Card>

@@ -606,6 +606,8 @@ export interface Equipment {
   // Digital Signature
   issuanceSignature?: Signature;
   returnSignature?: Signature;
+  /** Email de remise (à signer) envoyé au salarié lors de l'assignation. */
+  emailEnvoye?: boolean;
 
   condition: "new" | "good" | "fair" | "poor" | "damaged";
   status: "assigned" | "returned" | "lost" | "damaged" | "exhausted";

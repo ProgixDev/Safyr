@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Card,
   CardContent,
@@ -158,6 +158,11 @@ export default function ImpotSIEPage() {
     statut: "en_attente" as "en_attente" | "traite" | "archive",
     montant: 0,
   });
+  // Fichier du courrier choisi à la création, pour éviter d'avoir à revenir
+  // le téléverser après coup sur la ligne.
+  const [nouveauCourrierFichier, setNouveauCourrierFichier] =
+    useState<File | null>(null);
+  const nouveauCourrierFichierInputRef = useRef<HTMLInputElement>(null);
 
   // Registres enregistrés en base : les lignes et leurs pièces jointes
   // survivent à la déconnexion (elles ne vivaient qu'en mémoire).
@@ -175,7 +180,7 @@ export default function ImpotSIEPage() {
   // aussi, avec le bon statut sans qu'il faille les retoucher un par un.
   const tvaDossiers = registreTva.lignes.map(withTvaStatut);
   const cfeDossiers = registreCfe.lignes.map(withCfeStatut);
-  const prelevements = registrePrelevement.lignes;
+  const prelevements = registrePrelevement.lignes.map(withPrelevementStatut);
   const courriers = registreCourrier.lignes;
 
   /** Période et libellé sous lesquels chaque ligne est enregistrée. */
@@ -421,6 +426,26 @@ export default function ImpotSIEPage() {
   };
 
   // ── Prélèvement à la source : mêmes actions ─────────────────────────────
+
+  /**
+   * Recalcule le statut d'un dossier de prélèvement d'après les documents
+   * déposés, comme withTvaStatut/withCfeStatut ci-dessus : sans cela, le
+   * statut restait figé sur "en_attente" tant que personne ne l'éditait à
+   * la main, même après le dépôt de la déclaration et du bordereau.
+   */
+  function withPrelevementStatut(
+    prelevement: PrelevementDocument,
+  ): PrelevementDocument {
+    return {
+      ...prelevement,
+      statut: prelevement.bordereau
+        ? "paye"
+        : prelevement.declaration
+          ? "traite"
+          : "en_attente",
+    };
+  }
+
   type PrelevementDocField = "declaration" | "bordereau";
 
   const PRELEVEMENT_DOC_LABELS: Record<PrelevementDocField, string> = {
@@ -599,7 +624,7 @@ export default function ImpotSIEPage() {
     },
   );
 
-  const handleNewDocument = () => {
+  const handleNewDocument = async () => {
     const newId = Date.now().toString();
 
     if (newDocumentType === "tva") {
@@ -649,13 +674,23 @@ export default function ImpotSIEPage() {
         organisme: newDocument.organisme,
         statut: newDocument.statut,
       };
-      void registreCourrier.enregistrer(
+      // L'identifiant réel n'est connu qu'une fois la ligne créée en base :
+      // c'est celui-là qu'il faut utiliser pour y rattacher le fichier.
+      const realId = await registreCourrier.enregistrer(
         newCourrier,
         infosCourrier(newCourrier),
       );
+      if (nouveauCourrierFichier) {
+        await registreCourrier.attacherFichier(
+          realId,
+          "document",
+          nouveauCourrierFichier,
+        );
+      }
     }
 
     setIsNewDocumentModalOpen(false);
+    setNouveauCourrierFichier(null);
     // Reset form
     setNewDocument({
       mois: "",
@@ -797,7 +832,12 @@ export default function ImpotSIEPage() {
       </div>
 
       {/* Accès direct au portail fiscal, commun aux quatre onglets. */}
-      <Button variant="outline" size="sm" className="gap-2" asChild>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+        asChild
+      >
         <a
           href="https://cfspro.impots.gouv.fr"
           target="_blank"
@@ -1697,7 +1737,7 @@ export default function ImpotSIEPage() {
         actions={{
           primary: {
             label: "Ajouter",
-            onClick: handleNewDocument,
+            onClick: () => void handleNewDocument(),
           },
           secondary: {
             label: "Annuler",
@@ -1878,6 +1918,32 @@ export default function ImpotSIEPage() {
                 <p className="text-sm text-muted-foreground border rounded-md px-3 py-2">
                   Impôts (DGI)
                 </p>
+              </div>
+              <div>
+                <Label htmlFor="courrier-fichier">Fichier (optionnel)</Label>
+                <input
+                  ref={nouveauCourrierFichierInputRef}
+                  id="courrier-fichier"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx"
+                  className="hidden"
+                  onChange={(e) =>
+                    setNouveauCourrierFichier(e.target.files?.[0] ?? null)
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start gap-2 font-normal"
+                  onClick={() =>
+                    nouveauCourrierFichierInputRef.current?.click()
+                  }
+                >
+                  <Upload className="h-4 w-4" />
+                  {nouveauCourrierFichier
+                    ? nouveauCourrierFichier.name
+                    : "Choisir un fichier"}
+                </Button>
               </div>
               <div>
                 <Label htmlFor="courrier-statut-creation">Statut</Label>
