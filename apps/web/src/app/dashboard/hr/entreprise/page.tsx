@@ -231,28 +231,36 @@ function EntrepriseContent({
     input.click();
   };
 
-  const handleDownload = async (key: string) => {
+  /**
+   * Ouvre le document dans un nouvel onglet (consultation ou téléchargement).
+   * L'onglet doit s'ouvrir de façon SYNCHRONE dans le clic : Safari bloque
+   * silencieusement window.open() dès qu'un await le précède (Chrome/Firefox
+   * sont plus tolérants, d'où le bug invisible en test sur Windows). Le lien
+   * `<a download>` posait le même problème en plus de ne pas fonctionner
+   * pour un fichier hors origine (stockage Supabase) : Safari ignore alors
+   * l'attribut download et échoue silencieusement.
+   */
+  const ouvrirDocumentStocke = async (key: string, messageErreur: string) => {
+    const fenetre = window.open("", "_blank", "noopener,noreferrer");
     try {
       const url = await getSignedUrl(key);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "";
-      link.rel = "noopener";
-      link.click();
+      if (fenetre) {
+        fenetre.location.href = url;
+      } else {
+        window.location.href = url;
+      }
     } catch {
-      setDocumentError("Échec du téléchargement du document.");
+      fenetre?.close();
+      setDocumentError(messageErreur);
     }
   };
 
+  const handleDownload = (key: string) =>
+    ouvrirDocumentStocke(key, "Échec du téléchargement du document.");
+
   /** Ouvre le document dans un nouvel onglet (consultation). */
-  const handleView = async (key: string) => {
-    try {
-      const url = await getSignedUrl(key);
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch {
-      setDocumentError("Impossible d'ouvrir le document.");
-    }
-  };
+  const handleView = (key: string) =>
+    ouvrirDocumentStocke(key, "Impossible d'ouvrir le document.");
 
   const handleDeleteDocument = (requirementId: string) => {
     setDocumentError(null);

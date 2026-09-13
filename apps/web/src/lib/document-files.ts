@@ -57,6 +57,27 @@ export async function downloadStoredFile(file: StoredFile): Promise<void> {
     );
     return;
   }
-  const url = await getSignedUrl(file.key);
-  window.open(url, "_blank", "noopener,noreferrer");
+  // L'onglet doit s'ouvrir de façon SYNCHRONE dans le gestionnaire de clic :
+  // Safari bloque silencieusement window.open() dès qu'un await le précède
+  // (l'appel n'est alors plus reconnu comme déclenché par l'utilisateur), ce
+  // qui ne se voit pas sur Chrome/Firefox, plus tolérants. On ouvre donc un
+  // onglet vide tout de suite, puis on le redirige une fois l'URL connue.
+  const fenetre = window.open("", "_blank", "noopener,noreferrer");
+  try {
+    const url = await getSignedUrl(file.key);
+    if (fenetre) {
+      fenetre.location.href = url;
+    } else {
+      // Le popup a quand même été bloqué (appel hors clic direct, réglages
+      // restrictifs…) : on navigue l'onglet courant plutôt que de rester bloqué.
+      window.location.href = url;
+    }
+  } catch (e) {
+    fenetre?.close();
+    alert(
+      `Impossible d'ouvrir « ${file.name} » : ${
+        e instanceof Error ? e.message : "erreur inconnue"
+      }`,
+    );
+  }
 }

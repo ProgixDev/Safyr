@@ -122,12 +122,23 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
     }
   };
 
-  /** Ouvre un document stocke via une URL signee. */
+  /**
+   * Ouvre un document stocke via une URL signee.
+   * L'onglet doit s'ouvrir de facon SYNCHRONE dans le clic : Safari bloque
+   * silencieusement window.open() des qu'un await le precede (Chrome/Firefox
+   * sont plus tolerants, d'ou le bug invisible en test sur Windows).
+   */
   const ouvrirDocument = async (storageKey: string) => {
+    const fenetre = window.open("", "_blank", "noopener,noreferrer");
     try {
       const url = await getSignedUrl(storageKey);
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (fenetre) {
+        fenetre.location.href = url;
+      } else {
+        window.location.href = url;
+      }
     } catch (err) {
+      fenetre?.close();
       setTeleversementErreur(
         `Impossible d'ouvrir le document : ${
           err instanceof Error ? err.message : "erreur inconnue"

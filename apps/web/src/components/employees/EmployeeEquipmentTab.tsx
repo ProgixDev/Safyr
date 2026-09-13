@@ -236,12 +236,6 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
         assignedBy: "admin@safyr.com", // In real app, get from current user
         condition: "new",
         status: "assigned",
-        issuanceSignature: {
-          signedAt: new Date(),
-          signedBy: `${employee.firstName} ${employee.lastName}`,
-          signatureData: "simulated_signature", // In real app, get actual signature
-          ipAddress: "192.168.1.100",
-        },
       };
     } else {
       const found = availableEquipment.find(
@@ -253,16 +247,14 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
         assignedAt: new Date(),
         assignedBy: "admin@safyr.com", // In real app, get from current user
         status: "assigned",
-        issuanceSignature: {
-          signedAt: new Date(),
-          signedBy: `${employee.firstName} ${employee.lastName}`,
-          signatureData: "simulated_signature", // In real app, get actual signature
-          ipAddress: "192.168.1.100",
-        },
       };
     }
 
     // Envoie un email de remise au salarié, à signer/confirmer de son côté.
+    // La signature elle-même n'est plus simulée automatiquement : elle
+    // n'est enregistrée qu'une fois confirmée via "Confirmer la signature"
+    // dans le menu de la ligne, une fois le salarié réellement revenu vers
+    // l'entreprise (par retour d'email, oralement, etc.).
     if (employee.email) {
       setEnvoiSignatureEnCours(true);
       try {
@@ -294,6 +286,24 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
       quantity: 1,
       consumable: false,
     });
+  };
+
+  /** Marque la remise comme réellement signée par le salarié (action manuelle de l'admin). */
+  const handleConfirmerSignature = (equipmentId: string) => {
+    setEquipment((prev) =>
+      prev.map((eq) =>
+        eq.id === equipmentId
+          ? {
+              ...eq,
+              issuanceSignature: {
+                signedAt: new Date(),
+                signedBy: `${employee.firstName} ${employee.lastName}`,
+                signatureData: "confirmed_by_admin",
+              },
+            }
+          : eq,
+      ),
+    );
   };
 
   const handleReturnEquipment = () => {
@@ -439,18 +449,17 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
       render: (item) => (
         <div className="space-y-1">
           <span className="text-sm">{getConditionLabel(item.condition)}</span>
-          {item.issuanceSignature && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          {item.issuanceSignature ? (
+            <div className="flex items-center gap-1 text-xs text-green-600">
               <FileSignature className="h-3 w-3" />
               Signé
             </div>
-          )}
-          {item.emailEnvoye && (
-            <div className="flex items-center gap-1 text-xs text-green-600">
+          ) : item.emailEnvoye ? (
+            <div className="flex items-center gap-1 text-xs text-orange-600">
               <CheckCircle className="h-3 w-3" />
-              Email de signature envoyé
+              Email envoyé — en attente de signature
             </div>
-          )}
+          ) : null}
         </div>
       ),
     },
@@ -633,6 +642,16 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
                     setShowDetailsModal(true);
                   }}
                   extraItems={[
+                    ...(!item.issuanceSignature
+                      ? [
+                          {
+                            label: "Confirmer la signature",
+                            icon: CheckCircle,
+                            tone: "validate" as const,
+                            onClick: () => handleConfirmerSignature(item.id),
+                          },
+                        ]
+                      : []),
                     item.consumable
                       ? {
                           label: "Marquer comme épuisé",

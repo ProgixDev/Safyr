@@ -42,7 +42,20 @@ export type ExtractedContract = z.infer<typeof ExtractedContractSchema>;
 
 // Import différé, isolé dans sa propre fonction pour que TypeScript infère
 // un seul type cohérent au point d'appel (voir buildTextContent).
-function importPdfParse() {
+//
+// pdfjs-dist (utilisé en interne par pdf-parse) référence l'API navigateur
+// DOMMatrix même pour la simple extraction de texte — absente de
+// l'environnement Node serverless de Vercel, ce qui faisait échouer
+// l'import avec "ReferenceError: DOMMatrix is not defined" (confirmé en
+// production via un endpoint de diagnostic temporaire). On la fournit ici
+// via un polyfill pur JS, sans dépendance native (donc fiable en
+// serverless), avant que pdf-parse ne charge pdfjs-dist.
+async function importPdfParse() {
+  const globalObject = globalThis as { DOMMatrix?: unknown };
+  if (typeof globalObject.DOMMatrix === "undefined") {
+    const { default: DOMMatrix } = await import("dommatrix");
+    globalObject.DOMMatrix = DOMMatrix;
+  }
   return import("pdf-parse");
 }
 
