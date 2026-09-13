@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { sendCommunicationEmail } from "@safyr/api-client";
+import { cn } from "@/lib/utils";
 import { useRegistre, useUpdateFiscalRecord } from "@/hooks/fiscal";
 import { downloadStoredFile, type StoredFile } from "@/lib/document-files";
 import {
@@ -141,10 +142,7 @@ const ORGANISMES_CONNUS: {
 ];
 
 function normaliser(texte: string): string {
-  return texte
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
+  return texte.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
 function styleOrganisme(nom: string): { icon: string; couleur: string } {
@@ -153,6 +151,31 @@ function styleOrganisme(nom: string): { icon: string; couleur: string } {
     o.motsCles.some((mot) => nomNormalise.includes(mot)),
   );
   return connu ?? { icon: "building", couleur: "blue" };
+}
+
+/** Vrai logo (image) des organismes les plus courants, à la place de l'icône générique. */
+const LOGOS_CONNUS: { motsCles: string[]; src: string; alt: string }[] = [
+  { motsCles: ["urssaf"], src: "/logos/urssaf.png", alt: "URSSAF" },
+  {
+    motsCles: ["dgfip", "impot", "impots", "sie", "dgi"],
+    src: "/logos/dgfip.png",
+    alt: "DGFIP",
+  },
+  { motsCles: ["akto"], src: "/logos/akto.png", alt: "AKTO" },
+  {
+    motsCles: ["mutelios"],
+    src: "/logos/mutelios.png",
+    alt: "Mutélios",
+  },
+];
+
+function logoOrganisme(nom: string): { src: string; alt: string } | null {
+  const nomNormalise = normaliser(nom);
+  return (
+    LOGOS_CONNUS.find((o) =>
+      o.motsCles.some((mot) => nomNormalise.includes(mot)),
+    ) ?? null
+  );
 }
 
 /**
@@ -170,7 +193,15 @@ function typesDocumentsPour(nom: string): string[] {
   ) {
     return ["courrier", "attestation"];
   }
-  return ["attestation", "contrat", "courrier", "releve", "facture", "devis", "convention"];
+  return [
+    "attestation",
+    "contrat",
+    "courrier",
+    "releve",
+    "facture",
+    "devis",
+    "convention",
+  ];
 }
 
 /** Document d'organisme tel qu'enregistré : la pièce est un champ à part. */
@@ -565,6 +596,7 @@ export default function DiversDocumentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {organismes.map((organisme) => {
                   const Icon = getIconComponent(organisme.icon);
+                  const logo = logoOrganisme(organisme.nom);
                   const docsCount = documents.filter(
                     (doc) => doc.organismeId === organisme.id,
                   ).length;
@@ -593,9 +625,23 @@ export default function DiversDocumentsPage() {
                       <CardContent className="p-6">
                         <div className="flex items-center gap-3 mb-4">
                           <div
-                            className={`p-3 rounded-full ${getCouleurClasses(organisme.couleur).split(" ")[0]} ${getCouleurClasses(organisme.couleur).split(" ")[1]}`}
+                            className={cn(
+                              "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
+                              !logo &&
+                                `${getCouleurClasses(organisme.couleur).split(" ")[0]} ${getCouleurClasses(organisme.couleur).split(" ")[1]}`,
+                              logo && "bg-white border",
+                            )}
                           >
-                            <Icon className="h-6 w-6" />
+                            {logo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={logo.src}
+                                alt={logo.alt}
+                                className="h-9 w-9 rounded-full object-contain"
+                              />
+                            ) : (
+                              <Icon className="h-6 w-6" />
+                            )}
                           </div>
                           <div className="flex-1">
                             <h3 className="font-semibold">{organisme.nom}</h3>
@@ -806,9 +852,7 @@ export default function DiversDocumentsPage() {
                                 setNewCourrier({
                                   objet: document.nom,
                                   type: "envoye",
-                                  date: new Date()
-                                    .toISOString()
-                                    .split("T")[0],
+                                  date: new Date().toISOString().split("T")[0],
                                   expediteur: "",
                                   destinataire: "",
                                   emailDestinataire: "",
@@ -893,7 +937,8 @@ export default function DiversDocumentsPage() {
                         <RowActionsMenu
                           onView={
                             courrier.piece
-                              ? () => ouvrirPiece(courrier.piece, courrier.objet)
+                              ? () =>
+                                  ouvrirPiece(courrier.piece, courrier.objet)
                               : undefined
                           }
                           onDelete={() =>
@@ -948,8 +993,8 @@ export default function DiversDocumentsPage() {
                   className="flex-1"
                   onClick={() => {
                     const typesAutorises = typesDocumentsPour(
-                      organismes.find((o) => o.id === selectedOrganisme)
-                        ?.nom ?? "",
+                      organismes.find((o) => o.id === selectedOrganisme)?.nom ??
+                        "",
                     );
                     setTypeDocAAjouter(typesAutorises[0] ?? "attestation");
                     setOrganismeDocAAjouter(selectedOrganisme);
