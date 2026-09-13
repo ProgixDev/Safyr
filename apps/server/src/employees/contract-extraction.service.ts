@@ -5,7 +5,6 @@ import {
   Logger,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { PDFParse } from "pdf-parse";
 import { z } from "zod";
 import { ENV } from "@/config/env.module";
 import type { Env } from "@/config/env";
@@ -40,6 +39,12 @@ const ExtractedContractSchema = z.object({
 });
 
 export type ExtractedContract = z.infer<typeof ExtractedContractSchema>;
+
+// Import différé, isolé dans sa propre fonction pour que TypeScript infère
+// un seul type cohérent au point d'appel (voir buildTextContent).
+function importPdfParse() {
+  return import("pdf-parse");
+}
 
 type GroqContentPart =
   | { type: "text"; text: string }
@@ -160,7 +165,23 @@ export class ContractExtractionService {
   }
 
   private async buildTextContent(buffer: Buffer): Promise<string> {
-    const parser = new PDFParse({ data: buffer });
+    // Import différé : pdf-parse embarque pdfjs-dist (import() dynamique en
+    // interne). Un chargement en tête de fichier ferait échouer TOUT le
+    // serveur au démarrage si un fichier venait à manquer dans le paquet
+    // serverless — en le différant ici, seul cet appel échoue le cas échéant.
+    let pdfParseModule: Awaited<ReturnType<typeof importPdfParse>>;
+    try {
+      pdfParseModule = await importPdfParse();
+    } catch (error) {
+      this.logger.error(
+        `Échec du chargement du module de lecture PDF : ${error instanceof Error ? error.message : "erreur inconnue"}`,
+      );
+      throw new ServiceUnavailableException(
+        "La lecture des PDF n'est pas disponible sur ce serveur pour le moment. Remplissez le formulaire manuellement.",
+      );
+    }
+
+    const parser = new pdfParseModule.PDFParse({ data: buffer });
     let texte: string;
     try {
       const resultat = await parser.getText();
