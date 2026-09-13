@@ -149,6 +149,12 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
     setFichierContrat(fichier);
     if (!fichier) return;
     setErreur(null);
+    if (fichier.type === "application/pdf") {
+      setErreur(
+        "L'analyse automatique ne lit que les images (PNG/JPEG) pour l'instant, pas les PDF. Le fichier sera bien joint au contrat, mais remplissez le formulaire manuellement.",
+      );
+      return;
+    }
     setExtractionEnCours(true);
     try {
       const extrait = await extractContractFile(fichier);
@@ -472,8 +478,9 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
           <div className="rounded-lg border bg-muted/30 p-3">
             <Label htmlFor="contrat-fichier">Fichier du contrat</Label>
             <p className="mb-2 text-xs text-muted-foreground">
-              Déposez le contrat signé (PDF ou image) : les champs ci-dessous se
-              remplissent automatiquement à partir de son contenu.
+              Déposez le contrat signé (PDF ou image). Pour une image
+              (PNG/JPEG), les champs ci-dessous se remplissent automatiquement à
+              partir de son contenu.
             </p>
             <input
               ref={fichierContratInputRef}

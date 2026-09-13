@@ -41,10 +41,11 @@ const envSchema = z.object({
   SMTP_PASS: z.string().min(1),
   SMTP_FROM: z.string().min(1),
 
-  // Extraction automatique des champs d'un contrat depuis le fichier déposé.
-  // Optionnelle : sans clé, l'endpoint d'extraction répond une erreur claire
-  // plutôt que de faire échouer le démarrage du serveur.
-  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  // Extraction automatique des champs d'un contrat depuis le fichier déposé
+  // (modèle vision Groq). Optionnelle : sans clé, l'endpoint d'extraction
+  // répond une erreur claire plutôt que de faire échouer le démarrage du
+  // serveur.
+  GROQ_API_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
