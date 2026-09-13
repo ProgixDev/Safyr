@@ -5,16 +5,26 @@ import {
   Logger,
   ServiceUnavailableException,
 } from "@nestjs/common";
+import { PDFParse } from "pdf-parse";
 import { z } from "zod";
 import { ENV } from "@/config/env.module";
 import type { Env } from "@/config/env";
 
-// Le modèle vision de Groq ne lit que des images, pas de PDF direct.
-const SUPPORTED_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+const SUPPORTED_MIME_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+] as const;
 type SupportedMimeType = (typeof SUPPORTED_MIME_TYPES)[number];
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_VISION_MODEL = "qwen/qwen3.8-27b";
+const GROQ_MODEL = "qwen/qwen3.8-27b";
+
+// En dessous de ce nombre de caractères, le PDF est presque certainement un
+// scan sans couche de texte : l'extraire donnerait un résultat vide ou du
+// bruit plutôt que le contenu réel du contrat.
+const TEXTE_PDF_MINIMUM = 40;
 
 const ExtractedContractSchema = z.object({
   type: z
@@ -30,6 +40,10 @@ const ExtractedContractSchema = z.object({
 });
 
 export type ExtractedContract = z.infer<typeof ExtractedContractSchema>;
+
+type GroqContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
 
 const RESPONSE_JSON_SCHEMA = {
   type: "object",
@@ -80,10 +94,23 @@ const RESPONSE_JSON_SCHEMA = {
   additionalProperties: false,
 };
 
+const PROMPT =
+  "Ce document est un contrat de travail français (secteur de la sécurité privée). " +
+  "Extrais les champs demandés à partir de son contenu. Si une information ne figure " +
+  "pas clairement dans le document, renvoie null pour ce champ plutôt que d'inventer " +
+  "une valeur.";
+
 /**
- * Lit le fichier de contrat déposé (image) et en extrait les champs du
- * formulaire via le modèle vision de Groq : le salarié n'a plus à les
- * ressaisir à la main une fois le fichier choisi.
+ * Lit le fichier de contrat déposé (PDF ou image) et en extrait les champs
+ * du formulaire via Groq : le salarié n'a plus à les ressaisir à la main
+ * une fois le fichier choisi.
+ *
+ * Les PDF sont d'abord convertis en texte (pdf-parse, sans rendu image :
+ * pas de dépendance native, fiable en environnement serverless) puis
+ * envoyés au modèle en mode texte. Les images passent directement par le
+ * mode vision du même modèle. Un PDF scanné sans couche de texte (donc
+ * sans texte extractible) est signalé explicitement plutôt que de produire
+ * un résultat vide ou halluciné.
  */
 @Injectable()
 export class ContractExtractionService {
@@ -110,12 +137,66 @@ export class ContractExtractionService {
     }
     if (!this.isSupported(mimeType)) {
       throw new BadRequestException(
-        "Format non pris en charge pour l'extraction automatique : déposez une image (PNG, JPEG ou WEBP). Les PDF ne sont pas lisibles automatiquement pour l'instant — remplissez le formulaire manuellement.",
+        "Format non pris en charge pour l'extraction automatique : déposez un PDF, PNG, JPEG ou WEBP.",
       );
     }
 
-    const dataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
+    const content =
+      mimeType === "application/pdf"
+        ? await this.buildTextContent(buffer)
+        : this.buildImageContent(buffer, mimeType);
 
+    const responseContent = await this.callGroq(content);
+    const parsed = ExtractedContractSchema.safeParse(
+      JSON.parse(responseContent) as unknown,
+    );
+    if (!parsed.success) {
+      this.logger.error(`Réponse Groq hors schéma : ${parsed.error.message}`);
+      throw new ServiceUnavailableException(
+        "Le contenu du fichier n'a pas pu être analysé. Remplissez le formulaire manuellement.",
+      );
+    }
+    return parsed.data;
+  }
+
+  private async buildTextContent(buffer: Buffer): Promise<string> {
+    const parser = new PDFParse({ data: buffer });
+    let texte: string;
+    try {
+      const resultat = await parser.getText();
+      texte = resultat.text;
+    } catch (error) {
+      this.logger.error(
+        `Échec de la lecture du PDF : ${error instanceof Error ? error.message : "erreur inconnue"}`,
+      );
+      throw new BadRequestException(
+        "Ce fichier PDF n'a pas pu être lu. Vérifiez qu'il n'est pas corrompu ou protégé par mot de passe.",
+      );
+    } finally {
+      await parser.destroy();
+    }
+
+    if (texte.trim().length < TEXTE_PDF_MINIMUM) {
+      throw new BadRequestException(
+        "Ce PDF semble être un scan sans texte détectable (image de document) : l'extraction automatique ne peut pas le lire. Remplissez le formulaire manuellement.",
+      );
+    }
+
+    return `${PROMPT}\n\n--- Contenu du contrat ---\n${texte}`;
+  }
+
+  private buildImageContent(
+    buffer: Buffer,
+    mimeType: string,
+  ): GroqContentPart[] {
+    const dataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
+    return [
+      { type: "text", text: PROMPT },
+      { type: "image_url", image_url: { url: dataUrl } },
+    ];
+  }
+
+  private async callGroq(content: string | GroqContentPart[]): Promise<string> {
     let response: Response;
     try {
       response = await fetch(GROQ_API_URL, {
@@ -125,23 +206,8 @@ export class ContractExtractionService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: GROQ_VISION_MODEL,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text:
-                    "Ce document est un contrat de travail français (secteur de la sécurité privée). " +
-                    "Extrais les champs demandés à partir du texte visible sur l'image. Si une " +
-                    "information ne figure pas clairement dans le document, renvoie null pour ce " +
-                    "champ plutôt que d'inventer une valeur.",
-                },
-                { type: "image_url", image_url: { url: dataUrl } },
-              ],
-            },
-          ],
+          model: GROQ_MODEL,
+          messages: [{ role: "user", content }],
           response_format: {
             type: "json_schema",
             json_schema: {
@@ -172,23 +238,13 @@ export class ContractExtractionService {
     const payload = (await response.json()) as {
       choices?: { message?: { content?: string } }[];
     };
-    const content = payload.choices?.[0]?.message?.content;
-    if (!content) {
+    const text = payload.choices?.[0]?.message?.content;
+    if (!text) {
       throw new ServiceUnavailableException(
         "Le contenu du fichier n'a pas pu être analysé. Remplissez le formulaire manuellement.",
       );
     }
-
-    const parsed = ExtractedContractSchema.safeParse(
-      JSON.parse(content) as unknown,
-    );
-    if (!parsed.success) {
-      this.logger.error(`Réponse Groq hors schéma : ${parsed.error.message}`);
-      throw new ServiceUnavailableException(
-        "Le contenu du fichier n'a pas pu être analysé. Remplissez le formulaire manuellement.",
-      );
-    }
-    return parsed.data;
+    return text;
   }
 
   private isSupported(mimeType: string): mimeType is SupportedMimeType {
