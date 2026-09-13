@@ -344,6 +344,8 @@ export default function ClientDetailPage({
     description: "",
     status: "active" as ClientContract["status"],
   });
+  const [contractFile, setContractFile] = useState<File | null>(null);
+  const contractFileInputRef = useRef<HTMLInputElement>(null);
   const [isGiftFormOpen, setIsGiftFormOpen] = useState(false);
   const [editingGift, setEditingGift] = useState<ClientGift | null>(null);
   const [giftForm, setGiftForm] = useState({
@@ -354,6 +356,8 @@ export default function ClientDetailPage({
     valueTTC: "",
     notes: "",
   });
+  const [giftFile, setGiftFile] = useState<File | null>(null);
+  const giftFileInputRef = useRef<HTMLInputElement>(null);
   // Documents et reçus de cadeaux : pièces jointes réelles, scope "client".
   // Le reçu d'un cadeau est une pièce dont le slot vaut "recu-<idCadeau>".
   const { data: pieces = [] } = useAttachments("client", id);
@@ -525,6 +529,7 @@ export default function ClientDetailPage({
       description: "",
       status: "active",
     });
+    setContractFile(null);
     setIsContractFormOpen(true);
   };
 
@@ -536,6 +541,7 @@ export default function ClientDetailPage({
       description: c.description,
       status: c.status,
     });
+    setContractFile(null);
     setIsContractFormOpen(true);
   };
 
@@ -548,11 +554,18 @@ export default function ClientDetailPage({
       description: contractForm.description,
       status: contractForm.status,
     };
-    await registreContrats.enregistrer(ligne, {
+    const recordId = await registreContrats.enregistrer(ligne, {
       period: contractForm.startDate.slice(0, 7),
       label: contractForm.description || `Contrat — ${client.name}`,
       status: contractForm.status,
     });
+    if (contractFile) {
+      await attacherPiece.mutateAsync({
+        file: contractFile,
+        scopeId: id,
+        slot: `contrat-${recordId}`,
+      });
+    }
     setIsContractFormOpen(false);
   };
 
@@ -569,6 +582,7 @@ export default function ClientDetailPage({
       valueTTC: "",
       notes: "",
     });
+    setGiftFile(null);
     setIsGiftFormOpen(true);
   };
 
@@ -582,6 +596,7 @@ export default function ClientDetailPage({
       valueTTC: g.valueTTC?.toString() ?? "",
       notes: g.notes ?? "",
     });
+    setGiftFile(null);
     setIsGiftFormOpen(true);
   };
 
@@ -596,10 +611,17 @@ export default function ClientDetailPage({
       valueTTC: giftForm.valueTTC ? Number(giftForm.valueTTC) : undefined,
       notes: giftForm.notes || undefined,
     };
-    await registreCadeaux.enregistrer(ligne, {
+    const recordId = await registreCadeaux.enregistrer(ligne, {
       period: giftForm.date.slice(0, 7),
       label: giftForm.giftDescription || `Cadeau — ${client.name}`,
     });
+    if (giftFile) {
+      await attacherPiece.mutateAsync({
+        file: giftFile,
+        scopeId: id,
+        slot: `recu-${recordId}`,
+      });
+    }
     setIsGiftFormOpen(false);
   };
 
@@ -1349,6 +1371,30 @@ export default function ClientDetailPage({
               </SelectContent>
             </Select>
           </div>
+          <div>
+            <Label htmlFor="contract-file">Fichier du contrat</Label>
+            <input
+              ref={contractFileInputRef}
+              id="contract-file"
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx"
+              className="hidden"
+              onChange={(e) => setContractFile(e.target.files?.[0] ?? null)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start gap-2 font-normal"
+              onClick={() => contractFileInputRef.current?.click()}
+            >
+              <Upload className="h-4 w-4" />
+              {contractFile
+                ? contractFile.name
+                : editingContract && fichierContratDe(editingContract.id)
+                  ? fichierContratDe(editingContract.id)!.name
+                  : "Choisir un fichier"}
+            </Button>
+          </div>
         </div>
       </Modal>
 
@@ -1438,6 +1484,30 @@ export default function ClientDetailPage({
               }
               rows={3}
             />
+          </div>
+          <div>
+            <Label htmlFor="gift-file">Reçu / facture</Label>
+            <input
+              ref={giftFileInputRef}
+              id="gift-file"
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx"
+              className="hidden"
+              onChange={(e) => setGiftFile(e.target.files?.[0] ?? null)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start gap-2 font-normal"
+              onClick={() => giftFileInputRef.current?.click()}
+            >
+              <Upload className="h-4 w-4" />
+              {giftFile
+                ? giftFile.name
+                : editingGift && recuDe(editingGift.id)
+                  ? recuDe(editingGift.id)!.name
+                  : "Choisir un fichier"}
+            </Button>
           </div>
         </div>
       </Modal>

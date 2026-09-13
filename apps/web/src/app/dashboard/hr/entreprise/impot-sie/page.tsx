@@ -548,7 +548,7 @@ export default function ImpotSIEPage() {
   const getOrganismeText = (organisme: string) => {
     switch (organisme) {
       case "impots":
-        return "DGI";
+        return "Impôts";
       case "urssaf":
         return "URSSAF";
       case "tresor_public":
@@ -1916,7 +1916,7 @@ export default function ImpotSIEPage() {
                 {/* Cet écran ne concerne que les impôts : un seul organisme
                     a du sens ici, pas de choix à proposer. */}
                 <p className="text-sm text-muted-foreground border rounded-md px-3 py-2">
-                  Impôts (DGI)
+                  Impôts
                 </p>
               </div>
               <div>
