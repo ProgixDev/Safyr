@@ -22,6 +22,7 @@
     "db:test:push": "dotenv -e .env.test -- prisma db push --accept-data-loss"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "@better-auth/expo": "^1.6.5",
     "@fastify/cors": "^11.0.1",
     "@fastify/multipart": "^10.0.0",

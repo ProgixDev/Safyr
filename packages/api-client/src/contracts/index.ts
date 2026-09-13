@@ -72,15 +72,34 @@ export function deleteContract(
   });
 }
 
+// ── Extraction automatique depuis le fichier déposé ───────────────────
+
+export interface ExtractedContractFields {
+  type: Contract["type"] | null;
+  position: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  workingHours: number | null;
+  grossSalary: number | null;
+  trialPeriodEndDate: string | null;
+  notes: string | null;
+}
+
+export function extractContractFile(
+  file: File,
+): Promise<ExtractedContractFields> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch<ExtractedContractFields>("/organization/contracts/extract", {
+    method: "POST",
+    body: form,
+  });
+}
+
 // ── Documents rattachés (sous-traitants, fiscal, AKTO/OPCO) ───────────────
 
 export type AttachedScope =
-  | "subcontractor"
-  | "tax"
-  | "akto"
-  | "divers"
-  | "contract"
-  | "client";
+  "subcontractor" | "tax" | "akto" | "divers" | "contract" | "client";
 
 export interface AttachedDocument {
   id: string;
@@ -121,10 +140,9 @@ export function attachDocument(
 }
 
 export function deleteAttachment(documentId: string): Promise<{ id: string }> {
-  return apiFetch<{ id: string }>(
-    `/organization/attachments/${documentId}`,
-    { method: "DELETE" },
-  );
+  return apiFetch<{ id: string }>(`/organization/attachments/${documentId}`, {
+    method: "DELETE",
+  });
 }
 
 // ── Modèles de vacation (planning) ────────────────────────────────────

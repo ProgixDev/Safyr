@@ -6,11 +6,17 @@ import { EmployeesController } from "./employees.controller";
 import { EmployeesService } from "./employees.service";
 import { ContractsController } from "./contracts.controller";
 import { ContractsService } from "./contracts.service";
+import { ContractExtractionController } from "./contract-extraction.controller";
+import { ContractExtractionService } from "./contract-extraction.service";
 
 @Module({
   imports: [AuthModule, PrismaModule, StorageModule],
-  controllers: [EmployeesController, ContractsController],
-  providers: [EmployeesService, ContractsService],
+  controllers: [
+    EmployeesController,
+    ContractsController,
+    ContractExtractionController,
+  ],
+  providers: [EmployeesService, ContractsService, ContractExtractionService],
   exports: [EmployeesService],
 })
 export class EmployeesModule {}

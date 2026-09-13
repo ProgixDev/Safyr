@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Plus, Calendar, Euro, Clock, Trash2 } from "lucide-react";
+import {
+  FileText,
+  Plus,
+  Calendar,
+  Euro,
+  Clock,
+  Trash2,
+  Upload,
+  Sparkles,
+} from "lucide-react";
 import { pickFile, downloadStoredFile } from "@/lib/document-files";
 import type { Employee } from "@/lib/types";
 import {
@@ -28,6 +37,7 @@ import {
   useAttachDocument,
   useDeleteAttachment,
 } from "@/hooks/contracts";
+import { extractContractFile } from "@safyr/api-client";
 import type { Contract, CreateContractPayload } from "@safyr/api-client";
 
 interface EmployeeContractsTabProps {
@@ -99,9 +109,17 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
   const [formulaire, setFormulaire] = useState<Formulaire>(FORMULAIRE_VIDE);
   const [erreur, setErreur] = useState<string | null>(null);
 
+  // Fichier du contrat choisi avant/pendant la création : sert à la fois à
+  // pré-remplir le formulaire (extraction automatique) et à être rattaché
+  // au contrat une fois enregistré.
+  const [fichierContrat, setFichierContrat] = useState<File | null>(null);
+  const [extractionEnCours, setExtractionEnCours] = useState(false);
+  const fichierContratInputRef = useRef<HTMLInputElement>(null);
+
   const ouvrirCreation = () => {
     setEnEdition(null);
     setFormulaire({ ...FORMULAIRE_VIDE, position: employee.position ?? "" });
+    setFichierContrat(null);
     setErreur(null);
     setModaleOuverte(true);
   };
@@ -121,8 +139,40 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
       status: contrat.status,
       notes: contrat.notes ?? "",
     });
+    setFichierContrat(null);
     setErreur(null);
     setModaleOuverte(true);
+  };
+
+  /** Choisit le fichier du contrat et pré-remplit le formulaire à partir de son contenu. */
+  const handleChoisirFichier = async (fichier: File | null) => {
+    setFichierContrat(fichier);
+    if (!fichier) return;
+    setErreur(null);
+    setExtractionEnCours(true);
+    try {
+      const extrait = await extractContractFile(fichier);
+      setFormulaire((prev) => ({
+        type: extrait.type ?? prev.type,
+        position: extrait.position ?? prev.position,
+        startDate: extrait.startDate ?? prev.startDate,
+        endDate: extrait.endDate ?? prev.endDate,
+        workingHours: extrait.workingHours?.toString() ?? prev.workingHours,
+        grossSalary: extrait.grossSalary?.toString() ?? prev.grossSalary,
+        trialPeriodEndDate:
+          extrait.trialPeriodEndDate ?? prev.trialPeriodEndDate,
+        status: prev.status,
+        notes: extrait.notes ?? prev.notes,
+      }));
+    } catch (e) {
+      setErreur(
+        `Le fichier a été choisi mais n'a pas pu être analysé automatiquement : ${
+          e instanceof Error ? e.message : "erreur inconnue"
+        }. Vous pouvez remplir le formulaire manuellement.`,
+      );
+    } finally {
+      setExtractionEnCours(false);
+    }
   };
 
   const enregistrer = async () => {
@@ -156,14 +206,25 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
     };
 
     try {
-      if (enEdition) {
-        await modification.mutateAsync({
-          contractId: enEdition.id,
-          payload,
+      const contratId = enEdition
+        ? (
+            await modification.mutateAsync({
+              contractId: enEdition.id,
+              payload,
+            })
+          ).id
+        : (await creation.mutateAsync(payload)).id;
+
+      if (fichierContrat) {
+        const existante = pieceDe(contratId);
+        if (existante) await detacher.mutateAsync(existante.id);
+        await attacher.mutateAsync({
+          file: fichierContrat,
+          scopeId: contratId,
+          slot: "contrat",
         });
-      } else {
-        await creation.mutateAsync(payload);
       }
+
       setModaleOuverte(false);
     } catch (e) {
       setErreur(
@@ -407,6 +468,47 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
       >
         <div className="space-y-4">
           {erreur && <p className="text-sm text-destructive">{erreur}</p>}
+
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <Label htmlFor="contrat-fichier">Fichier du contrat</Label>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Déposez le contrat signé (PDF ou image) : les champs ci-dessous se
+              remplissent automatiquement à partir de son contenu.
+            </p>
+            <input
+              ref={fichierContratInputRef}
+              id="contrat-fichier"
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              className="hidden"
+              onChange={(e) =>
+                void handleChoisirFichier(e.target.files?.[0] ?? null)
+              }
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start gap-2 font-normal"
+              disabled={extractionEnCours}
+              onClick={() => fichierContratInputRef.current?.click()}
+            >
+              {extractionEnCours ? (
+                <>
+                  <Sparkles className="h-4 w-4 animate-pulse" />
+                  Analyse du contrat en cours…
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4" />
+                  {fichierContrat
+                    ? fichierContrat.name
+                    : enEdition && pieceDe(enEdition.id)
+                      ? pieceDe(enEdition.id)!.name
+                      : "Choisir un fichier"}
+                </>
+              )}
+            </Button>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
