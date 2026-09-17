@@ -102,6 +102,25 @@ export function LoginForm() {
     return true;
   };
 
+  /**
+   * Après une connexion réussie, la navigation vers /dashboard pouvait
+   * boucler silencieusement vers /login (signalé sur Safari/Mac) : le
+   * SessionGuard du dashboard revérifie la session dès l'arrivée, et le
+   * cookie posé par la réponse de connexion n'était pas toujours visible
+   * par cette requête suivante immédiate, sans qu'aucune erreur ne
+   * s'affiche. On revérifie donc nous-mêmes ici (quelques tentatives
+   * rapprochées) avant de naviguer, pour laisser au navigateur le temps
+   * de committer le cookie, et pour signaler l'échec au lieu de boucler.
+   */
+  const waitForSession = async (): Promise<boolean> => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data } = await authClient.getSession();
+      if (data) return true;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+    return false;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -115,6 +134,13 @@ export function LoginForm() {
       if (error) {
         setStatus("error");
         setErrorMessage(error.message ?? "Email ou mot de passe invalide");
+        return;
+      }
+      if (!(await waitForSession())) {
+        setStatus("error");
+        setErrorMessage(
+          "Connexion acceptée mais la session n'a pas pu être confirmée par votre navigateur. Réessayez ; si le problème persiste, vérifiez que les cookies ne sont pas bloqués (navigation privée, réglages de confidentialité).",
+        );
         return;
       }
       sessionStorage.removeItem(LOGIN_DRAFT_KEY);
@@ -138,6 +164,14 @@ export function LoginForm() {
       if (error) {
         setStatus("error");
         setErrorMessage(error.message ?? "Code invalide");
+        return;
+      }
+
+      if (!(await waitForSession())) {
+        setStatus("error");
+        setErrorMessage(
+          "Connexion acceptée mais la session n'a pas pu être confirmée par votre navigateur. Réessayez ; si le problème persiste, vérifiez que les cookies ne sont pas bloqués (navigation privée, réglages de confidentialité).",
+        );
         return;
       }
 
