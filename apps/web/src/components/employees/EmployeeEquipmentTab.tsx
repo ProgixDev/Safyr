@@ -21,7 +21,6 @@ import {
 import {
   Package,
   Plus,
-  Eye,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -75,6 +74,15 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
     )
     .map((l) => raviverDates(l as unknown as Record<string, unknown>));
 
+  // Une écriture qui échoue ne doit pas passer inaperçue : sans cela le bouton
+  // semblait « ne rien faire ».
+  const signalerEchec = (erreur: unknown) =>
+    alert(
+      erreur instanceof Error
+        ? `Échec de l'enregistrement : ${erreur.message}`
+        : "Échec de l'enregistrement.",
+    );
+
   /** Écrit en base la différence entre l'ancien et le nouvel état. */
   const setEquipment = (
     maj: Equipment[] | ((prev: Equipment[]) => Equipment[]),
@@ -83,20 +91,24 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
     const avant = new Map(equipment.map((e) => [e.id, JSON.stringify(e)]));
     for (const item of suivant) {
       if (avant.get(item.id) === JSON.stringify(item)) continue;
-      void registre.enregistrer(
-        { ...item, memberId: employee.id } as unknown as Equipment & {
-          id: string;
-        },
-        {
-          period: String(new Date().getFullYear()),
-          label: item.name,
-          status: item.status,
-        },
-      );
+      registre
+        .enregistrer(
+          { ...item, memberId: employee.id } as unknown as Equipment & {
+            id: string;
+          },
+          {
+            period: String(new Date().getFullYear()),
+            label: item.name,
+            status: item.status,
+          },
+        )
+        .catch(signalerEchec);
     }
     const gardes = new Set(suivant.map((e) => e.id));
     for (const ancien of equipment) {
-      if (!gardes.has(ancien.id)) void registre.supprimerLigne(ancien.id);
+      if (!gardes.has(ancien.id)) {
+        registre.supprimerLigne(ancien.id).catch(signalerEchec);
+      }
     }
   };
 
@@ -124,6 +136,20 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
     quantity: 1,
     consumable: false,
   });
+
+  // Modification / suppression d'un équipement déjà attribué.
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editEquipmentId, setEditEquipmentId] = useState<string>("");
+  const [editData, setEditData] = useState({
+    name: "",
+    type: "PPE" as Equipment["type"],
+    description: "",
+    serialNumber: "",
+    quantity: 1,
+    condition: "good" as Equipment["condition"],
+    notes: "",
+  });
+  const [deleteEquipmentId, setDeleteEquipmentId] = useState<string>("");
 
   const getEquipmentIcon = (type: Equipment["type"]) => {
     const icons = {
@@ -286,6 +312,49 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
       quantity: 1,
       consumable: false,
     });
+  };
+
+  const ouvrirModification = (item: Equipment) => {
+    setEditEquipmentId(item.id);
+    setEditData({
+      name: item.name,
+      type: item.type,
+      description: item.description ?? "",
+      serialNumber: item.serialNumber ?? "",
+      quantity: item.quantity ?? 1,
+      condition: item.condition,
+      notes: item.notes ?? "",
+    });
+    setShowEditModal(true);
+  };
+
+  /** Modifie la fiche de l'équipement sans toucher à la signature ni à l'e-mail de remise. */
+  const handleSaveEdit = () => {
+    if (!editEquipmentId || !editData.name.trim()) return;
+    setEquipment((prev) =>
+      prev.map((eq) =>
+        eq.id === editEquipmentId
+          ? {
+              ...eq,
+              name: editData.name.trim(),
+              type: editData.type,
+              description: editData.description.trim() || undefined,
+              serialNumber: editData.serialNumber.trim() || undefined,
+              quantity: eq.consumable ? editData.quantity : eq.quantity,
+              condition: editData.condition,
+              notes: editData.notes.trim() || undefined,
+            }
+          : eq,
+      ),
+    );
+    setShowEditModal(false);
+    setEditEquipmentId("");
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteEquipmentId) return;
+    setEquipment((prev) => prev.filter((eq) => eq.id !== deleteEquipmentId));
+    setDeleteEquipmentId("");
   };
 
   /** Marque la remise comme réellement signée par le salarié (action manuelle de l'admin). */
@@ -641,6 +710,8 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
                     setDetailsEquipmentId(item.id);
                     setShowDetailsModal(true);
                   }}
+                  onEdit={() => ouvrirModification(item)}
+                  onDelete={() => setDeleteEquipmentId(item.id)}
                   extraItems={[
                     ...(!item.issuanceSignature
                       ? [
@@ -699,6 +770,7 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
                     setDetailsEquipmentId(item.id);
                     setShowDetailsModal(true);
                   }}
+                  onDelete={() => setDeleteEquipmentId(item.id)}
                 />
               )}
             />
@@ -942,6 +1014,182 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* Edit Equipment Modal */}
+      <Modal
+        open={showEditModal}
+        onOpenChange={(open) => {
+          setShowEditModal(open);
+          if (!open) setEditEquipmentId("");
+        }}
+        type="form"
+        title="Modifier l'équipement"
+        description={`Équipement attribué à ${employee.firstName} ${employee.lastName}`}
+        actions={{
+          primary: {
+            label: "Enregistrer",
+            onClick: handleSaveEdit,
+            disabled: !editData.name.trim(),
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => {
+              setShowEditModal(false);
+              setEditEquipmentId("");
+            },
+          },
+        }}
+      >
+        {(() => {
+          const cible = equipment.find((e) => e.id === editEquipmentId);
+          if (!cible) return null;
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-name">
+                    Nom <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="edit-name"
+                    value={editData.name}
+                    onChange={(e) =>
+                      setEditData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-type">Type</Label>
+                  <Select
+                    value={editData.type}
+                    onValueChange={(value: Equipment["type"]) =>
+                      setEditData((prev) => ({ ...prev, type: value }))
+                    }
+                  >
+                    <SelectTrigger id="edit-type" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PPE">EPI</SelectItem>
+                      <SelectItem value="RADIO">Radio</SelectItem>
+                      <SelectItem value="KEYS">Clés</SelectItem>
+                      <SelectItem value="UNIFORM">Uniforme</SelectItem>
+                      <SelectItem value="BADGE">Badge</SelectItem>
+                      <SelectItem value="VEHICLE">Véhicule</SelectItem>
+                      <SelectItem value="OTHER">Autre</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="edit-description">Description</Label>
+                  <Input
+                    id="edit-description"
+                    value={editData.description}
+                    onChange={(e) =>
+                      setEditData((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-serial">N° série</Label>
+                  <Input
+                    id="edit-serial"
+                    value={editData.serialNumber}
+                    onChange={(e) =>
+                      setEditData((prev) => ({
+                        ...prev,
+                        serialNumber: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-condition">État</Label>
+                  <Select
+                    value={editData.condition}
+                    onValueChange={(value: Equipment["condition"]) =>
+                      setEditData((prev) => ({ ...prev, condition: value }))
+                    }
+                  >
+                    <SelectTrigger id="edit-condition" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">Neuf</SelectItem>
+                      <SelectItem value="good">Bon état</SelectItem>
+                      <SelectItem value="fair">État moyen</SelectItem>
+                      <SelectItem value="poor">Mauvais état</SelectItem>
+                      <SelectItem value="damaged">Endommagé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {cible.consumable && (
+                  <div>
+                    <Label htmlFor="edit-quantity">Quantité</Label>
+                    <Input
+                      id="edit-quantity"
+                      type="number"
+                      min="1"
+                      value={editData.quantity}
+                      onChange={(e) =>
+                        setEditData((prev) => ({
+                          ...prev,
+                          quantity: parseInt(e.target.value) || 1,
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="edit-notes">Notes (optionnel)</Label>
+                <textarea
+                  id="edit-notes"
+                  className="w-full min-h-20 p-3 border rounded-md resize-none"
+                  value={editData.notes}
+                  onChange={(e) =>
+                    setEditData((prev) => ({ ...prev, notes: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* Delete Equipment Modal */}
+      <Modal
+        open={Boolean(deleteEquipmentId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteEquipmentId("");
+        }}
+        type="warning"
+        closable
+        title="Supprimer l'équipement"
+        description="Cette action est définitive."
+        actions={{
+          primary: {
+            label: "Supprimer",
+            variant: "destructive",
+            onClick: handleConfirmDelete,
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setDeleteEquipmentId(""),
+          },
+        }}
+      >
+        <p className="text-sm">
+          Voulez-vous vraiment supprimer l&apos;équipement «{" "}
+          <strong>
+            {equipment.find((e) => e.id === deleteEquipmentId)?.name ?? ""}
+          </strong>{" "}
+          » de {employee.firstName} {employee.lastName} ?
+        </p>
       </Modal>
 
       {/* Return Equipment Modal */}

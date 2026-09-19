@@ -9,7 +9,7 @@ import { ProceduresSection } from "@/components/discipline/ProceduresSection";
 import { SanctionsSection } from "@/components/discipline/SanctionsSection";
 
 const TABS = [
-  { id: "warnings", label: "Avertissements", icon: AlertTriangle },
+  { id: "warnings", label: "Sanctions", icon: AlertTriangle },
   { id: "procedures", label: "Procédures disciplinaires", icon: FileText },
   { id: "sanctions", label: "Registre des sanctions", icon: BookOpen },
 ] as const;
@@ -65,7 +65,8 @@ export default function DisciplinePage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Discipline</h1>
         <p className="text-muted-foreground">
-          Gestion des avertissements, procédures et sanctions disciplinaires
+          Gestion des sanctions, des procédures disciplinaires et du registre
+          des sanctions
         </p>
       </div>
       <Suspense fallback={null}>

@@ -77,7 +77,11 @@ function DocumentCell({
         {file ? file.name : "Non fourni"}
       </span>
       <DocumentActionsMenu
-        onView={file && onView ? onView : undefined}
+        // « Voir » ouvre directement le fichier déposé : par défaut sur toutes
+        // les colonnes de documents, sans avoir à le câbler cellule par cellule.
+        onView={
+          file ? (onView ?? (() => void downloadStoredFile(file))) : undefined
+        }
         onUpload={onUpload}
         onDownload={file ? () => void downloadStoredFile(file) : undefined}
         onDelete={file && onDelete ? onDelete : undefined}
@@ -512,8 +516,10 @@ export default function ImpotSIEPage() {
       case "complet":
       case "traite":
       case "paye":
-      case "archive":
         return "bg-green-500";
+      // Archivé = bleu, distinct de « Traité » (vert).
+      case "archive":
+        return "bg-blue-500";
       case "partiel":
       case "en_attente":
         return "bg-orange-500";
@@ -608,11 +614,24 @@ export default function ImpotSIEPage() {
     ];
   })();
 
-  const lignesPrelevementAffichees: PrelevementDocument[] = moisFrancais.map(
-    (mois, index) => {
+  // Période saisie à la main (« Janvier 2026 », « janvier  2026 »…) : la
+  // comparaison ignore casse et espaces, sinon la ligne créée via « Nouveau
+  // Document » n'apparaissait pas dans la trame mensuelle et restait invisible
+  // (et hors des compteurs d'en-tête).
+  const clePeriode = (periode: string) =>
+    periode.trim().toLowerCase().replace(/s+/g, " ");
+
+  const prelevementsAnnee = prelevements.filter((p) =>
+    (p.periode ?? "").includes(selectedYear),
+  );
+
+  const lignesPrelevementAffichees: PrelevementDocument[] = (() => {
+    const trame = moisFrancais.map((mois, index) => {
       const periode = `${mois} ${selectedYear}`;
       return (
-        prelevements.find((p) => p.periode === periode) ?? {
+        prelevementsAnnee.find(
+          (p) => clePeriode(p.periode) === clePeriode(periode),
+        ) ?? {
           id: `pas-${selectedYear}-${index}`,
           periode,
           declaration: null,
@@ -621,11 +640,66 @@ export default function ImpotSIEPage() {
           montant: 0,
         }
       );
-    },
+    });
+    // Les lignes de l'exercice dont la période n'est pas un mois de la trame
+    // restent visibles plutôt que d'être silencieusement ignorées.
+    const horsTrame = prelevementsAnnee.filter(
+      (p) => !trame.some((ligne) => ligne.id === p.id),
+    );
+    return [...trame, ...horsTrame];
+  })();
+
+  // Compteurs d'en-tête : calculés sur les mêmes lignes que les tableaux
+  // (registres chargés, exercice choisi). Ils affichaient un montant en euros
+  // qui restait à « 0 € » tant que personne ne l'avait saisi à la main, même
+  // avec un dossier et des documents déposés.
+  const cfeAnnee = cfeDossiers.filter((d) => d.annee === selectedYear);
+  const cfeDocumentsDeposes = cfeAnnee.reduce(
+    (total, d) =>
+      total + [d.declaration, d.avis, d.paiement].filter(Boolean).length,
+    0,
   );
+  const cfeMontant = cfeAnnee.reduce((total, d) => total + d.montant, 0);
+  const prelevementsDeclares = prelevementsAnnee.filter(
+    (p) => p.declaration || p.bordereau,
+  ).length;
+  const prelevementsMontant = prelevementsAnnee.reduce(
+    (total, p) => total + p.montant,
+    0,
+  );
+  const courriersAnnee = courriers.filter((c) =>
+    (c.date ?? "").startsWith(selectedYear),
+  );
+  const courriersATraiter = courriersAnnee.filter(
+    (c) => c.statut === "en_attente",
+  ).length;
+
+  /**
+   * Ouvre le formulaire calé sur l'exercice affiché : l'année du formulaire
+   * n'était initialisée qu'au premier rendu, si bien qu'un dossier créé après
+   * avoir changé d'exercice atterrissait sur une autre année, hors du tableau
+   * et des compteurs de l'exercice affiché.
+   */
+  const openNewDocumentModal = () => {
+    setNewDocument((courant) => ({
+      ...courant,
+      annee: selectedYear,
+      date: courant.date.startsWith(selectedYear)
+        ? courant.date
+        : `${selectedYear}-01-01`,
+    }));
+    setIsNewDocumentModalOpen(true);
+  };
 
   const handleNewDocument = async () => {
     const newId = Date.now().toString();
+    // Exercice du document créé : on s'y place ensuite pour qu'il soit visible.
+    const anneeCreee =
+      newDocumentType === "courrier"
+        ? newDocument.date.slice(0, 4)
+        : newDocumentType === "prelevement"
+          ? (/(20d{2})/.exec(newDocument.periode)?.[1] ?? selectedYear)
+          : newDocument.annee;
 
     if (newDocumentType === "tva") {
       const newTvaDoc: TVADocument = {
@@ -689,6 +763,7 @@ export default function ImpotSIEPage() {
       }
     }
 
+    if (/^d{4}$/.test(anneeCreee)) setSelectedYear(anneeCreee);
     setIsNewDocumentModalOpen(false);
     setNouveauCourrierFichier(null);
     // Reset form
@@ -796,7 +871,7 @@ export default function ImpotSIEPage() {
             fiscaux
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Select value={selectedYear} onValueChange={setSelectedYear}>
             <SelectTrigger className="w-32">
               <SelectValue />
@@ -821,32 +896,31 @@ export default function ImpotSIEPage() {
               )}
             </SelectContent>
           </Select>
+          {/* Accès direct au portail fiscal, commun aux quatre onglets :
+              en haut à droite, juste à côté du sélecteur d'année. */}
+          <Button
+            variant="outline"
+            className="gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+            asChild
+          >
+            <a
+              href="https://cfspro.impots.gouv.fr"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Impôt
+            </a>
+          </Button>
           <Button
             className="flex items-center gap-2"
-            onClick={() => setIsNewDocumentModalOpen(true)}
+            onClick={() => openNewDocumentModal()}
           >
             <Plus className="h-4 w-4" />
             Nouveau Document
           </Button>
         </div>
       </div>
-
-      {/* Accès direct au portail fiscal, commun aux quatre onglets. */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-        asChild
-      >
-        <a
-          href="https://cfspro.impots.gouv.fr"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Impôt
-        </a>
-      </Button>
 
       {/* Confirmation visible du dernier téléversement */}
       {uploadNotice && (
@@ -880,35 +954,33 @@ export default function ImpotSIEPage() {
 
         <InfoCard
           icon={Building}
-          title="CFE"
-          value={`${
-            cfeDossiers
-              .find((d) => d.annee === selectedYear)
-              ?.montant.toLocaleString() || "0"
-          } €`}
+          title={`CFE ${selectedYear}`}
+          value={`${cfeDocumentsDeposes}/3`}
+          subtext={
+            cfeMontant > 0
+              ? `documents déposés · ${cfeMontant.toLocaleString("fr-FR")} €`
+              : "documents déposés"
+          }
           color="green"
         />
 
         <InfoCard
           icon={CreditCard}
           title={`Prél. Source ${selectedYear}`}
-          value={`${prelevements
-            .filter((p) => p.periode.includes(selectedYear.toString()))
-            .reduce((sum, p) => sum + p.montant, 0)
-            .toLocaleString()} €`}
+          value={`${prelevementsDeclares}/12`}
+          subtext={
+            prelevementsMontant > 0
+              ? `mois déclarés · ${prelevementsMontant.toLocaleString("fr-FR")} €`
+              : "mois déclarés"
+          }
           color="purple"
         />
 
         <InfoCard
           icon={Mail}
           title={`Courriers ${selectedYear}`}
-          value={
-            courriers.filter(
-              (c) =>
-                c.date.startsWith(selectedYear.toString()) &&
-                c.statut === "en_attente",
-            ).length
-          }
+          value={courriersATraiter}
+          subtext={`à traiter · ${courriersAnnee.length} au total`}
           color="orange"
         />
       </InfoCardContainer>
@@ -1134,9 +1206,7 @@ export default function ImpotSIEPage() {
             </CardHeader>
             <CardContent>
               <DataTable
-                data={courriers.filter((c) =>
-                  c.date.startsWith(selectedYear.toString()),
-                )}
+                data={courriersAnnee}
                 columns={[
                   {
                     key: "date",

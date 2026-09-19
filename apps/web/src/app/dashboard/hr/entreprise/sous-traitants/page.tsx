@@ -1,6 +1,6 @@
 "use client";
 
-import { formaterTelephone } from "@/lib/phone-format";
+import { formaterTelephone, telephoneBrut } from "@/lib/phone-format";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -86,9 +86,13 @@ export default function SousTraitantsPage() {
     name: s.name,
     siret: s.siret ?? "",
     address: s.address ?? "",
-    dirigeant: { ...emptyDirigeant, ...(s.dirigeant ?? {}) },
+    dirigeant: {
+      ...emptyDirigeant,
+      ...(s.dirigeant ?? {}),
+      telephone: formaterTelephone(s.dirigeant?.telephone ?? ""),
+    },
     email: s.email ?? "",
-    telephone: s.telephone ?? "",
+    telephone: formaterTelephone(s.telephone ?? ""),
     capitalSocial: s.capitalSocial ?? "",
     numeroAutorisation: s.numeroAutorisation ?? "",
     dateDebut: s.dateDebut ?? "",
@@ -244,6 +248,15 @@ export default function SousTraitantsPage() {
         ? { dirigeant: dirigeantRenseigne }
         : {}),
     };
+
+    // Saisi « 06 66 66 66 66 », enregistré en chiffres.
+    if (payload.telephone) payload.telephone = telephoneBrut(payload.telephone);
+    if (payload.dirigeant?.telephone) {
+      payload.dirigeant = {
+        ...payload.dirigeant,
+        telephone: telephoneBrut(payload.dirigeant.telephone),
+      };
+    }
 
     try {
       await createSubcontractorMutation.mutateAsync(payload);
@@ -579,6 +592,8 @@ export default function SousTraitantsPage() {
                 </Label>
                 <Input
                   id="new-telephone"
+                  type="tel"
+                  inputMode="tel"
                   value={newSousTraitant.telephone}
                   onChange={(e) =>
                     setNewSousTraitant((prev) => ({
@@ -790,6 +805,8 @@ export default function SousTraitantsPage() {
                   </Label>
                   <Input
                     id="new-dirigeant-telephone"
+                    type="tel"
+                    inputMode="tel"
                     value={newSousTraitant.dirigeant.telephone}
                     onChange={(e) =>
                       setNewSousTraitant((prev) => ({

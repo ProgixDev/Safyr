@@ -17,6 +17,8 @@ export type FiscalRecordType =
   | "avertissement"
   | "procedure_disciplinaire"
   | "sanction"
+  | "responsable_disciplinaire"
+  | "sortie_salarie"
   | "cdd"
   | "contrat_rh"
   | "registre_personnel"
@@ -46,8 +48,16 @@ export type FiscalRecordType =
   | "client_crm"
   | "client_contrat"
   | "client_cadeau"
+  | "appel_offre"
+  | "appel_offre_document"
+  | "visite_medicale"
   | "conge"
-  | "solde_conges";
+  | "solde_conges"
+  | "absence"
+  | "cse_role"
+  | "seance_cse"
+  | "parametre_paie"
+  | "epargne";
 
 /** Ligne d'un registre administratif (TVA, CFE, PAS, courrier, AKTO). */
 export interface FiscalRecord {

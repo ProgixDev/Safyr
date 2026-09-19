@@ -12,6 +12,7 @@ import {
   Pencil,
   Eye,
   MoreVertical,
+  StickyNote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,12 @@ import { Modal } from "@/components/ui/modal";
 import { useDeletePost, useSite } from "@/hooks/sites";
 import { PostFormDialog } from "@/components/sites/PostFormDialog";
 import type { Post } from "@safyr/api-client";
+import {
+  CLASSES_POSTE,
+  couleurCertification,
+  couleurPoste,
+} from "@/components/sites/post-colors";
+import { cn } from "@/lib/utils";
 
 const CERT_LABELS: Record<string, string> = {
   CQP_APS: "CQP/APS",
@@ -40,6 +47,60 @@ const CERT_LABELS: Record<string, string> = {
   H0B0: "H0B0",
   FIRE: "Incendie",
 };
+
+/**
+ * Teinte des cadres : en style en ligne car `Card` porte déjà ses propres
+ * classes de bordure et de fond, qui écrasent celles passées par l'appelant.
+ */
+const TEINTES_CADRE = {
+  emerald: {
+    hex: "#10b981",
+    pastille: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+    titre: "text-emerald-700 dark:text-emerald-300",
+  },
+  amber: {
+    hex: "#f59e0b",
+    pastille: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+    titre: "text-amber-700 dark:text-amber-300",
+  },
+  indigo: {
+    hex: "#6366f1",
+    pastille: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+    titre: "text-indigo-700 dark:text-indigo-300",
+  },
+} as const;
+
+type TeinteCadre = keyof typeof TEINTES_CADRE;
+
+function styleCadre(teinte: TeinteCadre): React.CSSProperties {
+  const { hex } = TEINTES_CADRE[teinte];
+  return {
+    borderColor: `${hex}55`,
+    borderTopColor: hex,
+    borderTopWidth: 4,
+    backgroundImage: `linear-gradient(180deg, ${hex}14, transparent 140px)`,
+  };
+}
+
+function TitreCadre({
+  teinte,
+  icone: Icone,
+  children,
+}: {
+  teinte: TeinteCadre;
+  icone: React.ElementType;
+  children: React.ReactNode;
+}) {
+  const t = TEINTES_CADRE[teinte];
+  return (
+    <CardTitle className={cn("flex items-center gap-2 text-lg", t.titre)}>
+      <span className={cn("rounded-lg p-1.5", t.pastille)}>
+        <Icone className="h-5 w-5" />
+      </span>
+      {children}
+    </CardTitle>
+  );
+}
 
 export default function SiteDetailPage({
   params,
@@ -82,7 +143,7 @@ export default function SiteDetailPage({
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Building2 className="h-7 w-7" />
+            <Building2 className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
             {site.name}
           </h1>
           <p className="text-muted-foreground">
@@ -93,16 +154,28 @@ export default function SiteDetailPage({
           </p>
         </div>
         {site.active ? (
-          <Badge variant="default">Actif</Badge>
+          <Badge
+            variant="outline"
+            className="border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+          >
+            Actif
+          </Badge>
         ) : (
-          <Badge variant="outline">Inactif</Badge>
+          <Badge
+            variant="outline"
+            className="border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300"
+          >
+            Inactif
+          </Badge>
         )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card style={styleCadre("emerald")}>
           <CardHeader>
-            <CardTitle>Adresse &amp; géolocalisation</CardTitle>
+            <TitreCadre teinte="emerald" icone={MapPin}>
+              Adresse &amp; géolocalisation
+            </TitreCadre>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <Row label="Adresse" value={site.address ?? "—"} />
@@ -128,9 +201,11 @@ export default function SiteDetailPage({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card style={styleCadre("amber")}>
           <CardHeader>
-            <CardTitle>Notes</CardTitle>
+            <TitreCadre teinte="amber" icone={StickyNote}>
+              Notes
+            </TitreCadre>
           </CardHeader>
           <CardContent>
             <p className="text-sm whitespace-pre-wrap">
@@ -144,12 +219,11 @@ export default function SiteDetailPage({
         </Card>
       </div>
 
-      <Card>
+      <Card style={styleCadre("indigo")}>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Briefcase className="h-5 w-5" />
+          <TitreCadre teinte="indigo" icone={Briefcase}>
             Postes ({site.posts.length})
-          </CardTitle>
+          </TitreCadre>
           <Button
             onClick={() => {
               setPostEditing(null);
@@ -167,77 +241,93 @@ export default function SiteDetailPage({
             </p>
           ) : (
             <div className="space-y-2">
-              {site.posts.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border p-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{p.name}</p>
-                      {!p.active && <Badge variant="outline">Inactif</Badge>}
-                    </div>
-                    {p.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {p.description}
-                      </p>
+              {site.posts.map((p) => {
+                const couleur =
+                  CLASSES_POSTE[couleurPoste(p.name, p.requiredCertifications)];
+                return (
+                  <div
+                    key={p.id}
+                    className={cn(
+                      "flex items-center justify-between gap-2 rounded-lg border border-l-4 p-3",
+                      couleur.ligne,
                     )}
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {p.defaultStartTime && p.defaultEndTime && (
-                        <Badge
-                          variant="secondary"
-                          className="font-mono text-xs"
-                        >
-                          {p.defaultStartTime} → {p.defaultEndTime}
-                        </Badge>
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={cn("font-semibold", couleur.nom)}>
+                          {p.name}
+                        </p>
+                        {!p.active && <Badge variant="outline">Inactif</Badge>}
+                      </div>
+                      {p.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {p.description}
+                        </p>
                       )}
-                      {p.requiredCertifications.map((c) => (
-                        <Badge key={c} variant="outline" className="text-xs">
-                          {CERT_LABELS[c] ?? c}
-                        </Badge>
-                      ))}
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {p.defaultStartTime && p.defaultEndTime && (
+                          <Badge
+                            variant="secondary"
+                            className="border-slate-500/30 bg-slate-500/10 font-mono text-xs text-slate-700 dark:text-slate-300"
+                          >
+                            {p.defaultStartTime} → {p.defaultEndTime}
+                          </Badge>
+                        )}
+                        {p.requiredCertifications.map((c) => (
+                          <Badge
+                            key={c}
+                            variant="outline"
+                            className={cn(
+                              "text-xs",
+                              CLASSES_POSTE[couleurCertification(c)].pastille,
+                            )}
+                          >
+                            {CERT_LABELS[c] ?? c}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setPostEditing(p);
+                            setPostDialogOpen(true);
+                          }}
+                        >
+                          <Eye className="mr-2 h-4 w-4 text-green-600" />
+                          Voir
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setPostEditing(p);
+                            setPostDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="mr-2 h-4 w-4 text-orange-500" />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => setPostToDelete(p)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4 text-red-600" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setPostEditing(p);
-                          setPostDialogOpen(true);
-                        }}
-                      >
-                        <Eye className="mr-2 h-4 w-4 text-green-600" />
-                        Voir
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setPostEditing(p);
-                          setPostDialogOpen(true);
-                        }}
-                      >
-                        <Pencil className="mr-2 h-4 w-4 text-orange-500" />
-                        Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => setPostToDelete(p)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -293,8 +383,8 @@ export default function SiteDetailPage({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
+      <span className="text-slate-600 dark:text-slate-400">{label}</span>
+      <span className="font-semibold text-foreground">{value}</span>
     </div>
   );
 }

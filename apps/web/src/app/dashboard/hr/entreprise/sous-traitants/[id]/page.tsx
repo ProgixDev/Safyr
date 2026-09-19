@@ -1,6 +1,7 @@
 "use client";
 
-import { formaterTelephone } from "@/lib/phone-format";
+import { formaterTelephone, telephoneBrut } from "@/lib/phone-format";
+import { telechargerDossierSousTraitant } from "@/lib/subcontractor-dossier-pdf";
 
 import { useState, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -39,6 +40,7 @@ import {
   Phone,
   CreditCard,
   Euro,
+  Loader2,
 } from "lucide-react";
 import { pickFile, downloadStoredFile } from "@/lib/document-files";
 import {
@@ -134,8 +136,6 @@ const optionalDocuments = [
   { type: "pv_ag", name: "PV Assemblée Générale", category: "juridique" },
 ];
 
-const mockDocuments: Document[] = [];
-
 const EMPTY_DIRIGEANT: DirigeantInfo = {
   nom: "",
   prenom: "",
@@ -157,9 +157,13 @@ function toEditable(api: ApiSubcontractor): SousTraitant {
     name: api.name,
     siret: api.siret ?? "",
     address: api.address ?? "",
-    dirigeant: { ...EMPTY_DIRIGEANT, ...(api.dirigeant ?? {}) },
+    dirigeant: {
+      ...EMPTY_DIRIGEANT,
+      ...(api.dirigeant ?? {}),
+      telephone: formaterTelephone(api.dirigeant?.telephone ?? ""),
+    },
     email: api.email ?? "",
-    telephone: api.telephone ?? "",
+    telephone: formaterTelephone(api.telephone ?? ""),
     capitalSocial: api.capitalSocial ?? "",
     numeroAutorisation: api.numeroAutorisation ?? "",
     dateDebut: api.dateDebut ?? "",
@@ -179,6 +183,14 @@ function toUpdatePayload(st: SousTraitant): UpdateSubcontractorPayload {
     Object.entries(dirigeant).filter(([, v]) => (v ?? "").trim() !== ""),
   );
   if (Object.keys(renseigne).length > 0) payload.dirigeant = renseigne;
+  // Les numéros sont saisis « 06 66 66 66 66 » mais enregistrés en chiffres.
+  if (payload.telephone) payload.telephone = telephoneBrut(payload.telephone);
+  if (payload.dirigeant?.telephone) {
+    payload.dirigeant = {
+      ...payload.dirigeant,
+      telephone: telephoneBrut(payload.dirigeant.telephone),
+    };
+  }
   return payload;
 }
 
@@ -226,7 +238,9 @@ export default function SousTraitantDetailPage({
     searchParams.get("edit") === "true",
   );
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [dossierEnCours, setDossierEnCours] = useState(false);
+  const [dossierErreur, setDossierErreur] = useState<string | null>(null);
+  const [dossierInfo, setDossierInfo] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -354,8 +368,59 @@ export default function SousTraitantDetailPage({
     void downloadStoredFile({ name: doc.name, key: doc.storageKey });
   };
 
-  const handleBulkDownload = () => {
-    console.log("Downloading documents:", selectedDocuments);
+  /** Un seul PDF « dossier de contrôle » regroupant les pièces du sous-traitant. */
+  const telechargerDossier = async () => {
+    if (!sousTraitant) return;
+    setDossierErreur(null);
+    setDossierInfo(null);
+    if (documents.length === 0) {
+      setDossierErreur(
+        "Aucun document dans le dossier : téléversez au moins une pièce avant de le télécharger.",
+      );
+      return;
+    }
+    setDossierEnCours(true);
+    try {
+      const exigences = [...requiredDocuments, ...optionalDocuments];
+      const resultat = await telechargerDossierSousTraitant({
+        nom: sousTraitant.name,
+        siret: sousTraitant.siret,
+        numeroAutorisation: sousTraitant.numeroAutorisation,
+        adresse: sousTraitant.address,
+        pieces: documents.map((d) => ({
+          type: exigences.find((e) => e.type === d.type)?.name ?? d.type,
+          name: d.name,
+          uploadDate: d.uploadDate,
+          expiryDate: d.expiryDate,
+          storageKey: d.storageKey,
+        })),
+        piecesManquantes: requiredDocuments
+          .filter((r) => !documents.some((d) => d.type === r.type))
+          .map((r) => r.name),
+      });
+      const notes: string[] = [
+        `Dossier téléchargé : ${resultat.integrees} pièce(s) image intégrée(s) au PDF.`,
+      ];
+      if (resultat.jointsSeparement > 0) {
+        notes.push(
+          `${resultat.jointsSeparement} pièce(s) PDF ou autre format sont listées au récapitulatif mais ne peuvent pas être fusionnées : à joindre séparément (menu Actions > Télécharger).`,
+        );
+      }
+      setDossierInfo(notes.join(" "));
+      if (resultat.illisibles.length > 0) {
+        setDossierErreur(
+          `Pièce(s) non récupérable(s), non intégrée(s) : ${resultat.illisibles.join(", ")}.`,
+        );
+      }
+    } catch (e) {
+      setDossierErreur(
+        `Échec de la génération du dossier : ${
+          e instanceof Error ? e.message : "erreur inconnue"
+        }`,
+      );
+    } finally {
+      setDossierEnCours(false);
+    }
   };
 
   const documentColumns: ColumnDef<Document>[] = [
@@ -656,7 +721,10 @@ export default function SousTraitantDetailPage({
                   </Label>
                   <Input
                     id="telephone"
-                    value={sousTraitant.telephone}
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="06 66 66 66 66"
+                    value={formaterTelephone(sousTraitant.telephone)}
                     disabled={!isEditing}
                     onChange={(e) =>
                       setSousTraitant({
@@ -937,7 +1005,10 @@ export default function SousTraitantDetailPage({
                   </Label>
                   <Input
                     id="dirigeant-telephone"
-                    value={sousTraitant.dirigeant.telephone}
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="06 66 66 66 66"
+                    value={formaterTelephone(sousTraitant.dirigeant.telephone)}
                     disabled={!isEditing}
                     onChange={(e) =>
                       setSousTraitant({
@@ -966,16 +1037,37 @@ export default function SousTraitantDetailPage({
                 </CardTitle>
                 <div className="flex gap-2">
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkDownload}
-                    disabled={selectedDocuments.length === 0}
+                    variant="primary"
+                    onClick={() => void telechargerDossier()}
+                    disabled={dossierEnCours}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Télécharger sélection
+                    {dossierEnCours ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {dossierEnCours
+                      ? "Génération du dossier…"
+                      : "Télécharger le dossier"}
                   </Button>
                 </div>
               </div>
+              {dossierInfo && (
+                <p
+                  role="status"
+                  className="mt-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300"
+                >
+                  {dossierInfo}
+                </p>
+              )}
+              {dossierErreur && (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                >
+                  {dossierErreur}
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <DataTable
@@ -984,13 +1076,10 @@ export default function SousTraitantDetailPage({
                 searchKeys={["name", "type"]}
                 searchPlaceholder="Rechercher un document..."
                 itemsPerPage={10}
-                selectable
-                onSelectionChange={(selected) =>
-                  setSelectedDocuments(selected.map((d) => d.id))
-                }
                 getRowId={(doc) => doc.id}
                 actions={(doc) => (
                   <RowActionsMenu
+                    onView={() => telechargerDocument(doc)}
                     onDownload={() => telechargerDocument(doc)}
                     onUpload={() => void handleDocumentUpload(doc.type)}
                     uploadLabel="Remplacer"

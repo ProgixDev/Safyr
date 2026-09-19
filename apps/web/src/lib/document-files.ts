@@ -62,7 +62,11 @@ export async function downloadStoredFile(file: StoredFile): Promise<void> {
   // (l'appel n'est alors plus reconnu comme déclenché par l'utilisateur), ce
   // qui ne se voit pas sur Chrome/Firefox, plus tolérants. On ouvre donc un
   // onglet vide tout de suite, puis on le redirige une fois l'URL connue.
-  const fenetre = window.open("", "_blank", "noopener,noreferrer");
+  // Pas de "noopener" dans les options : il fait renvoyer null à window.open
+  // (spécification), on perdrait alors la référence à l'onglet. L'opener est
+  // coupé à la main juste après.
+  const fenetre = window.open("", "_blank");
+  if (fenetre) fenetre.opener = null;
   try {
     const url = await getSignedUrl(file.key);
     if (fenetre) {

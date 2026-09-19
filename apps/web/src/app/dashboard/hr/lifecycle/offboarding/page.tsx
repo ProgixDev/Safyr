@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useEmployeesRH } from "@/hooks/employees";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
@@ -18,20 +18,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Download, FileText, CheckCircle, Clock } from "lucide-react";
-import {
-  mockOffboardingProcesses,
-  type OffboardingProcess,
-} from "@/data/hr-offboarding";
+import type { OffboardingProcess } from "@/data/hr-offboarding";
+import { useRegistre } from "@/hooks/fiscal/use-registre";
+
+const AUCUN_FICHIER = [] as const;
 
 export default function OffboardingPage() {
   const mockEmployees = useEmployeesRH();
-  const [processes, setProcesses] = useState<OffboardingProcess[]>(
-    mockOffboardingProcesses,
+  // Les sorties sont enregistrées en base (registre « sortie_salarie ») :
+  // elles restaient dans l'état React et disparaissaient au rechargement.
+  const registre = useRegistre<OffboardingProcess>(
+    "sortie_salarie",
+    AUCUN_FICHIER,
+  );
+  const processes = useMemo(
+    () =>
+      [...registre.lignes].sort((a, b) =>
+        (b.createdAt ?? "").localeCompare(a.createdAt ?? ""),
+      ),
+    [registre.lignes],
   );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedProcess, setSelectedProcess] =
-    useState<OffboardingProcess | null>(null);
+  const [selectedProcessId, setSelectedProcessId] = useState<string | null>(
+    null,
+  );
+  // Relue depuis la liste enregistrée pour refléter les documents générés.
+  const selectedProcess =
+    processes.find((p) => p.id === selectedProcessId) ?? null;
+  const [enregistrement, setEnregistrement] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     employeeId: "",
     contractEndDate: "",
@@ -104,90 +120,123 @@ export default function OffboardingPage() {
       contractEndDate: "",
       noticePeriodDays: 30,
     });
+    setErreur(null);
     setIsCreateModalOpen(true);
   };
 
-  const handleSave = () => {
+  /** Enregistre la sortie ; l'identifiant réel est celui renvoyé par le serveur. */
+  const sauvegarder = (process: OffboardingProcess) =>
+    registre.enregistrer(process, {
+      period: (process.contractEndDate || new Date().toISOString()).slice(0, 7),
+      label: `Sortie — ${process.employeeName}`,
+      status: process.status,
+    });
+
+  const handleSave = async () => {
     const employee = mockEmployees.find((e) => e.id === formData.employeeId);
-    if (!employee) return;
+    if (!employee || !formData.contractEndDate) return;
 
     const endDate = new Date(formData.contractEndDate);
     const noticeStart = new Date(endDate);
     noticeStart.setDate(noticeStart.getDate() - formData.noticePeriodDays);
 
     const now = new Date().toISOString();
-    const newProcess: OffboardingProcess = {
-      id: (processes.length + 1).toString(),
-      employeeId: formData.employeeId,
-      employeeName: `${employee.firstName} ${employee.lastName}`,
-      employeeNumber: employee.employeeNumber,
-      contractEndDate: formData.contractEndDate,
-      noticePeriodStart: noticeStart.toISOString().split("T")[0],
-      noticePeriodEnd: formData.contractEndDate,
-      reason: "resignation", // Default, can be updated later
-      status: "En cours",
-      equipmentReturned: false,
-      documentsGenerated: {
-        workCertificate: false,
-        poleEmploiCertificate: false,
-        finalSettlement: false,
-      },
-      payrollExported: false,
-      fileArchived: false,
-      createdAt: now,
-      updatedAt: now,
-    };
-    setProcesses([...processes, newProcess]);
-    setIsCreateModalOpen(false);
+    setEnregistrement(true);
+    setErreur(null);
+    try {
+      await sauvegarder({
+        id: "",
+        employeeId: formData.employeeId,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        employeeNumber: employee.employeeNumber,
+        contractEndDate: formData.contractEndDate,
+        noticePeriodStart: noticeStart.toISOString().split("T")[0],
+        noticePeriodEnd: formData.contractEndDate,
+        reason: "resignation", // Default, can be updated later
+        status: "En cours",
+        equipmentReturned: false,
+        documentsGenerated: {
+          workCertificate: false,
+          poleEmploiCertificate: false,
+          finalSettlement: false,
+        },
+        payrollExported: false,
+        fileArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      setIsCreateModalOpen(false);
+    } catch (e) {
+      setErreur(
+        `Échec de l'enregistrement de la sortie : ${e instanceof Error ? e.message : "erreur inconnue"}`,
+      );
+    } finally {
+      setEnregistrement(false);
+    }
   };
 
   const handleRowClick = (process: OffboardingProcess) => {
-    setSelectedProcess(process);
+    setSelectedProcessId(process.id);
     setIsViewModalOpen(true);
+  };
+
+  const majProcessus = async (
+    processId: string,
+    modifs: Partial<OffboardingProcess>,
+    succes: string,
+  ) => {
+    const process = processes.find((p) => p.id === processId);
+    if (!process) return;
+    try {
+      await sauvegarder({
+        ...process,
+        ...modifs,
+        updatedAt: new Date().toISOString(),
+      });
+      alert(succes);
+    } catch (e) {
+      alert(
+        `Échec de l'enregistrement : ${e instanceof Error ? e.message : "erreur inconnue"}`,
+      );
+    }
   };
 
   const handleGenerateDocument = (
     processId: string,
     docType: keyof OffboardingProcess["documentsGenerated"],
   ) => {
-    setProcesses(
-      processes.map((p) =>
-        p.id === processId
-          ? {
-              ...p,
-              documentsGenerated: { ...p.documentsGenerated, [docType]: true },
-            }
-          : p,
-      ),
+    const process = processes.find((p) => p.id === processId);
+    if (!process) return;
+    void majProcessus(
+      processId,
+      {
+        documentsGenerated: { ...process.documentsGenerated, [docType]: true },
+      },
+      `Document ${docType} généré avec succès!`,
     );
-    alert(`Document ${docType} généré avec succès!`);
   };
 
   const handleExportPayroll = (processId: string) => {
-    setProcesses(
-      processes.map((p) =>
-        p.id === processId ? { ...p, payrollExported: true } : p,
-      ),
+    void majProcessus(
+      processId,
+      { payrollExported: true },
+      "Export paie effectué avec succès!",
     );
-    alert("Export paie effectué avec succès!");
   };
 
   const handleArchiveFile = (processId: string) => {
-    setProcesses(
-      processes.map((p) =>
-        p.id === processId
-          ? { ...p, fileArchived: true, status: "Terminé" as const }
-          : p,
-      ),
+    void majProcessus(
+      processId,
+      { fileArchived: true, status: "Terminé" },
+      "Dossier archivé avec succès!",
     );
-    alert("Dossier archivé avec succès!");
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Parcours de départ</h1>
+          <h1 className="text-3xl font-bold">Sorties de salariés</h1>
           <p className="text-muted-foreground">
             Gestion des fins de contrat, préavis, retour d&apos;équipement et
             documents obligatoires
@@ -195,7 +244,7 @@ export default function OffboardingPage() {
         </div>
         <Button onClick={handleCreate}>
           <Plus className="h-4 w-4 mr-2" />
-          Nouveau processus
+          Nouvelle sortie
         </Button>
       </div>
 
@@ -220,6 +269,7 @@ export default function OffboardingPage() {
 
       <DataTable
         data={processes}
+        isLoading={registre.isLoading}
         columns={columns}
         searchKey="employeeName"
         searchPlaceholder="Rechercher un employé..."
@@ -231,12 +281,17 @@ export default function OffboardingPage() {
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         type="form"
-        title="Nouveau processus de fin de contrat"
+        title="Nouvelle sortie"
+        description="Enregistrez la fin de contrat d'un salarié et suivez les étapes de son départ."
         size="lg"
         actions={{
           primary: {
-            label: "Créer",
-            onClick: handleSave,
+            label: enregistrement ? "Enregistrement…" : "Créer",
+            onClick: () => void handleSave(),
+            disabled:
+              enregistrement ||
+              !formData.employeeId ||
+              !formData.contractEndDate,
           },
           secondary: {
             label: "Annuler",
@@ -294,6 +349,8 @@ export default function OffboardingPage() {
               }
             />
           </div>
+
+          {erreur && <p className="text-sm text-destructive">{erreur}</p>}
         </div>
       </Modal>
 

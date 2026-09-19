@@ -6,6 +6,11 @@ import type {
   FiscalRecordType,
 } from "@safyr/schemas/fiscal";
 import type { Prisma } from "generated/prisma/client";
+import { MAILBOX_RECORD_TYPE } from "@/mailbox/mailbox.constants";
+
+// La boîte mail d'une organisation (secret chiffré) vit dans cette table mais
+// ne doit jamais sortir par le CRUD générique des registres.
+const PUBLIC_ONLY = { type: { not: MAILBOX_RECORD_TYPE } } as const;
 
 /**
  * Registres administratifs : déclarations de TVA, CFE, prélèvement à la
@@ -22,7 +27,7 @@ export class FiscalService {
     return this.prisma.fiscalRecord.findMany({
       where: {
         organizationId: orgId,
-        ...(type ? { type } : {}),
+        ...(type ? { type } : PUBLIC_ONLY),
         ...(period ? { period: { startsWith: period } } : {}),
       },
       orderBy: [{ period: "desc" }, { createdAt: "asc" }],
@@ -31,7 +36,7 @@ export class FiscalService {
 
   async get(orgId: string, id: string) {
     const record = await this.prisma.fiscalRecord.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, organizationId: orgId, ...PUBLIC_ONLY },
     });
     if (!record) throw new NotFoundException("Ligne introuvable");
     return record;

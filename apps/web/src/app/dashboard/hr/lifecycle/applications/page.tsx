@@ -17,7 +17,7 @@ import {
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, CheckCircle, XCircle, FileText, Wand2 } from "lucide-react";
+import { Plus, CheckCircle, XCircle, FileText, Wand2, Eye } from "lucide-react";
 import { JobApplication } from "@/lib/types";
 import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { candidateFromEmail } from "@/lib/candidate-from-email";
@@ -26,6 +26,8 @@ import { Modal } from "@/components/ui/modal";
 import { useRegistre } from "@/hooks/fiscal/use-registre";
 import { useAttachments, useAttachDocument } from "@/hooks/contracts";
 import { downloadStoredFile } from "@/lib/document-files";
+import { BADGE_TONS, type BadgeTon } from "@/lib/hr-status-badges";
+import { cn } from "@/lib/utils";
 
 /** Ligne telle qu'enregistrée en base : les dates y sont des chaînes ISO. */
 interface LigneCandidature {
@@ -70,13 +72,22 @@ const statusLabels = {
   rejected: "Rejetée",
 };
 
-const statusColors = {
-  pending: "secondary",
-  reviewed: "outline",
-  interviewed: "default",
-  accepted: "default",
-  rejected: "destructive",
-} as const;
+// Examinée = orange, Acceptée = vert, Rejetée = rouge (demande du client).
+const statusColors: Record<JobApplication["status"], BadgeTon> = {
+  pending: "gris",
+  reviewed: "orange",
+  interviewed: "bleu",
+  accepted: "vert",
+  rejected: "rouge",
+};
+
+function StatutCandidature({ status }: { status: JobApplication["status"] }) {
+  return (
+    <Badge variant="outline" className={cn(BADGE_TONS[statusColors[status]])}>
+      {statusLabels[status]}
+    </Badge>
+  );
+}
 
 const commonPositions = EMPLOYEE_POSTE_OPTIONS;
 
@@ -97,8 +108,11 @@ export default function ApplicationsPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingApplication, setEditingApplication] =
     useState<JobApplication | null>(null);
-  const [viewingApplication, setViewingApplication] =
-    useState<JobApplication | null>(null);
+  // On garde l'identifiant plutôt qu'une copie : le statut affiché dans la
+  // fenêtre de détails suit ainsi les changements enregistrés en base.
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const viewingApplication =
+    applications.find((a) => a.id === viewingId) ?? null;
   const [formData, setFormData] = useState({
     applicantName: "",
     email: "",
@@ -106,6 +120,7 @@ export default function ApplicationsPage() {
     position: "",
     customPosition: "",
     notes: "",
+    status: "pending" as JobApplication["status"],
   });
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
@@ -119,6 +134,7 @@ export default function ApplicationsPage() {
       position: "",
       customPosition: "",
       notes: "",
+      status: "pending",
     });
     setCvFile(null);
     setCoverLetterFile(null);
@@ -134,6 +150,7 @@ export default function ApplicationsPage() {
       position: application.position,
       customPosition: "",
       notes: application.notes || "",
+      status: application.status,
     });
     setCvFile(null);
     setCoverLetterFile(null);
@@ -141,13 +158,15 @@ export default function ApplicationsPage() {
   };
 
   const handleView = (application: JobApplication) => {
-    setViewingApplication(application);
+    setViewingId(application.id);
     setIsViewModalOpen(true);
   };
 
   const handleDelete = (applicationId: string) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cette candidature ?")) {
-      void registreCandidatures.supprimerLigne(applicationId);
+      registreCandidatures
+        .supprimerLigne(applicationId)
+        .catch(() => alert("Échec de la suppression. Réessayez."));
     }
   };
 
@@ -204,6 +223,11 @@ export default function ApplicationsPage() {
         position,
         notes: formData.notes || undefined,
         appliedAt: (editingApplication?.appliedAt ?? new Date()).toISOString(),
+        status: formData.status,
+        reviewedAt:
+          formData.status !== (editingApplication?.status ?? "pending")
+            ? new Date().toISOString()
+            : editingApplication?.reviewedAt?.toISOString(),
       });
       if (cvFile) {
         await attacherPieceCandidature.mutateAsync({
@@ -230,17 +254,58 @@ export default function ApplicationsPage() {
     setIsCreateModalOpen(false);
   };
 
-  const handleStatusChange = (
+  const handleStatusChange = async (
     applicationId: string,
     newStatus: JobApplication["status"],
   ) => {
     const app = applications.find((a) => a.id === applicationId);
-    if (!app) return;
-    void enregistrerCandidature(app, {
-      status: newStatus,
-      reviewedAt: new Date().toISOString(),
-    });
+    if (!app || app.status === newStatus) return;
+    try {
+      await enregistrerCandidature(app, {
+        status: newStatus,
+        reviewedAt: new Date().toISOString(),
+      });
+    } catch (erreur) {
+      alert(
+        erreur instanceof Error
+          ? `Échec de la mise à jour du statut : ${erreur.message}`
+          : "Échec de la mise à jour du statut.",
+      );
+    }
   };
+
+  /** Entrées « Modifier le statut » du menu de la ligne (statut actuel exclu). */
+  const entreesStatut = (app: JobApplication) =>
+    (
+      [
+        {
+          statut: "reviewed",
+          label: "Marquer comme examinée",
+          icon: Eye,
+          tone: "edit",
+        },
+        {
+          statut: "accepted",
+          label: "Marquer comme acceptée",
+          icon: CheckCircle,
+          tone: "validate",
+        },
+        {
+          statut: "rejected",
+          label: "Marquer comme rejetée",
+          icon: XCircle,
+          tone: "delete",
+        },
+      ] as const
+    )
+      .filter((e) => e.statut !== app.status)
+      .map((e, index) => ({
+        label: e.label,
+        icon: e.icon,
+        tone: e.tone,
+        separatorBefore: index === 0,
+        onClick: () => void handleStatusChange(app.id, e.statut),
+      }));
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -314,9 +379,7 @@ export default function ApplicationsPage() {
       key: "status",
       label: "Statut",
       render: (app: JobApplication) => (
-        <Badge variant={statusColors[app.status]}>
-          {statusLabels[app.status]}
-        </Badge>
+        <StatutCandidature status={app.status} />
       ),
     },
     {
@@ -326,24 +389,7 @@ export default function ApplicationsPage() {
         <RowActionsMenu
           onView={() => handleView(app)}
           onEdit={() => handleEdit(app)}
-          extraItems={
-            app.status === "pending"
-              ? [
-                  {
-                    label: "Marquer examinée",
-                    icon: CheckCircle,
-                    tone: "validate",
-                    onClick: () => handleStatusChange(app.id, "reviewed"),
-                  },
-                  {
-                    label: "Rejeter",
-                    icon: XCircle,
-                    tone: "delete",
-                    onClick: () => handleStatusChange(app.id, "rejected"),
-                  },
-                ]
-              : []
-          }
+          extraItems={entreesStatut(app)}
           onDelete={() => handleDelete(app.id)}
         />
       ),
@@ -491,6 +537,32 @@ export default function ApplicationsPage() {
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="statut-candidature">Statut</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    status: value as JobApplication["status"],
+                  }))
+                }
+              >
+                <SelectTrigger id="statut-candidature">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(
+                    Object.keys(statusLabels) as JobApplication["status"][]
+                  ).map((statut) => (
+                    <SelectItem key={statut} value={statut}>
+                      {statusLabels[statut]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {formData.position === "Autre" && (
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="customPosition">Préciser le poste *</Label>
@@ -621,9 +693,34 @@ export default function ApplicationsPage() {
               </div>
               <div>
                 <Label>Statut</Label>
-                <Badge variant={statusColors[viewingApplication.status]}>
-                  {statusLabels[viewingApplication.status]}
-                </Badge>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <StatutCandidature status={viewingApplication.status} />
+                  <Select
+                    value={viewingApplication.status}
+                    onValueChange={(value) =>
+                      void handleStatusChange(
+                        viewingApplication.id,
+                        value as JobApplication["status"],
+                      )
+                    }
+                  >
+                    <SelectTrigger
+                      className="h-8 w-40"
+                      aria-label="Modifier le statut"
+                    >
+                      <SelectValue placeholder="Modifier le statut" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(
+                        Object.keys(statusLabels) as JobApplication["status"][]
+                      ).map((statut) => (
+                        <SelectItem key={statut} value={statut}>
+                          {statusLabels[statut]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

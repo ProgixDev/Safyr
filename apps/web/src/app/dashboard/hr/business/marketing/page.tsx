@@ -22,9 +22,7 @@ import {
 import { Plus, Calendar, TrendingUp, Mail, Share2 } from "lucide-react";
 import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 import {
-  mockSocialPosts,
   mockEmailAutoReplies,
-  mockCRMCustomers,
   type SocialPost,
   type EmailAutoReply,
   type CRMCustomer,
@@ -35,8 +33,13 @@ export default function MarketingPage() {
     "posts",
   );
   // Enregistré en base : la liste ne vivait que dans le navigateur.
+  // Le libellé enregistré est explicite : sans lui, chaque publication
+  // apparaissait sous le nom générique « Ligne » dans le registre.
   const [posts, setPosts] = useListePersistante<SocialPost>(
     "publication_sociale",
+    {
+      libelle: (p) => `${p.platform} - ${p.content}`.slice(0, 160),
+    },
   );
   const [autoReplies] = useState<EmailAutoReply[]>(mockEmailAutoReplies);
   const [crmCustomers, setCrmCustomers] =
@@ -45,19 +48,23 @@ export default function MarketingPage() {
     null,
   );
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [postError, setPostError] = useState<string | null>(null);
+  const [viewPost, setViewPost] = useState<SocialPost | null>(null);
+  const [postToDelete, setPostToDelete] = useState<SocialPost | null>(null);
+  const [viewCustomer, setViewCustomer] = useState<CRMCustomer | null>(null);
+  const [customerToDelete, setCustomerToDelete] = useState<CRMCustomer | null>(
+    null,
+  );
+  const [crmError, setCrmError] = useState<string | null>(null);
   const [isAutoReplyModalOpen, setIsAutoReplyModalOpen] = useState(false);
   const [isCRMModalOpen, setIsCRMModalOpen] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedItem, setSelectedItem] = useState<
-    SocialPost | EmailAutoReply | CRMCustomer | null
-  >(null);
   const [formData, setFormData] = useState({
     platform: "LinkedIn" as SocialPost["platform"],
     content: "",
     scheduledDate: "",
     scheduledTime: "",
+    status: "Planifié" as SocialPost["status"],
   });
   const [autoReplyFormData, setAutoReplyFormData] = useState({
     trigger: "",
@@ -136,39 +143,108 @@ export default function MarketingPage() {
     },
   ];
 
-  const handleCreatePost = () => {
+  /** Les dates enregistrées reviennent sous forme de Date : on accepte les deux. */
+  const enDate = (v: string | Date | undefined) => new Date(v ?? "");
+  const dateInput = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const heureInput = (d: Date) =>
+    `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
+  const resetPostForm = () => {
+    setEditingPostId(null);
+    setPostError(null);
     setFormData({
       platform: "LinkedIn",
       content: "",
       scheduledDate: "",
       scheduledTime: "",
+      status: "Planifié",
+    });
+  };
+
+  const handleCreatePost = () => {
+    resetPostForm();
+    setIsPostModalOpen(true);
+  };
+
+  const handleEditPost = (post: SocialPost) => {
+    const quand = enDate(post.scheduledDate);
+    const valide = !Number.isNaN(quand.getTime());
+    setEditingPostId(post.id);
+    setPostError(null);
+    setFormData({
+      platform: post.platform,
+      content: post.content,
+      scheduledDate: valide ? dateInput(quand) : "",
+      scheduledTime: valide ? heureInput(quand) : "",
+      status: post.status,
     });
     setIsPostModalOpen(true);
   };
 
   const handleSavePost = () => {
+    if (!formData.content.trim()) {
+      setPostError("Le contenu de la publication est obligatoire.");
+      return;
+    }
+    if (!formData.scheduledDate) {
+      setPostError("La date de publication est obligatoire.");
+      return;
+    }
+    const quand = new Date(
+      `${formData.scheduledDate}T${formData.scheduledTime || "09:00"}:00`,
+    );
+    if (Number.isNaN(quand.getTime())) {
+      setPostError("La date ou l'heure saisie n'est pas valide.");
+      return;
+    }
     const now = new Date().toISOString();
-    const newPost: SocialPost = {
-      id: (posts.length + 1).toString(),
-      platform: formData.platform,
-      content: formData.content,
-      scheduledDate: `${formData.scheduledDate}T${formData.scheduledTime}:00`,
-      status: "Planifié",
-      createdAt: now,
-      updatedAt: now,
-    };
-    setPosts([...posts, newPost]);
+    if (editingPostId) {
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === editingPostId
+            ? {
+                ...p,
+                platform: formData.platform,
+                content: formData.content.trim(),
+                scheduledDate: quand.toISOString(),
+                status: formData.status,
+                updatedAt: now,
+              }
+            : p,
+        ),
+      );
+    } else {
+      // L'identifiant est attribué par le serveur à l'enregistrement : celui-ci
+      // ne sert qu'à distinguer la ligne le temps de l'envoi.
+      setPosts((prev) => [
+        ...prev,
+        {
+          id: `nouvelle-${Date.now()}`,
+          platform: formData.platform,
+          content: formData.content.trim(),
+          scheduledDate: quand.toISOString(),
+          status: "Planifié",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ]);
+    }
     setIsPostModalOpen(false);
+    resetPostForm();
   };
 
-  const handleRowClick = (item: SocialPost | EmailAutoReply | CRMCustomer) => {
-    setSelectedItem(item);
-    setIsViewModalOpen(true);
+  const handleConfirmDeletePost = () => {
+    if (!postToDelete) return;
+    const id = postToDelete.id;
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+    setPostToDelete(null);
   };
 
   // ── CRM clients : menu actions (voir / modifier / supprimer) ────────
   const resetCrmForm = () => {
     setEditingCustomerId(null);
+    setCrmError(null);
     setCrmFormData({
       name: "",
       email: "",
@@ -180,6 +256,7 @@ export default function MarketingPage() {
 
   const handleEditCustomer = (customer: CRMCustomer) => {
     setEditingCustomerId(customer.id);
+    setCrmError(null);
     setCrmFormData({
       name: customer.name,
       email: customer.email,
@@ -190,11 +267,18 @@ export default function MarketingPage() {
     setIsCRMModalOpen(true);
   };
 
-  const handleDeleteCustomer = (customer: CRMCustomer) => {
-    setCrmCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+  const handleConfirmDeleteCustomer = () => {
+    if (!customerToDelete) return;
+    const id = customerToDelete.id;
+    setCrmCustomers((prev) => prev.filter((c) => c.id !== id));
+    setCustomerToDelete(null);
   };
 
   const handleSaveCustomer = () => {
+    if (!crmFormData.name.trim()) {
+      setCrmError("Le nom du client est obligatoire.");
+      return;
+    }
     if (editingCustomerId) {
       setCrmCustomers((prev) =>
         prev.map((c) =>
@@ -206,7 +290,7 @@ export default function MarketingPage() {
         ...prev,
         {
           ...crmFormData,
-          id: `CRM-${Date.now()}`,
+          id: `nouveau-${Date.now()}`,
           lastContact: new Date().toISOString(),
         } as CRMCustomer,
       ]);
@@ -293,7 +377,14 @@ export default function MarketingPage() {
             columns={postColumns}
             searchKey="content"
             searchPlaceholder="Rechercher une publication..."
-            onRowClick={handleRowClick}
+            onRowClick={(post) => setViewPost(post)}
+            actions={(post) => (
+              <RowActionsMenu
+                onView={() => setViewPost(post)}
+                onEdit={() => handleEditPost(post)}
+                onDelete={() => setPostToDelete(post)}
+              />
+            )}
           />
         </>
       )}
@@ -340,6 +431,11 @@ export default function MarketingPage() {
               Ajouter un client
             </Button>
           </div>
+          {crmCustomers.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Aucun client dans le CRM pour le moment.
+            </p>
+          )}
           <div className="grid gap-4 md:grid-cols-3">
             {crmCustomers.map((customer) => (
               <Card key={customer.id}>
@@ -347,9 +443,9 @@ export default function MarketingPage() {
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-lg">{customer.name}</CardTitle>
                     <RowActionsMenu
-                      onView={() => handleRowClick(customer)}
+                      onView={() => setViewCustomer(customer)}
                       onEdit={() => handleEditCustomer(customer)}
-                      onDelete={() => handleDeleteCustomer(customer)}
+                      onDelete={() => setCustomerToDelete(customer)}
                     />
                   </div>
                 </CardHeader>
@@ -372,23 +468,38 @@ export default function MarketingPage() {
       {/* Create Post Modal */}
       <Modal
         open={isPostModalOpen}
-        onOpenChange={setIsPostModalOpen}
+        onOpenChange={(open) => {
+          setIsPostModalOpen(open);
+          if (!open) resetPostForm();
+        }}
         type="form"
-        title="Nouvelle publication"
+        title={
+          editingPostId ? "Modifier la publication" : "Nouvelle publication"
+        }
         size="lg"
         actions={{
           primary: {
-            label: "Planifier",
+            label: editingPostId
+              ? "Enregistrer les modifications"
+              : "Planifier",
             onClick: handleSavePost,
           },
           secondary: {
             label: "Annuler",
-            onClick: () => setIsPostModalOpen(false),
+            onClick: () => {
+              setIsPostModalOpen(false);
+              resetPostForm();
+            },
             variant: "outline",
           },
         }}
       >
         <div className="space-y-4">
+          {postError && (
+            <p className="text-sm text-destructive" role="alert">
+              {postError}
+            </p>
+          )}
           <div>
             <Label htmlFor="platform">Plateforme</Label>
             <Select
@@ -450,7 +561,236 @@ export default function MarketingPage() {
               />
             </div>
           </div>
+
+          {editingPostId && (
+            <div>
+              <Label htmlFor="postStatus">Statut</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    status: value as SocialPost["status"],
+                  })
+                }
+              >
+                <SelectTrigger id="postStatus">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Planifié">Planifié</SelectItem>
+                  <SelectItem value="Publié">Publié</SelectItem>
+                  <SelectItem value="Échec">Échec</SelectItem>
+                  <SelectItem value="Annulé">Annulé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
+      </Modal>
+
+      {/* View Post Modal */}
+      <Modal
+        open={viewPost !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewPost(null);
+        }}
+        type="details"
+        title="Détails de la publication"
+        size="lg"
+        actions={{
+          primary: {
+            label: "Modifier",
+            onClick: () => {
+              const post = viewPost;
+              setViewPost(null);
+              if (post) handleEditPost(post);
+            },
+          },
+          secondary: {
+            label: "Fermer",
+            onClick: () => setViewPost(null),
+            variant: "outline",
+          },
+        }}
+      >
+        {viewPost && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Plateforme</Label>
+                <p className="text-sm font-medium">{viewPost.platform}</p>
+              </div>
+              <div>
+                <Label>Statut</Label>
+                <div>
+                  <Badge variant="outline">{viewPost.status}</Badge>
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label>Contenu</Label>
+              <p className="text-sm whitespace-pre-wrap">{viewPost.content}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Date de publication</Label>
+                <p className="text-sm font-medium">
+                  {enDate(viewPost.scheduledDate).toLocaleString("fr-FR")}
+                </p>
+              </div>
+              <div>
+                <Label>Créée le</Label>
+                <p className="text-sm font-medium">
+                  {enDate(viewPost.createdAt).toLocaleDateString("fr-FR")}
+                </p>
+              </div>
+            </div>
+            {viewPost.performance && (
+              <div>
+                <Label>Performance</Label>
+                <p className="text-sm">
+                  {viewPost.performance.views} vues,{" "}
+                  {viewPost.performance.likes} mentions j&apos;aime,{" "}
+                  {viewPost.performance.shares} partages,{" "}
+                  {viewPost.performance.comments} commentaires (
+                  {viewPost.performance.engagement}% d&apos;engagement)
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Post Modal */}
+      <Modal
+        open={postToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPostToDelete(null);
+        }}
+        type="warning"
+        title="Supprimer la publication"
+        description="Cette action est irréversible."
+        actions={{
+          primary: {
+            label: "Supprimer",
+            onClick: handleConfirmDeletePost,
+            variant: "destructive",
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setPostToDelete(null),
+            variant: "outline",
+          },
+        }}
+        closable={false}
+      >
+        <p className="text-sm text-muted-foreground line-clamp-3">
+          {postToDelete
+            ? `Supprimer la publication ${postToDelete.platform} : « ${postToDelete.content} » ?`
+            : ""}
+        </p>
+      </Modal>
+
+      {/* View Customer Modal */}
+      <Modal
+        open={viewCustomer !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewCustomer(null);
+        }}
+        type="details"
+        title="Détails du client"
+        size="lg"
+        actions={{
+          primary: {
+            label: "Modifier",
+            onClick: () => {
+              const customer = viewCustomer;
+              setViewCustomer(null);
+              if (customer) handleEditCustomer(customer);
+            },
+          },
+          secondary: {
+            label: "Fermer",
+            onClick: () => setViewCustomer(null),
+            variant: "outline",
+          },
+        }}
+      >
+        {viewCustomer && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Nom</Label>
+                <p className="text-sm font-medium">{viewCustomer.name}</p>
+              </div>
+              <div>
+                <Label>Statut</Label>
+                <div>
+                  <Badge variant="secondary">{viewCustomer.status}</Badge>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Email</Label>
+                <p className="text-sm font-medium">
+                  {viewCustomer.email || "Non renseigné"}
+                </p>
+              </div>
+              <div>
+                <Label>Téléphone</Label>
+                <p className="text-sm font-medium">
+                  {viewCustomer.phone || "Non renseigné"}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Entreprise</Label>
+                <p className="text-sm font-medium">
+                  {viewCustomer.company || "Non renseigné"}
+                </p>
+              </div>
+              <div>
+                <Label>Dernier contact</Label>
+                <p className="text-sm font-medium">
+                  {enDate(viewCustomer.lastContact).toLocaleDateString("fr-FR")}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Customer Modal */}
+      <Modal
+        open={customerToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setCustomerToDelete(null);
+        }}
+        type="warning"
+        title="Supprimer le client"
+        description="Cette action est irréversible."
+        actions={{
+          primary: {
+            label: "Supprimer",
+            onClick: handleConfirmDeleteCustomer,
+            variant: "destructive",
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setCustomerToDelete(null),
+            variant: "outline",
+          },
+        }}
+        closable={false}
+      >
+        <p className="text-sm text-muted-foreground">
+          {customerToDelete
+            ? `Supprimer « ${customerToDelete.name} » du CRM ?`
+            : ""}
+        </p>
       </Modal>
 
       {/* Auto Reply Modal */}
@@ -568,6 +908,11 @@ export default function MarketingPage() {
         }}
       >
         <div className="space-y-4">
+          {crmError && (
+            <p className="text-sm text-destructive" role="alert">
+              {crmError}
+            </p>
+          )}
           <div>
             <Label htmlFor="name">Nom du client</Label>
             <Input

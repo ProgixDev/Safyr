@@ -12,3 +12,4 @@ export * from "./payroll";
 export * from "./contracts";
 export * from "./billing";
 export * from "./fiscal";
+export * from "./mailbox";

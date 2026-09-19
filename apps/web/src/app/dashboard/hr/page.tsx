@@ -25,6 +25,7 @@ import {
   UserX,
   Building2,
   MapPin,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEmployees } from "@/hooks/employees";
@@ -48,8 +49,6 @@ import {
   StaffFlowBarWidget,
   HeadcountTrendLineWidget,
   ComplianceRadarWidget,
-  RadialGauge,
-  MiniDonut,
 } from "@/components/hr/HRDashboardCharts";
 
 // ── Widget type with component ────────────────────────────────────────
@@ -57,6 +56,189 @@ import {
 type HRWidgetConfig = WidgetConfig & {
   component: React.ComponentType<{ isLoading: boolean }>;
 };
+
+// ── Couleurs des cartes ───────────────────────────────────────────────
+
+/**
+ * Une teinte par carte. Classes écrites en entier (Tailwind ne détecte pas
+ * les noms assemblés) : nuance 600/700 en clair pour un texte foncé lisible,
+ * nuance 300/400 en sombre. `hex` sert aux styles en ligne (liseré, dégradé),
+ * car `Card` et `.glass-card` posent déjà leur propre bordure et leur fond.
+ */
+const TEINTES = {
+  blue: {
+    hex: "#3b82f6",
+    pastille: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+    valeur: "text-blue-700 dark:text-blue-300",
+    barre: "bg-blue-500/20 [&>div]:bg-blue-500",
+    bouton:
+      "border-blue-500/30 bg-blue-500/10 hover:border-blue-500/60 hover:bg-blue-500/20",
+  },
+  orange: {
+    hex: "#f97316",
+    pastille: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
+    valeur: "text-orange-700 dark:text-orange-300",
+    barre: "bg-orange-500/20 [&>div]:bg-orange-500",
+    bouton:
+      "border-orange-500/30 bg-orange-500/10 hover:border-orange-500/60 hover:bg-orange-500/20",
+  },
+  rose: {
+    hex: "#f43f5e",
+    pastille: "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+    valeur: "text-rose-700 dark:text-rose-300",
+    barre: "bg-rose-500/20 [&>div]:bg-rose-500",
+    bouton:
+      "border-rose-500/30 bg-rose-500/10 hover:border-rose-500/60 hover:bg-rose-500/20",
+  },
+  emerald: {
+    hex: "#10b981",
+    pastille: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+    valeur: "text-emerald-700 dark:text-emerald-300",
+    barre: "bg-emerald-500/20 [&>div]:bg-emerald-500",
+    bouton:
+      "border-emerald-500/30 bg-emerald-500/10 hover:border-emerald-500/60 hover:bg-emerald-500/20",
+  },
+  violet: {
+    hex: "#8b5cf6",
+    pastille: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+    valeur: "text-violet-700 dark:text-violet-300",
+    barre: "bg-violet-500/20 [&>div]:bg-violet-500",
+    bouton:
+      "border-violet-500/30 bg-violet-500/10 hover:border-violet-500/60 hover:bg-violet-500/20",
+  },
+  teal: {
+    hex: "#14b8a6",
+    pastille: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
+    valeur: "text-teal-700 dark:text-teal-300",
+    barre: "bg-teal-500/20 [&>div]:bg-teal-500",
+    bouton:
+      "border-teal-500/30 bg-teal-500/10 hover:border-teal-500/60 hover:bg-teal-500/20",
+  },
+  amber: {
+    hex: "#f59e0b",
+    pastille: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+    valeur: "text-amber-700 dark:text-amber-300",
+    barre: "bg-amber-500/20 [&>div]:bg-amber-500",
+    bouton:
+      "border-amber-500/30 bg-amber-500/10 hover:border-amber-500/60 hover:bg-amber-500/20",
+  },
+  fuchsia: {
+    hex: "#d946ef",
+    pastille: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400",
+    valeur: "text-fuchsia-700 dark:text-fuchsia-300",
+    barre: "bg-fuchsia-500/20 [&>div]:bg-fuchsia-500",
+    bouton:
+      "border-fuchsia-500/30 bg-fuchsia-500/10 hover:border-fuchsia-500/60 hover:bg-fuchsia-500/20",
+  },
+  indigo: {
+    hex: "#6366f1",
+    pastille: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+    valeur: "text-indigo-700 dark:text-indigo-300",
+    barre: "bg-indigo-500/20 [&>div]:bg-indigo-500",
+    bouton:
+      "border-indigo-500/30 bg-indigo-500/10 hover:border-indigo-500/60 hover:bg-indigo-500/20",
+  },
+  red: {
+    hex: "#ef4444",
+    pastille: "bg-red-500/15 text-red-600 dark:text-red-400",
+    valeur: "text-red-700 dark:text-red-300",
+    barre: "bg-red-500/20 [&>div]:bg-red-500",
+    bouton:
+      "border-red-500/30 bg-red-500/10 hover:border-red-500/60 hover:bg-red-500/20",
+  },
+  sky: {
+    hex: "#0ea5e9",
+    pastille: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
+    valeur: "text-sky-700 dark:text-sky-300",
+    barre: "bg-sky-500/20 [&>div]:bg-sky-500",
+    bouton:
+      "border-sky-500/30 bg-sky-500/10 hover:border-sky-500/60 hover:bg-sky-500/20",
+  },
+  cyan: {
+    hex: "#06b6d4",
+    pastille: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400",
+    valeur: "text-cyan-700 dark:text-cyan-300",
+    barre: "bg-cyan-500/20 [&>div]:bg-cyan-500",
+    bouton:
+      "border-cyan-500/30 bg-cyan-500/10 hover:border-cyan-500/60 hover:bg-cyan-500/20",
+  },
+  lime: {
+    hex: "#84cc16",
+    pastille: "bg-lime-500/15 text-lime-700 dark:text-lime-400",
+    valeur: "text-lime-700 dark:text-lime-300",
+    barre: "bg-lime-500/20 [&>div]:bg-lime-500",
+    bouton:
+      "border-lime-500/30 bg-lime-500/10 hover:border-lime-500/60 hover:bg-lime-500/20",
+  },
+  pink: {
+    hex: "#ec4899",
+    pastille: "bg-pink-500/15 text-pink-600 dark:text-pink-400",
+    valeur: "text-pink-700 dark:text-pink-300",
+    barre: "bg-pink-500/20 [&>div]:bg-pink-500",
+    bouton:
+      "border-pink-500/30 bg-pink-500/10 hover:border-pink-500/60 hover:bg-pink-500/20",
+  },
+  green: {
+    hex: "#22c55e",
+    pastille: "bg-green-500/15 text-green-600 dark:text-green-400",
+    valeur: "text-green-700 dark:text-green-300",
+    barre: "bg-green-500/20 [&>div]:bg-green-500",
+    bouton:
+      "border-green-500/30 bg-green-500/10 hover:border-green-500/60 hover:bg-green-500/20",
+  },
+} as const;
+
+type Teinte = keyof typeof TEINTES;
+
+const TEXTE_SECONDAIRE = "text-slate-600 dark:text-slate-400";
+
+/** Carte d'indicateur : liseré coloré à gauche, léger dégradé teinté. */
+function CarteKpi({
+  teinte,
+  className,
+  children,
+}: {
+  teinte: Teinte;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const { hex } = TEINTES[teinte];
+  return (
+    <Card
+      className={cn(
+        "glass-card h-full transition-all hover:shadow-md",
+        className,
+      )}
+      style={{
+        borderColor: `${hex}59`,
+        borderLeftColor: hex,
+        borderLeftWidth: 4,
+        backgroundImage: `linear-gradient(135deg, ${hex}1f, transparent 65%)`,
+      }}
+    >
+      {children}
+    </Card>
+  );
+}
+
+function TitreKpi({
+  teinte,
+  icone: Icone,
+  children,
+}: {
+  teinte: Teinte;
+  icone: React.ElementType;
+  children: React.ReactNode;
+}) {
+  return (
+    <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      <span className={cn("rounded-lg p-1.5", TEINTES[teinte].pastille)}>
+        <Icone className="h-4 w-4" />
+      </span>
+      {children}
+    </CardTitle>
+  );
+}
 
 // ── Widget Components ─────────────────────────────────────────────────
 
@@ -67,30 +249,36 @@ type HRWidgetConfig = WidgetConfig & {
  */
 function WidgetIndisponible({
   titre,
-  icone: Icone,
+  icone,
   raison,
+  teinte,
 }: {
   titre: string;
   icone: React.ElementType;
   raison: string;
+  teinte: Teinte;
 }) {
   return (
-    <Card className="glass-card border-border/40 h-full">
+    <CarteKpi teinte={teinte}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-light text-muted-foreground flex items-center gap-2">
-          <Icone className="h-4 w-4 text-muted-foreground" />
+        <TitreKpi teinte={teinte} icone={icone}>
           {titre}
-        </CardTitle>
+        </TitreKpi>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          <span className="text-4xl font-light tracking-tight text-muted-foreground">
+          <span
+            className={cn(
+              "text-4xl font-semibold tracking-tight opacity-60",
+              TEINTES[teinte].valeur,
+            )}
+          >
             —
           </span>
-          <p className="text-xs text-muted-foreground">{raison}</p>
+          <p className={cn("text-xs", TEXTE_SECONDAIRE)}>{raison}</p>
         </div>
       </CardContent>
-    </Card>
+    </CarteKpi>
   );
 }
 
@@ -119,40 +307,50 @@ function EmployeeStatsWidget({ isLoading }: { isLoading: boolean }) {
   if (isLoading || chargement) return <ChargementWidget />;
 
   return (
-    <Card className="glass-card border-border/40 hover:border-primary/30 transition-all h-full">
+    <CarteKpi teinte="blue">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-light text-muted-foreground flex items-center gap-2">
-          <Users className="h-4 w-4 text-primary" />
+        <TitreKpi teinte="blue" icone={Users}>
           Effectif Total
-        </CardTitle>
+        </TitreKpi>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div>
-            <span className="text-4xl font-light tracking-tight">{total}</span>
-            <span className="ml-2 text-sm text-muted-foreground">
+            <span
+              className={cn(
+                "text-4xl font-semibold tracking-tight",
+                TEINTES.blue.valeur,
+              )}
+            >
+              {total}
+            </span>
+            <span className={cn("ml-2 text-sm", TEXTE_SECONDAIRE)}>
               salarié{total > 1 ? "s" : ""}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-blue-500/20">
             <div>
-              <p className="text-xs text-muted-foreground">CDI</p>
-              <p className="text-xl font-light">{cdi}</p>
+              <p className={cn("text-xs", TEXTE_SECONDAIRE)}>CDI</p>
+              <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-300">
+                {cdi}
+              </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">CDD</p>
-              <p className="text-xl font-light">{cdd}</p>
+              <p className={cn("text-xs", TEXTE_SECONDAIRE)}>CDD</p>
+              <p className="text-xl font-semibold text-orange-700 dark:text-orange-300">
+                {cdd}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <UserCheck className="h-4 w-4 text-emerald-400" />
-            <span className="text-emerald-400">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-emerald-700 dark:text-emerald-300">
               {actifs} actif{actifs > 1 ? "s" : ""}
             </span>
           </div>
         </div>
       </CardContent>
-    </Card>
+    </CarteKpi>
   );
 }
 
@@ -162,6 +360,7 @@ function AbsenceWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="Taux d'absentéisme"
       icone={Calendar}
+      teinte="orange"
       raison="Disponible une fois le module Absences & Congés relié à la base."
     />
   );
@@ -173,6 +372,7 @@ function TurnoverWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="Turnover"
       icone={TrendingUp}
+      teinte="rose"
       raison="Nécessite l'historique des entrées et sorties, pas encore enregistré."
     />
   );
@@ -190,39 +390,46 @@ function ComplianceWidget({ isLoading }: { isLoading: boolean }) {
   if (isLoading || chargement) return <ChargementWidget />;
 
   return (
-    <Card className="glass-card border-border/40 hover:border-primary/30 transition-all h-full">
+    <CarteKpi teinte="emerald">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-light text-muted-foreground flex items-center gap-2">
-          <Shield className="h-4 w-4 text-emerald-500" />
+        <TitreKpi teinte="emerald" icone={Shield}>
           Conformité documentaire
-        </CardTitle>
+        </TitreKpi>
       </CardHeader>
       <CardContent>
         {total === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className={cn("text-sm", TEXTE_SECONDAIRE)}>
             Aucun document exigé n&apos;est encore configuré.
           </p>
         ) : (
           <div className="space-y-4">
             <div>
-              <span className="text-4xl font-light tracking-tight">
+              <span
+                className={cn(
+                  "text-4xl font-semibold tracking-tight",
+                  TEINTES.emerald.valeur,
+                )}
+              >
                 {taux}%
               </span>
-              <span className="ml-2 text-sm text-muted-foreground">
+              <span className={cn("ml-2 text-sm", TEXTE_SECONDAIRE)}>
                 conforme
               </span>
             </div>
-            <Progress value={taux} className="h-2" />
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+            <Progress
+              value={taux}
+              className={cn("h-2", TEINTES.emerald.barre)}
+            />
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-emerald-500/20">
               <div>
-                <p className="text-xs text-muted-foreground">À jour</p>
-                <p className="text-lg font-light text-emerald-400">
+                <p className={cn("text-xs", TEXTE_SECONDAIRE)}>À jour</p>
+                <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-300">
                   {conformes}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">À fournir</p>
-                <p className="text-lg font-light text-orange-400">
+                <p className={cn("text-xs", TEXTE_SECONDAIRE)}>À fournir</p>
+                <p className="text-lg font-semibold text-orange-700 dark:text-orange-300">
                   {aRenouveler}
                 </p>
               </div>
@@ -230,15 +437,19 @@ function ComplianceWidget({ isLoading }: { isLoading: boolean }) {
           </div>
         )}
       </CardContent>
-    </Card>
+    </CarteKpi>
   );
 }
 
-const GROUPES_HABILITATION: { label: string; types: string[] }[] = [
-  { label: "SSIAP", types: ["SSIAP1", "SSIAP2", "SSIAP3"] },
-  { label: "SST", types: ["SST"] },
-  { label: "H0B0", types: ["H0B0"] },
-  { label: "Carte pro", types: ["CNAPS", "CQP_APS"] },
+const GROUPES_HABILITATION: {
+  label: string;
+  types: string[];
+  teinte: Teinte;
+}[] = [
+  { label: "SSIAP", types: ["SSIAP1", "SSIAP2", "SSIAP3"], teinte: "blue" },
+  { label: "SST", types: ["SST"], teinte: "rose" },
+  { label: "H0B0", types: ["H0B0"], teinte: "amber" },
+  { label: "Carte pro", types: ["CNAPS", "CQP_APS"], teinte: "emerald" },
 ];
 
 function TrainingWidget({ isLoading }: { isLoading: boolean }) {
@@ -248,7 +459,7 @@ function TrainingWidget({ isLoading }: { isLoading: boolean }) {
   const groupes = useMemo(() => {
     const maintenant = new Date().getTime();
     const dans60Jours = maintenant + 60 * 86_400_000;
-    return GROUPES_HABILITATION.map(({ label, types }) => {
+    return GROUPES_HABILITATION.map(({ label, types, teinte }) => {
       let valides = 0;
       let bientot = 0;
       let expirees = 0;
@@ -263,6 +474,7 @@ function TrainingWidget({ isLoading }: { isLoading: boolean }) {
       }
       return {
         label,
+        teinte,
         valides,
         bientot,
         expirees,
@@ -276,16 +488,15 @@ function TrainingWidget({ isLoading }: { isLoading: boolean }) {
   if (isLoading || chargement) return <ChargementWidget />;
 
   return (
-    <Card className="glass-card border-border/40 hover:border-primary/30 transition-all h-full">
+    <CarteKpi teinte="indigo">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-light text-muted-foreground flex items-center gap-2">
-            <Award className="h-4 w-4 text-primary" />
+          <TitreKpi teinte="indigo" icone={Award}>
             Formations & Habilitations
-          </CardTitle>
+          </TitreKpi>
           <Link
             href="/dashboard/hr/safety-health-training/authorizations-matrix"
-            className="text-xs text-primary hover:underline flex items-center gap-1"
+            className="text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:underline flex items-center gap-1"
           >
             Voir tout
             <ChevronRight className="h-3 w-3" />
@@ -294,7 +505,7 @@ function TrainingWidget({ isLoading }: { isLoading: boolean }) {
       </CardHeader>
       <CardContent>
         {totalGeneral === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className={cn("text-sm", TEXTE_SECONDAIRE)}>
             Aucune habilitation enregistrée sur les dossiers salariés.
           </p>
         ) : (
@@ -304,8 +515,15 @@ function TrainingWidget({ isLoading }: { isLoading: boolean }) {
               .map((g) => (
                 <div key={g.label} className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{g.label}</span>
-                    <span className="text-xs text-muted-foreground">
+                    <span
+                      className={cn(
+                        "text-sm font-semibold",
+                        TEINTES[g.teinte].valeur,
+                      )}
+                    >
+                      {g.label}
+                    </span>
+                    <span className={cn("text-xs", TEXTE_SECONDAIRE)}>
                       {g.total} au total
                     </span>
                   </div>
@@ -323,21 +541,23 @@ function TrainingWidget({ isLoading }: { isLoading: boolean }) {
                       style={{ width: `${(g.expirees / g.total) * 100}%` }}
                     />
                   </div>
-                  <div className="flex gap-3 text-xs text-muted-foreground">
-                    <span className="text-emerald-400">
+                  <div className="flex gap-3 text-xs font-medium">
+                    <span className="text-emerald-700 dark:text-emerald-400">
                       {g.valides} valides
                     </span>
-                    <span className="text-orange-400">
+                    <span className="text-orange-700 dark:text-orange-400">
                       {g.bientot} à renouveler
                     </span>
-                    <span className="text-red-400">{g.expirees} expirées</span>
+                    <span className="text-red-700 dark:text-red-400">
+                      {g.expirees} expirées
+                    </span>
                   </div>
                 </div>
               ))}
           </div>
         )}
       </CardContent>
-    </Card>
+    </CarteKpi>
   );
 }
 
@@ -370,21 +590,21 @@ function AlertsWidget({ isLoading }: { isLoading: boolean }) {
         icon: AlertTriangle,
         label: "Habilitations expirées",
         count: habilitationsExpirees,
-        color: "text-red-500",
+        teinte: "red" as Teinte,
         href: "/dashboard/hr/safety-health-training/authorizations-matrix",
       },
       {
         icon: Clock,
         label: "Expirations sous 30 j",
         count: habilitationsBientot,
-        color: "text-orange-500",
+        teinte: "orange" as Teinte,
         href: "/dashboard/hr/safety-health-training/authorizations-matrix",
       },
       {
         icon: FileText,
         label: "Documents obligatoires manquants",
         count: docsManquants,
-        color: "text-blue-500",
+        teinte: "blue" as Teinte,
         href: "/dashboard/hr/entreprise",
       },
     ];
@@ -395,14 +615,20 @@ function AlertsWidget({ isLoading }: { isLoading: boolean }) {
   const total = alertes.reduce((s, a) => s + a.count, 0);
 
   return (
-    <Card className="glass-card border-border/40 hover:border-primary/30 transition-all h-full">
+    <CarteKpi teinte="red">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-light text-muted-foreground flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
+          <TitreKpi teinte="red" icone={AlertTriangle}>
             Alertes RH
-          </CardTitle>
-          <span className="text-xs text-muted-foreground">
+          </TitreKpi>
+          <span
+            className={cn(
+              "text-xs font-medium",
+              total === 0
+                ? "text-emerald-700 dark:text-emerald-400"
+                : TEINTES.red.valeur,
+            )}
+          >
             {total === 0 ? "Rien à signaler" : `${total} au total`}
           </span>
         </div>
@@ -411,20 +637,24 @@ function AlertsWidget({ isLoading }: { isLoading: boolean }) {
         <div className="space-y-2">
           {alertes.map((a) => {
             const Icone = a.icon;
+            const t = TEINTES[a.teinte];
             return (
               <Link
                 key={a.label}
                 href={a.href}
-                className="flex items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-accent"
+                className={cn(
+                  "flex items-center justify-between rounded-lg border px-3 py-2 transition-colors",
+                  t.bouton,
+                )}
               >
-                <span className="flex items-center gap-2 text-sm">
-                  <Icone className={cn("h-4 w-4", a.color)} />
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Icone className={cn("h-4 w-4", t.valeur)} />
                   {a.label}
                 </span>
                 <span
                   className={cn(
-                    "text-lg font-light",
-                    a.count > 0 ? a.color : "text-muted-foreground",
+                    "text-lg font-semibold",
+                    a.count > 0 ? t.valeur : TEXTE_SECONDAIRE,
                   )}
                 >
                   {a.count}
@@ -434,7 +664,7 @@ function AlertsWidget({ isLoading }: { isLoading: boolean }) {
           })}
         </div>
       </CardContent>
-    </Card>
+    </CarteKpi>
   );
 }
 
@@ -444,6 +674,7 @@ function PendingRequestsWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="Demandes en attente"
       icone={Mail}
+      teinte="sky"
       raison="Les demandes RH ne sont pas encore enregistrées en base."
     />
   );
@@ -455,6 +686,7 @@ function PayrollWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="Masse salariale"
       icone={DollarSign}
+      teinte="green"
       raison="Nécessite le module Paie relié à la base."
     />
   );
@@ -466,6 +698,7 @@ function DelegationHoursWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="Heures de délégation CSE"
       icone={Scale}
+      teinte="violet"
       raison="Nécessite la saisie des heures de délégation."
     />
   );
@@ -477,6 +710,7 @@ function CostPerEmployeeWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="Coût par employé"
       icone={BarChart3}
+      teinte="teal"
       raison="Nécessite les salaires, pas encore enregistrés en base."
     />
   );
@@ -488,6 +722,7 @@ function EmployerChargesWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="Charges patronales"
       icone={Briefcase}
+      teinte="amber"
       raison="Nécessite le module Paie relié à la base."
     />
   );
@@ -505,47 +740,58 @@ function GenderEqualityWidget({ isLoading }: { isLoading: boolean }) {
   if (isLoading || chargement) return <ChargementWidget />;
 
   return (
-    <Card className="glass-card border-border/40 hover:border-primary/30 transition-all h-full">
+    <CarteKpi teinte="fuchsia">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-light text-muted-foreground flex items-center gap-2">
-          <Scale className="h-4 w-4 text-primary" />
+        <TitreKpi teinte="fuchsia" icone={Scale}>
           Répartition femmes / hommes
-        </CardTitle>
+        </TitreKpi>
       </CardHeader>
       <CardContent>
         {renseignes === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className={cn("text-sm", TEXTE_SECONDAIRE)}>
             Le genre n&apos;est renseigné sur aucun dossier salarié.
           </p>
         ) : (
           <div className="space-y-3">
             <div>
-              <span className="text-4xl font-light tracking-tight">
+              <span
+                className={cn(
+                  "text-4xl font-semibold tracking-tight",
+                  TEINTES.fuchsia.valeur,
+                )}
+              >
                 {partFemmes}%
               </span>
-              <span className="ml-2 text-sm text-muted-foreground">
+              <span className={cn("ml-2 text-sm", TEXTE_SECONDAIRE)}>
                 de femmes
               </span>
             </div>
-            <Progress value={partFemmes} className="h-2" />
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+            <Progress
+              value={partFemmes}
+              className={cn("h-2", TEINTES.fuchsia.barre)}
+            />
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-fuchsia-500/20">
               <div>
-                <p className="text-xs text-muted-foreground">Femmes</p>
-                <p className="text-lg font-light">{femmes}</p>
+                <p className={cn("text-xs", TEXTE_SECONDAIRE)}>Femmes</p>
+                <p className="text-lg font-semibold text-fuchsia-700 dark:text-fuchsia-300">
+                  {femmes}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Hommes</p>
-                <p className="text-lg font-light">{hommes}</p>
+                <p className={cn("text-xs", TEXTE_SECONDAIRE)}>Hommes</p>
+                <p className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+                  {hommes}
+                </p>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
               L&apos;index d&apos;égalité professionnelle exige les
               rémunérations : il sera calculé une fois la paie reliée.
             </p>
           </div>
         )}
       </CardContent>
-    </Card>
+    </CarteKpi>
   );
 }
 
@@ -555,6 +801,7 @@ function HRForecastWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="Prévisions RH"
       icone={Target}
+      teinte="cyan"
       raison="Nécessite un historique d'effectif, pas encore constitué."
     />
   );
@@ -566,6 +813,7 @@ function SalaryMaintenanceWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="Maintien de salaire"
       icone={Activity}
+      teinte="lime"
       raison="Nécessite les arrêts de travail et le module Paie."
     />
   );
@@ -577,6 +825,7 @@ function RecruitmentKPIsWidget({ isLoading }: { isLoading: boolean }) {
     <WidgetIndisponible
       titre="KPIs recrutement"
       icone={UserPlus}
+      teinte="pink"
       raison="Nécessite le suivi des candidatures en base."
     />
   );
@@ -596,85 +845,113 @@ function QuickActionsWidget({ isLoading }: { isLoading: boolean }) {
     );
   }
 
-  const actions = [
+  const actions: {
+    label: string;
+    href: string;
+    icon: React.ElementType;
+    teinte: Teinte;
+  }[] = [
     {
       label: "Nouveau salarié",
       href: "/dashboard/hr/collaborators",
       icon: UserCheck,
+      teinte: "blue",
     },
     {
       label: "Nouveau client",
       href: "/dashboard/hr/entreprise/clients?new=1",
       icon: Building2,
+      teinte: "emerald",
     },
     {
       label: "Nouveau site",
       href: "/dashboard/hr/sites?new=1",
       icon: MapPin,
+      teinte: "teal",
     },
     {
       label: "Voir congés",
-      href: "/dashboard/hr/time-activity/absences",
+      href: "/dashboard/hr/time-activity/conges",
       icon: Calendar,
+      teinte: "orange",
     },
     {
       label: "Bilan social",
       href: "/dashboard/hr/hr-services/social-audit",
       icon: BarChart3,
+      teinte: "violet",
     },
     {
       label: "Marketing",
       href: "/dashboard/hr/business/marketing",
       icon: Megaphone,
+      teinte: "pink",
     },
     {
       label: "Appels d'offre",
       href: "/dashboard/hr/business/tenders",
       icon: FileText,
+      teinte: "amber",
     },
     {
       label: "AKTO & OPCO",
       href: "/dashboard/hr/safety-health-training/training-plan/akto",
       icon: GraduationCap,
+      teinte: "indigo",
     },
     {
       label: "Fin de contrat",
       href: "/dashboard/hr/lifecycle/offboarding",
       icon: UserX,
+      teinte: "red",
     },
     {
       label: "Communication",
       href: "/dashboard/hr/hr-services/communication",
       icon: Mail,
+      teinte: "sky",
     },
   ];
 
   return (
-    <Card className="glass-card border-border/40 hover:border-primary/30 transition-all h-full">
+    <CarteKpi teinte="cyan">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-light text-muted-foreground">
+        <TitreKpi teinte="cyan" icone={Zap}>
           Actions rapides
-        </CardTitle>
+        </TitreKpi>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {actions.map((action) => {
             const Icon = action.icon;
+            const t = TEINTES[action.teinte];
             return (
               <Link
                 key={action.label}
                 href={action.href}
-                className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-primary/10 hover:border-primary/30 border border-transparent transition-all group"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg border p-3 transition-all group hover:-translate-y-0.5 hover:shadow-md",
+                  t.bouton,
+                )}
               >
-                <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                <span className="text-sm flex-1">{action.label}</span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                <span className={cn("rounded-md p-1.5 shrink-0", t.pastille)}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-medium text-foreground flex-1">
+                  {action.label}
+                </span>
+                <ChevronRight
+                  className={cn(
+                    "h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5",
+                    t.valeur,
+                  )}
+                />
               </Link>
             );
           })}
         </div>
       </CardContent>
-    </Card>
+    </CarteKpi>
   );
 }
 

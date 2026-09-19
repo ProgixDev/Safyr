@@ -155,3 +155,25 @@ export async function deleteSubcontractor(
     method: "DELETE",
   });
 }
+
+// --- Lecture automatique d'un ticket de caisse / d'une facture ---
+
+export interface ExtractedReceiptFields {
+  /** Date ISO YYYY-MM-DD. */
+  date: string | null;
+  montantHT: number | null;
+  tva: number | null;
+  montantTTC: number | null;
+  description: string | null;
+}
+
+export function extractReceiptFile(
+  file: File,
+): Promise<ExtractedReceiptFields> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch<ExtractedReceiptFields>("/organization/receipts/extract", {
+    method: "POST",
+    body: form,
+  });
+}

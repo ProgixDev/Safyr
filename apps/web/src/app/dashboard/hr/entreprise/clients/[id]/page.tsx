@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, use } from "react";
+import { useState, useRef, useEffect, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useRegistre } from "@/hooks/fiscal/use-registre";
 import {
@@ -28,9 +33,12 @@ import {
   useDeleteAttachment,
 } from "@/hooks/contracts";
 import { pickFile, downloadStoredFile } from "@/lib/document-files";
+import { exporterCsvExcel, exporterPdf } from "@/lib/export-table";
+import { estPhotoLisible, preparerPhotoPourLecture } from "@/lib/receipt-image";
 import {
   Building2,
   FileText,
+  FileSpreadsheet,
   Download,
   AlertTriangle,
   FileCheck,
@@ -43,10 +51,10 @@ import {
   Calendar,
   Gift,
   User,
-  Eye,
-  Receipt,
+  Loader2,
 } from "lucide-react";
 import { useClient, useUpdateClient, useDeleteClient } from "@/hooks/clients";
+import { extractReceiptFile } from "@safyr/api-client";
 import type {
   Client as ApiClient,
   UpdateClientPayload,
@@ -114,7 +122,76 @@ interface Document {
   required: boolean;
   /** Clé du fichier réel dans le stockage, pour voir/télécharger. */
   storageKey?: string;
+  /**
+   * "contrat" : fichier repris automatiquement de l'onglet Contrats. Il se
+   * consulte ici mais se gère (remplacement, suppression) depuis Contrats.
+   */
+  source: "document" | "contrat";
+  /** Libellé du contrat d'origine, pour les documents de source "contrat". */
+  contratLibelle?: string;
 }
+
+const MOIS = [
+  "Janvier",
+  "Février",
+  "Mars",
+  "Avril",
+  "Mai",
+  "Juin",
+  "Juillet",
+  "Août",
+  "Septembre",
+  "Octobre",
+  "Novembre",
+  "Décembre",
+];
+
+type ChampMontant = "valueHT" | "tva" | "valueTTC";
+
+const arrondi2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Applique une saisie de montant et complète le troisième champ dès que deux
+ * sont renseignés : TTC = HT + TVA, ou TVA = TTC − HT, ou HT = TTC − TVA.
+ * Le champ modifié n'est jamais réécrit ; un résultat négatif est ignoré.
+ */
+function appliquerMontant<
+  F extends { valueHT: string; tva: string; valueTTC: string },
+>(form: F, champ: ChampMontant, valeur: string): F {
+  const suivant = { ...form, [champ]: valeur };
+  if (valeur.trim() === "") return suivant;
+  const lire = (v: string) => (v.trim() === "" ? null : Number(v));
+  const ht = lire(suivant.valueHT);
+  const tva = lire(suivant.tva);
+  const ttc = lire(suivant.valueTTC);
+  if ([ht, tva, ttc].some((n) => n !== null && Number.isNaN(n))) return suivant;
+  const ecrire = (cle: ChampMontant, n: number) => {
+    if (n >= 0) suivant[cle] = String(arrondi2(n));
+  };
+
+  if (champ === "valueHT") {
+    if (tva !== null) ecrire("valueTTC", ht! + tva);
+    else if (ttc !== null) ecrire("tva", ttc - ht!);
+  } else if (champ === "tva") {
+    if (ht !== null) ecrire("valueTTC", ht + tva!);
+    else if (ttc !== null) ecrire("valueHT", ttc - tva!);
+  } else {
+    if (ht !== null) ecrire("tva", ttc! - ht);
+    else if (tva !== null) ecrire("valueHT", ttc! - tva);
+  }
+  return suivant;
+}
+
+const MESSAGE_PDF =
+  "Lecture automatique disponible pour les photos (JPG/PNG) — saisissez les montants pour un PDF.";
+
+const slug = (texte: string) =>
+  texte
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
 
 const requiredDocuments = [
   { type: "contrat_cadre", name: "Contrat cadre", category: "contrat" },
@@ -173,15 +250,6 @@ function Field({
             "bg-muted/30 shadow-none cursor-default focus-visible:ring-0",
         )}
       />
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4 border-b py-2 last:border-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value}</span>
     </div>
   );
 }
@@ -332,8 +400,23 @@ export default function ClientDetailPage({
         notes: l.notes,
       }),
     );
-  const [viewContract, setViewContract] = useState<ClientContract | null>(null);
-  const [viewGift, setViewGift] = useState<ClientGift | null>(null);
+  // Message éphémère (pas de bibliothèque de toasts dans le projet).
+  const [notice, setNotice] = useState<{
+    texte: string;
+    ton: "info" | "erreur";
+  } | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const afficherNotice = (texte: string, ton: "info" | "erreur" = "info") => {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    setNotice({ texte, ton });
+    noticeTimer.current = setTimeout(() => setNotice(null), 5000);
+  };
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    },
+    [],
+  );
   const [isContractFormOpen, setIsContractFormOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<ClientContract | null>(
     null,
@@ -358,6 +441,22 @@ export default function ClientDetailPage({
   });
   const [giftFile, setGiftFile] = useState<File | null>(null);
   const giftFileInputRef = useRef<HTMLInputElement>(null);
+  // Lecture automatique du reçu : état de l'analyse et retour affiché au client.
+  const [analyseEnCours, setAnalyseEnCours] = useState(false);
+  const [analyseRetour, setAnalyseRetour] = useState<{
+    texte: string;
+    ton: "succes" | "info";
+  } | null>(null);
+  // Dernière description remplie automatiquement : permet de la remplacer par
+  // celle d'un autre reçu sans jamais écraser un texte saisi à la main.
+  const [descriptionAuto, setDescriptionAuto] = useState("");
+  // Identifie l'analyse en cours pour ignorer le résultat d'une analyse périmée
+  // (autre fichier choisi entre-temps, formulaire rouvert).
+  const analyseId = useRef(0);
+  // Export de la liste des cadeaux : période choisie ("all" = pas de filtre).
+  const [exportMois, setExportMois] = useState("all");
+  const [exportAnnee, setExportAnnee] = useState("all");
+  const [exportOuvert, setExportOuvert] = useState(false);
   // Documents et reçus de cadeaux : pièces jointes réelles, scope "client".
   // Le reçu d'un cadeau est une pièce dont le slot vaut "recu-<idCadeau>".
   const { data: pieces = [] } = useAttachments("client", id);
@@ -368,10 +467,17 @@ export default function ClientDetailPage({
   // Le fichier d'un contrat est une pièce dont le slot vaut "contrat-<idContrat>".
   const fichierContratDe = (contractId: string) =>
     pieces.find((p) => p.slot === `contrat-${contractId}`);
+  // Un fichier de contrat dont la ligne n'existe plus (supprimée) est ignoré.
+  const contratDeSlot = (slot: string) =>
+    contracts.find((c) => `contrat-${c.id}` === slot);
   const documents: Document[] = pieces
     .filter((p) => !p.slot.startsWith("recu-"))
+    .filter((p) => !p.slot.startsWith("contrat-") || !!contratDeSlot(p.slot))
     .map((p) => {
       const docType = requiredDocuments.find((d) => d.type === p.slot);
+      const contrat = p.slot.startsWith("contrat-")
+        ? contratDeSlot(p.slot)
+        : undefined;
       return {
         id: p.id,
         clientId: id,
@@ -381,6 +487,8 @@ export default function ClientDetailPage({
         status: "valid",
         required: !!docType,
         storageKey: p.storageKey,
+        source: contrat ? "contrat" : "document",
+        contratLibelle: contrat?.description,
       };
     });
   const [isEditing, setIsEditing] = useState(
@@ -467,7 +575,7 @@ export default function ClientDetailPage({
 
   const handlePreview = (doc: Document) => {
     if (!doc.storageKey) {
-      alert("Ce document n a pas de fichier associe.");
+      afficherNotice("Ce document n'a pas de fichier associé.", "erreur");
       return;
     }
     void downloadStoredFile({ name: doc.name, key: doc.storageKey });
@@ -492,6 +600,16 @@ export default function ClientDetailPage({
       );
     }
   };
+
+  const handleDeleteDocument = (doc: Document) =>
+    void detacherPiece.mutateAsync(doc.id).catch((erreur: unknown) => {
+      afficherNotice(
+        erreur instanceof Error
+          ? `Échec de la suppression : ${erreur.message}`
+          : "Échec de la suppression.",
+        "erreur",
+      );
+    });
 
   const handleCancel = () => {
     if (apiClient) {
@@ -569,11 +687,43 @@ export default function ClientDetailPage({
     setIsContractFormOpen(false);
   };
 
-  const handleDeleteContract = (c: ClientContract) =>
-    void registreContrats.supprimerLigne(c.id);
+  // Le fichier suit la ligne : sans cela, il resterait orphelin dans le stockage.
+  const handleDeleteContract = async (c: ClientContract) => {
+    const fichier = fichierContratDe(c.id);
+    await registreContrats.supprimerLigne(c.id);
+    if (fichier) await detacherPiece.mutateAsync(fichier.id).catch(() => {});
+  };
+
+  // « Voir » ouvre directement le fichier du contrat (plus de fenêtre de détail).
+  const handleViewContract = (c: ClientContract) => {
+    const fichier = fichierContratDe(c.id);
+    if (!fichier) {
+      afficherNotice("Aucun fichier joint à ce contrat", "erreur");
+      return;
+    }
+    void downloadStoredFile({ name: fichier.name, key: fichier.storageKey });
+  };
+
+  // Idem pour un cadeau : « Voir » ouvre le reçu / la facture joint.
+  const handleViewGift = (g: ClientGift) => {
+    const recu = recuDe(g.id);
+    if (!recu) {
+      afficherNotice("Aucun fichier joint à ce cadeau", "erreur");
+      return;
+    }
+    void downloadStoredFile({ name: recu.name, key: recu.storageKey });
+  };
+
+  const resetAnalyse = () => {
+    analyseId.current += 1;
+    setAnalyseEnCours(false);
+    setAnalyseRetour(null);
+    setDescriptionAuto("");
+  };
 
   const handleCreateGift = () => {
     setEditingGift(null);
+    resetAnalyse();
     setGiftForm({
       giftDescription: "",
       date: new Date().toISOString().split("T")[0],
@@ -588,6 +738,7 @@ export default function ClientDetailPage({
 
   const handleEditGift = (g: ClientGift) => {
     setEditingGift(g);
+    resetAnalyse();
     setGiftForm({
       giftDescription: g.giftDescription,
       date: g.date.toISOString().split("T")[0],
@@ -625,8 +776,89 @@ export default function ClientDetailPage({
     setIsGiftFormOpen(false);
   };
 
-  const handleDeleteGift = (g: ClientGift) =>
-    void registreCadeaux.supprimerLigne(g.id);
+  const handleDeleteGift = async (g: ClientGift) => {
+    const recu = recuDe(g.id);
+    await registreCadeaux.supprimerLigne(g.id);
+    if (recu) await detacherPiece.mutateAsync(recu.id).catch(() => {});
+  };
+
+  /**
+   * Après le choix du reçu : lit la photo et pré-remplit date, HT, TVA, TTC et
+   * description. Un échec n'empêche jamais la saisie manuelle.
+   */
+  const handleGiftFileChange = async (fichier: File | null) => {
+    setGiftFile(fichier);
+    const courant = ++analyseId.current;
+    setAnalyseRetour(null);
+    setAnalyseEnCours(false);
+    if (!fichier) return;
+
+    // Les PDF (et Word/Excel) ne sont pas lus : évite un aller-retour serveur
+    // dont le résultat est connu d'avance.
+    if (!estPhotoLisible(fichier)) {
+      setAnalyseRetour({ texte: MESSAGE_PDF, ton: "info" });
+      return;
+    }
+
+    setAnalyseEnCours(true);
+    try {
+      const envoi = await preparerPhotoPourLecture(fichier);
+      const extrait = await extractReceiptFile(envoi);
+      if (courant !== analyseId.current) return;
+
+      const trouves = [
+        extrait.date,
+        extrait.montantHT,
+        extrait.tva,
+        extrait.montantTTC,
+        extrait.description,
+      ].filter((v) => v !== null && v !== "").length;
+      if (trouves === 0) {
+        setAnalyseRetour({
+          texte:
+            "Le document n'a pas pu être lu : saisissez les champs manuellement.",
+          ton: "info",
+        });
+        return;
+      }
+
+      setGiftForm((prev) => {
+        // Le serveur complète déjà le troisième montant s'il en lit deux.
+        const suivant = { ...prev };
+        if (extrait.date) suivant.date = extrait.date;
+        if (extrait.montantHT !== null)
+          suivant.valueHT = String(extrait.montantHT);
+        if (extrait.tva !== null) suivant.tva = String(extrait.tva);
+        if (extrait.montantTTC !== null)
+          suivant.valueTTC = String(extrait.montantTTC);
+        if (
+          extrait.description &&
+          (prev.giftDescription.trim() === "" ||
+            prev.giftDescription === descriptionAuto)
+        ) {
+          suivant.giftDescription = extrait.description;
+        }
+        return suivant;
+      });
+      if (extrait.description) setDescriptionAuto(extrait.description);
+      setAnalyseRetour({
+        texte:
+          "Champs pré-remplis à partir du document : vérifiez-les avant d'enregistrer.",
+        ton: "succes",
+      });
+    } catch (erreur) {
+      if (courant !== analyseId.current) return;
+      setAnalyseRetour({
+        texte:
+          erreur instanceof Error && erreur.message
+            ? erreur.message
+            : "Lecture automatique impossible : saisissez les champs manuellement.",
+        ton: "info",
+      });
+    } finally {
+      if (courant === analyseId.current) setAnalyseEnCours(false);
+    }
+  };
 
   const handleUploadReceipt = async (g: ClientGift) => {
     const fichier = await pickFile();
@@ -674,6 +906,96 @@ export default function ClientDetailPage({
     const fichier = fichierContratDe(c.id);
     if (!fichier) return;
     void downloadStoredFile({ name: fichier.name, key: fichier.storageKey });
+  };
+
+  // ── Export de la liste des cadeaux (PDF / Excel) ────────────────────────
+  // Les dates sont des jours « YYYY-MM-DD » lus en UTC : on filtre en UTC pour
+  // ne pas décaler un cadeau d'un mois selon le fuseau du navigateur.
+  const anneesCadeaux = Array.from(
+    new Set([
+      new Date().getFullYear(),
+      ...gifts.map((g) => g.date.getUTCFullYear()),
+    ]),
+  ).sort((a, b) => b - a);
+  const cadeauxExport = gifts
+    .filter(
+      (g) =>
+        (exportAnnee === "all" ||
+          g.date.getUTCFullYear() === Number(exportAnnee)) &&
+        (exportMois === "all" || g.date.getUTCMonth() === Number(exportMois)),
+    )
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const periodeExport = () => {
+    if (exportMois === "all" && exportAnnee === "all") return "Toutes périodes";
+    if (exportMois === "all") return `Année ${exportAnnee}`;
+    const mois = MOIS[Number(exportMois)];
+    return exportAnnee === "all" ? mois : `${mois} ${exportAnnee}`;
+  };
+
+  const colonnesExportCadeaux = [
+    {
+      titre: "Date",
+      valeur: (g: ClientGift) =>
+        g.date.toLocaleDateString("fr-FR", { timeZone: "UTC" }),
+    },
+    { titre: "Description", valeur: (g: ClientGift) => g.giftDescription },
+    { titre: "Hors taxe (€)", valeur: (g: ClientGift) => g.valueHT },
+    { titre: "TVA (€)", valeur: (g: ClientGift) => g.tva },
+    { titre: "TTC (€)", valeur: (g: ClientGift) => g.valueTTC },
+    { titre: "Notes", valeur: (g: ClientGift) => g.notes },
+    {
+      titre: "Reçu / facture",
+      valeur: (g: ClientGift) => (recuDe(g.id) ? "Oui" : "Non"),
+    },
+  ];
+
+  const nomFichierExport = () =>
+    ["cadeaux", slug(client.name), slug(periodeExport())]
+      .filter(Boolean)
+      .join("-");
+
+  const handleExportCadeaux = async (format: "pdf" | "excel") => {
+    if (cadeauxExport.length === 0) return;
+    try {
+      if (format === "excel") {
+        exporterCsvExcel(
+          nomFichierExport(),
+          colonnesExportCadeaux,
+          cadeauxExport,
+        );
+      } else {
+        const somme = (cle: ChampMontant) =>
+          arrondi2(cadeauxExport.reduce((t, g) => t + (g[cle] ?? 0), 0));
+        await exporterPdf(
+          nomFichierExport(),
+          colonnesExportCadeaux,
+          cadeauxExport,
+          {
+            titre: `Liste des cadeaux — ${client.name}`,
+            sousTitre: periodeExport(),
+            orientation: "landscape",
+            pied: [
+              "Total",
+              "",
+              somme("valueHT"),
+              somme("tva"),
+              somme("valueTTC"),
+              "",
+              "",
+            ],
+          },
+        );
+      }
+      setExportOuvert(false);
+    } catch (erreur) {
+      afficherNotice(
+        erreur instanceof Error
+          ? `Échec de l'export : ${erreur.message}`
+          : "Échec de l'export.",
+        "erreur",
+      );
+    }
   };
 
   const contractColumns: ColumnDef<ClientContract>[] = [
@@ -768,7 +1090,14 @@ export default function ClientDetailPage({
       render: (doc) => (
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{doc.name}</span>
+          <div>
+            <span className="font-medium">{doc.name}</span>
+            {doc.contratLibelle && (
+              <p className="text-sm text-muted-foreground">
+                {doc.contratLibelle}
+              </p>
+            )}
+          </div>
         </div>
       ),
     },
@@ -777,6 +1106,8 @@ export default function ClientDetailPage({
       label: "Type",
       sortable: true,
       render: (doc) => {
+        if (doc.source === "contrat")
+          return <Badge variant="info">Contrat</Badge>;
         const docType = requiredDocuments.find((d) => d.type === doc.type);
         if (docType) return docType.name;
         return doc.type.startsWith("custom-")
@@ -829,7 +1160,12 @@ export default function ClientDetailPage({
         <RowActionsMenu
           onView={() => handlePreview(doc)}
           onDownload={() => handleDownload(doc)}
-          onDelete={() => void detacherPiece.mutateAsync(doc.id)}
+          // Un fichier de contrat se supprime depuis l'onglet Contrats.
+          onDelete={
+            doc.source === "contrat"
+              ? undefined
+              : () => handleDeleteDocument(doc)
+          }
         />
       ),
     },
@@ -837,6 +1173,19 @@ export default function ClientDetailPage({
 
   return (
     <div className="space-y-6">
+      {notice && (
+        <div
+          role="status"
+          className={cn(
+            "fixed bottom-6 right-6 z-[100] max-w-sm rounded-md border px-4 py-3 text-sm shadow-lg",
+            notice.ton === "erreur"
+              ? "border-destructive/30 bg-destructive text-destructive-foreground"
+              : "border-border bg-popover text-popover-foreground",
+          )}
+        >
+          {notice.texte}
+        </div>
+      )}
       {saveError && (
         <p
           role="alert"
@@ -1017,12 +1366,11 @@ export default function ClientDetailPage({
                 columns={contractColumns}
                 searchKey="description"
                 searchPlaceholder="Rechercher un contrat..."
-                onRowClick={(c) => setViewContract(c)}
                 actions={(c) => (
                   <RowActionsMenu
-                    onView={() => setViewContract(c)}
+                    onView={() => handleViewContract(c)}
                     onEdit={() => handleEditContract(c)}
-                    onDelete={() => handleDeleteContract(c)}
+                    onDelete={() => void handleDeleteContract(c)}
                     onUpload={() => void handleUploadContractFile(c)}
                     onDownload={
                       fichierContratDe(c.id)
@@ -1044,10 +1392,95 @@ export default function ClientDetailPage({
                   <Gift className="h-5 w-5" />
                   Suivi des cadeaux
                 </CardTitle>
-                <Button size="sm" onClick={handleCreateGift}>
-                  <Gift className="h-4 w-4 mr-2" />
-                  Nouveau cadeau
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Popover open={exportOuvert} onOpenChange={setExportOuvert}>
+                    <PopoverTrigger asChild>
+                      <Button size="sm" variant="outline">
+                        <Download className="h-4 w-4 mr-2 text-violet-500" />
+                        Télécharger la liste
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-80 space-y-4">
+                      <div>
+                        <p className="text-base font-medium">
+                          Liste des cadeaux
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Choisissez la période à exporter.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="export-mois">Mois</Label>
+                          <Select
+                            value={exportMois}
+                            onValueChange={setExportMois}
+                          >
+                            <SelectTrigger id="export-mois">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Tous</SelectItem>
+                              {MOIS.map((mois, i) => (
+                                <SelectItem key={mois} value={String(i)}>
+                                  {mois}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="export-annee">Année</Label>
+                          <Select
+                            value={exportAnnee}
+                            onValueChange={setExportAnnee}
+                          >
+                            <SelectTrigger id="export-annee">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Toutes</SelectItem>
+                              {anneesCadeaux.map((annee) => (
+                                <SelectItem key={annee} value={String(annee)}>
+                                  {annee}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {cadeauxExport.length === 0
+                          ? "Aucun cadeau sur cette période."
+                          : `${cadeauxExport.length} cadeau${cadeauxExport.length > 1 ? "x" : ""} — ${periodeExport()}`}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={cadeauxExport.length === 0}
+                          onClick={() => void handleExportCadeaux("pdf")}
+                        >
+                          <FileText className="h-4 w-4 mr-2 text-red-600" />
+                          PDF
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={cadeauxExport.length === 0}
+                          onClick={() => void handleExportCadeaux("excel")}
+                        >
+                          <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />
+                          Excel
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Button size="sm" onClick={handleCreateGift}>
+                    <Gift className="h-4 w-4 mr-2" />
+                    Nouveau cadeau
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -1057,25 +1490,21 @@ export default function ClientDetailPage({
                 columns={giftColumns}
                 searchKey="giftDescription"
                 searchPlaceholder="Rechercher un cadeau..."
-                onRowClick={(g) => setViewGift(g)}
                 actions={(g) => (
                   <RowActionsMenu
-                    onView={() => setViewGift(g)}
+                    onView={() => handleViewGift(g)}
                     onEdit={() => handleEditGift(g)}
-                    onDelete={() => handleDeleteGift(g)}
-                    extraItems={[
-                      {
-                        label: recuDe(g.id)
-                          ? "Télécharger le reçu/facture"
-                          : "Téléverser un reçu/facture",
-                        icon: Receipt,
-                        tone: recuDe(g.id) ? "download" : "upload",
-                        onClick: () =>
-                          recuDe(g.id)
-                            ? handleDownloadReceipt(g)
-                            : void handleUploadReceipt(g),
-                      },
-                    ]}
+                    onDelete={() => void handleDeleteGift(g)}
+                    onUpload={() => void handleUploadReceipt(g)}
+                    uploadLabel={
+                      recuDe(g.id)
+                        ? "Remplacer le reçu/facture"
+                        : "Téléverser un reçu/facture"
+                    }
+                    onDownload={
+                      recuDe(g.id) ? () => handleDownloadReceipt(g) : undefined
+                    }
+                    downloadLabel="Télécharger le reçu/facture"
                   />
                 )}
               />
@@ -1152,31 +1581,30 @@ export default function ClientDetailPage({
                           </p>
                         </div>
                       </div>
-                      {existingDoc ? (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handlePreview(existingDoc)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Aperçu
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload(existingDoc)}
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Télécharger
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button size="sm" onClick={() => handleUpload(docType)}>
-                          <Upload className="h-4 w-4 mr-1" />
-                          Téléverser
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Badge variant={existingDoc ? "success" : "warning"}>
+                          {existingDoc ? "Fourni" : "Manquant"}
+                        </Badge>
+                        <RowActionsMenu
+                          onView={
+                            existingDoc
+                              ? () => handlePreview(existingDoc)
+                              : undefined
+                          }
+                          onUpload={() => void handleUpload(docType)}
+                          uploadLabel={existingDoc ? "Remplacer" : "Téléverser"}
+                          onDownload={
+                            existingDoc
+                              ? () => handleDownload(existingDoc)
+                              : undefined
+                          }
+                          onDelete={
+                            existingDoc
+                              ? () => handleDeleteDocument(existingDoc)
+                              : undefined
+                          }
+                        />
+                      </div>
                     </div>
                   );
                 })}
@@ -1445,9 +1873,13 @@ export default function ClientDetailPage({
               <Input
                 id="gift-ht"
                 type="number"
+                step="0.01"
+                min="0"
                 value={giftForm.valueHT}
                 onChange={(e) =>
-                  setGiftForm({ ...giftForm, valueHT: e.target.value })
+                  setGiftForm(
+                    appliquerMontant(giftForm, "valueHT", e.target.value),
+                  )
                 }
               />
             </div>
@@ -1456,9 +1888,11 @@ export default function ClientDetailPage({
               <Input
                 id="gift-tva"
                 type="number"
+                step="0.01"
+                min="0"
                 value={giftForm.tva}
                 onChange={(e) =>
-                  setGiftForm({ ...giftForm, tva: e.target.value })
+                  setGiftForm(appliquerMontant(giftForm, "tva", e.target.value))
                 }
               />
             </div>
@@ -1467,9 +1901,13 @@ export default function ClientDetailPage({
               <Input
                 id="gift-ttc"
                 type="number"
+                step="0.01"
+                min="0"
                 value={giftForm.valueTTC}
                 onChange={(e) =>
-                  setGiftForm({ ...giftForm, valueTTC: e.target.value })
+                  setGiftForm(
+                    appliquerMontant(giftForm, "valueTTC", e.target.value),
+                  )
                 }
               />
             </div>
@@ -1493,7 +1931,12 @@ export default function ClientDetailPage({
               type="file"
               accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx"
               className="hidden"
-              onChange={(e) => setGiftFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const fichier = e.target.files?.[0] ?? null;
+                void handleGiftFileChange(fichier);
+                // Permet de re-choisir le même fichier pour relancer l'analyse.
+                e.target.value = "";
+              }}
             />
             <Button
               type="button"
@@ -1508,133 +1951,30 @@ export default function ClientDetailPage({
                   ? recuDe(editingGift.id)!.name
                   : "Choisir un fichier"}
             </Button>
+            {analyseEnCours && (
+              <p
+                role="status"
+                className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"
+              >
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Analyse du document…
+              </p>
+            )}
+            {!analyseEnCours && analyseRetour && (
+              <p
+                role="status"
+                className={cn(
+                  "mt-2 text-sm",
+                  analyseRetour.ton === "succes"
+                    ? "text-green-600 dark:text-green-500"
+                    : "text-orange-500",
+                )}
+              >
+                {analyseRetour.texte}
+              </p>
+            )}
           </div>
         </div>
-      </Modal>
-
-      <Modal
-        open={!!viewContract}
-        onOpenChange={(o) => !o && setViewContract(null)}
-        type="form"
-        title="Détail du contrat"
-        actions={{
-          primary: {
-            label: "Fermer",
-            onClick: () => setViewContract(null),
-            variant: "outline" as const,
-          },
-        }}
-      >
-        {viewContract && (
-          <div className="space-y-1 text-base">
-            <DetailRow label="Description" value={viewContract.description} />
-            <DetailRow
-              label="Date de début"
-              value={new Date(viewContract.startDate).toLocaleDateString(
-                "fr-FR",
-              )}
-            />
-            <DetailRow
-              label="Date de fin"
-              value={
-                viewContract.endDate
-                  ? new Date(viewContract.endDate).toLocaleDateString("fr-FR")
-                  : "Indéterminée"
-              }
-            />
-            <DetailRow
-              label="Statut"
-              value={getStatusText(viewContract.status)}
-            />
-            <DetailRow
-              label="Fichier"
-              value={fichierContratDe(viewContract.id)?.name ?? "Aucun"}
-            />
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleUploadContractFile(viewContract)}
-              >
-                <Upload className="mr-2 h-4 w-4 text-blue-500" />
-                Téléverser le contrat
-              </Button>
-              {fichierContratDe(viewContract.id) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadContractFile(viewContract)}
-                >
-                  <Download className="mr-2 h-4 w-4 text-violet-500" />
-                  Télécharger
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <Modal
-        open={!!viewGift}
-        onOpenChange={(o) => !o && setViewGift(null)}
-        type="form"
-        title="Détail du cadeau"
-        actions={{
-          primary: {
-            label: "Fermer",
-            onClick: () => setViewGift(null),
-            variant: "outline" as const,
-          },
-        }}
-      >
-        {viewGift && (
-          <div className="space-y-3 text-base">
-            <div className="space-y-1">
-              <DetailRow label="Description" value={viewGift.giftDescription} />
-              <DetailRow
-                label="Date"
-                value={new Date(viewGift.date).toLocaleDateString("fr-FR")}
-              />
-              <DetailRow
-                label="Valeur HT"
-                value={viewGift.valueHT ? `${viewGift.valueHT} €` : "-"}
-              />
-              <DetailRow
-                label="TVA"
-                value={viewGift.tva ? `${viewGift.tva} €` : "-"}
-              />
-              <DetailRow
-                label="Valeur TTC"
-                value={viewGift.valueTTC ? `${viewGift.valueTTC} €` : "-"}
-              />
-              <DetailRow label="Notes" value={viewGift.notes || "-"} />
-              <DetailRow
-                label="Reçu / Facture"
-                value={recuDe(viewGift.id)?.name ?? "Aucun"}
-              />
-            </div>
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleUploadReceipt(viewGift)}
-              >
-                <Upload className="mr-2 h-4 w-4 text-blue-500" />
-                Téléverser un reçu
-              </Button>
-              {recuDe(viewGift.id) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadReceipt(viewGift)}
-                >
-                  <Download className="mr-2 h-4 w-4 text-violet-500" />
-                  Télécharger
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
       </Modal>
     </div>
   );

@@ -2,200 +2,221 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Download, FileSpreadsheet, FileText } from "lucide-react";
+
 import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Combobox } from "@/components/ui/combobox";
 import { Modal } from "@/components/ui/modal";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
-import { Download, Plus } from "lucide-react";
-import jsPDF from "jspdf";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { useRegistre } from "@/hooks/fiscal/use-registre";
+import {
+  exporterCsvExcel,
+  exporterPdf,
+  type ColonneExport,
+} from "@/lib/export-table";
+import {
+  CHAMPS_FICHIERS_PROCEDURE,
+  TYPE_SANCTION_PAR_DEFAUT,
+  dateFr,
+  horodatage,
+  type LigneProcedure,
+  type LigneSanction,
+  type LigneSanctionManuelle,
+} from "./discipline-shared";
 
-interface MiseAPiedRow {
+type Origine = "sanction" | "procedure" | "saisie";
+
+/** Une ligne du registre, quelle que soit son origine. */
+interface LigneRegistreSanction {
+  /** Unique dans le registre : préfixé par l'origine. */
+  cle: string;
+  /** Identifiant de l'enregistrement d'origine (pour la suppression). */
   id: string;
+  origine: Origine;
   employeeId: string;
   employeeName: string;
-  date: Date;
-  type: string;
-  reason: string;
-  description: string;
-  issuedBy: string;
-  severity: "minor" | "major" | "severe";
-}
-
-/** Ligne enregistrée en base : la date y est une chaîne ISO. */
-interface LigneSanction {
-  id: string;
-  employeeId: string;
   date: string;
   type: string;
   reason: string;
   description: string;
   issuedBy: string;
-  severity: "minor" | "major" | "severe";
+  statut: string;
 }
 
-const EPOQUE = new Date(0);
-const CHAMPS_FICHIERS = ["document"] as const;
-
-const TYPES_SANCTION = [
-  "Mise à pied disciplinaire",
-  "Mise à pied conservatoire",
-  "Blâme",
-  "Rétrogradation",
-  "Licenciement pour faute",
-];
-
-const severityLabels = {
-  minor: "Mineure",
-  major: "Majeure",
-  severe: "Grave",
+const ORIGINES: Record<Origine, string> = {
+  sanction: "Sanction",
+  procedure: "Procédure disciplinaire",
+  saisie: "Saisie directe (ancien registre)",
 };
 
-const severityColors = {
-  minor: "secondary",
-  major: "default",
-  severe: "destructive",
+const STATUTS_SANCTION = { active: "Active", lifted: "Levée" } as const;
+const STATUTS_PROCEDURE = {
+  ongoing: "En cours",
+  completed: "Terminée",
+  cancelled: "Annulée",
 } as const;
 
-const formulaireVide = {
-  employeeId: "",
-  date: new Date().toISOString().split("T")[0],
-  type: TYPES_SANCTION[0],
-  reason: "",
-  description: "",
-  issuedBy: "",
-  severity: "minor" as "minor" | "major" | "severe",
-};
+const CHAMPS_FICHIERS_SANCTION = ["document"] as const;
+
+const COLONNES_EXPORT: ColonneExport<LigneRegistreSanction>[] = [
+  { titre: "Employé", valeur: (l) => l.employeeName },
+  { titre: "Date", valeur: (l) => dateFr(l.date) },
+  { titre: "Origine", valeur: (l) => ORIGINES[l.origine] },
+  { titre: "Type de sanction", valeur: (l) => l.type },
+  { titre: "Motif", valeur: (l) => l.reason },
+  { titre: "Description", valeur: (l) => l.description },
+  { titre: "Émis par", valeur: (l) => l.issuedBy },
+  { titre: "Statut", valeur: (l) => l.statut },
+];
 
 export function SanctionsSection() {
-  const mockEmployees = useEmployeeOptions();
-  const employeeOptions = mockEmployees.map((employee) => ({
-    value: employee.id,
-    label: employee.name,
-  }));
+  const employees = useEmployeeOptions();
   const getEmployeeName = (employeeId: string) => {
-    const employee = mockEmployees.find((e) => e.id === employeeId);
+    const employee = employees.find((e) => e.id === employeeId);
     return employee ? employee.name : "Employé inconnu";
   };
 
-  // Le registre était en lecture seule et sans données : aucune sanction ne
-  // pouvait être saisie. Les lignes sont désormais enregistrées en base.
-  const registre = useRegistre<LigneSanction>("sanction", CHAMPS_FICHIERS);
-
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [enCoursDeModification, setEnCoursDeModification] =
-    useState<MiseAPiedRow | null>(null);
-  const [aConsulter, setAConsulter] = useState<MiseAPiedRow | null>(null);
-  const [formData, setFormData] = useState(formulaireVide);
-
-  const miseAPiedRows = useMemo<MiseAPiedRow[]>(
-    () =>
-      registre.lignes
-        .map((ligne) => ({
-          id: ligne.id,
-          employeeId: ligne.employeeId ?? "",
-          employeeName: getEmployeeName(ligne.employeeId ?? ""),
-          date: ligne.date ? new Date(ligne.date) : EPOQUE,
-          type: ligne.type ?? "",
-          reason: ligne.reason ?? "",
-          description: ligne.description ?? "",
-          issuedBy: ligne.issuedBy ?? "",
-          severity: ligne.severity ?? "minor",
-        }))
-        .sort((a, b) => b.date.getTime() - a.date.getTime()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [registre.lignes, mockEmployees],
+  // Le registre n'est plus saisi : il reprend automatiquement les sanctions
+  // et les procédures disciplinaires enregistrées (mêmes lignes que celles
+  // écrites par les écrans de création), plus l'ancienne saisie directe.
+  const sanctions = useRegistre<LigneSanction>(
+    "avertissement",
+    CHAMPS_FICHIERS_SANCTION,
+  );
+  const procedures = useRegistre<LigneProcedure>(
+    "procedure_disciplinaire",
+    CHAMPS_FICHIERS_PROCEDURE,
+  );
+  const anciennes = useRegistre<LigneSanctionManuelle>(
+    "sanction",
+    CHAMPS_FICHIERS_SANCTION,
   );
 
-  const handleCreate = () => {
-    setEnCoursDeModification(null);
-    setFormData(formulaireVide);
-    setIsFormOpen(true);
-  };
+  const [aConsulter, setAConsulter] = useState<LigneRegistreSanction | null>(
+    null,
+  );
 
-  const handleEdit = (row: MiseAPiedRow) => {
-    setEnCoursDeModification(row);
-    setFormData({
-      employeeId: row.employeeId,
-      date: row.date.toISOString().split("T")[0],
-      type: row.type,
-      reason: row.reason,
-      description: row.description,
-      issuedBy: row.issuedBy,
-      severity: row.severity,
+  const lignes = useMemo<LigneRegistreSanction[]>(() => {
+    const nom = (id: string | undefined) =>
+      employees.find((e) => e.id === id)?.name ?? "Employé inconnu";
+
+    const desSanctions = sanctions.lignes.map<LigneRegistreSanction>((l) => ({
+      cle: `sanction-${l.id}`,
+      id: l.id,
+      origine: "sanction",
+      employeeId: l.employeeId ?? "",
+      employeeName: nom(l.employeeId),
+      date: l.date ?? "",
+      type: l.type || TYPE_SANCTION_PAR_DEFAUT,
+      reason: l.reason ?? "",
+      description: l.description ?? "",
+      issuedBy: l.issuedBy ?? "",
+      statut: STATUTS_SANCTION[l.status ?? "active"] ?? "",
+    }));
+
+    const desProcedures = procedures.lignes.map<LigneRegistreSanction>((l) => {
+      const etapes = l.steps ?? [];
+      const etapeCourante = etapes[(l.currentStep ?? 1) - 1];
+      return {
+        cle: `procedure-${l.id}`,
+        id: l.id,
+        origine: "procedure",
+        employeeId: l.employeeId ?? "",
+        employeeName: nom(l.employeeId),
+        date: l.startDate ?? "",
+        type: l.sanctionType || "Procédure disciplinaire",
+        reason: l.reason ?? "",
+        description: etapeCourante
+          ? `Étape ${l.currentStep} sur ${etapes.length} : ${etapeCourante.title}`
+          : "",
+        issuedBy: l.issuedBy ?? "",
+        statut: STATUTS_PROCEDURE[l.status ?? "ongoing"] ?? "",
+      };
     });
-    setIsFormOpen(true);
-  };
 
-  const handleDelete = (row: MiseAPiedRow) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cette sanction ?")) {
-      void registre.supprimerLigne(row.id);
+    const desAnciennes = anciennes.lignes.map<LigneRegistreSanction>((l) => ({
+      cle: `saisie-${l.id}`,
+      id: l.id,
+      origine: "saisie",
+      employeeId: l.employeeId ?? "",
+      employeeName: nom(l.employeeId),
+      date: l.date ?? "",
+      type: l.type ?? "",
+      reason: l.reason ?? "",
+      description: l.description ?? "",
+      issuedBy: l.issuedBy ?? "",
+      statut: "",
+    }));
+
+    return [...desSanctions, ...desProcedures, ...desAnciennes].sort(
+      (a, b) => horodatage(b.date) - horodatage(a.date),
+    );
+  }, [sanctions.lignes, procedures.lignes, anciennes.lignes, employees]);
+
+  const enChargement =
+    sanctions.isLoading || procedures.isLoading || anciennes.isLoading;
+
+  const suppressionAncienne = (ligne: LigneRegistreSanction) => {
+    if (
+      confirm(
+        "Supprimer cette ancienne saisie du registre ? Les sanctions et procédures ne sont pas concernées.",
+      )
+    ) {
+      void anciennes.supprimerLigne(ligne.id);
     }
   };
 
-  const handleSave = async () => {
-    await registre.enregistrer(
-      {
-        id: enCoursDeModification?.id ?? "",
-        employeeId: formData.employeeId,
-        date: formData.date,
-        type: formData.type,
-        reason: formData.reason,
-        description: formData.description,
-        issuedBy: formData.issuedBy,
-        severity: formData.severity,
-      },
-      {
-        period: (formData.date || new Date().toISOString()).slice(0, 7),
-        label: `${formData.type} — ${getEmployeeName(formData.employeeId)}`,
-        status: formData.severity,
-      },
-    );
-    setIsFormOpen(false);
-  };
+  const nomFichier = () =>
+    `registre-des-sanctions-${new Date().toISOString().slice(0, 10)}`;
 
-  const isFormValid = Boolean(
-    formData.employeeId && formData.date && formData.reason.trim(),
-  );
+  const exporterEnPdf = () =>
+    exporterPdf(nomFichier(), COLONNES_EXPORT, lignes, {
+      titre: "Registre des sanctions",
+      orientation: "landscape",
+    });
 
-  const handleExportSinglePDF = (row: MiseAPiedRow) => {
+  const exporterEnExcel = () =>
+    exporterCsvExcel(nomFichier(), COLONNES_EXPORT, lignes);
+
+  const exporterLignePdf = async (ligne: LigneRegistreSanction) => {
+    const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
-    doc.text("Mise à pied", 20, 20);
-    doc.text(`Employé: ${row.employeeName}`, 20, 40);
-    doc.text(`Date: ${row.date.toLocaleDateString("fr-FR")}`, 20, 50);
-    doc.text(`Type: ${row.type}`, 20, 60);
-    doc.text(`Raison: ${row.reason}`, 20, 70);
-    doc.text(`Description: ${row.description}`, 20, 80);
-    doc.text(`Émis par: ${row.issuedBy}`, 20, 90);
-    doc.text(`Sévérité: ${severityLabels[row.severity]}`, 20, 100);
-    doc.save(`mise-a-pied-${row.id}.pdf`);
+    doc.setFontSize(16);
+    doc.text("Sanction disciplinaire", 20, 20);
+    doc.setFontSize(11);
+    let y = 36;
+    const champs: [string, string][] = [
+      ["Employé", ligne.employeeName],
+      ["Date", dateFr(ligne.date)],
+      ["Origine", ORIGINES[ligne.origine]],
+      ["Type de sanction", ligne.type],
+      ["Motif", ligne.reason],
+      ["Émis par", ligne.issuedBy],
+      ["Statut", ligne.statut],
+      ["Description", ligne.description],
+    ];
+    for (const [libelle, valeur] of champs) {
+      const texte = doc.splitTextToSize(`${libelle} : ${valeur || "—"}`, 170);
+      doc.text(texte, 20, y);
+      y += texte.length * 6 + 3;
+    }
+    doc.save(`sanction-${ligne.id}.pdf`);
   };
 
-  const columns: ColumnDef<MiseAPiedRow>[] = [
+  const columns: ColumnDef<LigneRegistreSanction>[] = [
     {
       key: "employeeName",
       label: "Employé",
-      render: (row: MiseAPiedRow) => (
+      render: (ligne) => (
         <div className="font-medium">
           <Link
-            href={`/dashboard/hr/employees/${row.employeeId}`}
+            href={`/dashboard/hr/employees/${ligne.employeeId}`}
             className="text-primary hover:underline"
           >
-            {row.employeeName}
+            {ligne.employeeName}
           </Link>
         </div>
       ),
@@ -203,55 +224,54 @@ export function SanctionsSection() {
     {
       key: "date",
       label: "Date",
-      render: (row: MiseAPiedRow) => row.date.toLocaleDateString("fr-FR"),
+      render: (ligne) => dateFr(ligne.date),
     },
     {
-      key: "type",
-      label: "Type",
-      render: (row: MiseAPiedRow) => row.type,
-    },
-    {
-      key: "reason",
-      label: "Raison",
-      render: (row: MiseAPiedRow) => row.reason,
-    },
-    {
-      key: "description",
-      label: "Description",
-      render: (row: MiseAPiedRow) => (
-        <div className="max-w-xs truncate" title={row.description}>
-          {row.description}
-        </div>
-      ),
-    },
-    {
-      key: "issuedBy",
-      label: "Émis par",
-      render: (row: MiseAPiedRow) => row.issuedBy,
-    },
-    {
-      key: "severity",
-      label: "Sévérité",
-      render: (row: MiseAPiedRow) => (
-        <Badge variant={severityColors[row.severity]}>
-          {severityLabels[row.severity]}
+      key: "origine",
+      label: "Origine",
+      render: (ligne) => (
+        <Badge variant={ligne.origine === "procedure" ? "default" : "outline"}>
+          {ORIGINES[ligne.origine]}
         </Badge>
       ),
     },
     {
+      key: "type",
+      label: "Type de sanction",
+      render: (ligne) => ligne.type,
+    },
+    {
+      key: "reason",
+      label: "Motif",
+      render: (ligne) => ligne.reason,
+    },
+    {
+      key: "issuedBy",
+      label: "Émis par",
+      render: (ligne) => ligne.issuedBy,
+    },
+    {
+      key: "statut",
+      label: "Statut",
+      render: (ligne) => ligne.statut,
+    },
+    {
       key: "actions",
       label: "Actions",
-      render: (row: MiseAPiedRow) => (
+      render: (ligne) => (
         <RowActionsMenu
-          onView={() => setAConsulter(row)}
-          onEdit={() => handleEdit(row)}
-          onDelete={() => handleDelete(row)}
+          onView={() => setAConsulter(ligne)}
+          onDelete={
+            ligne.origine === "saisie"
+              ? () => suppressionAncienne(ligne)
+              : undefined
+          }
           extraItems={[
             {
               label: "Exporter en PDF",
               icon: Download,
               tone: "download" as const,
-              onClick: () => handleExportSinglePDF(row),
+              onClick: () => void exporterLignePdf(ligne),
             },
           ]}
         />
@@ -264,166 +284,48 @@ export function SanctionsSection() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Registre des mises à pied
+            Registre des sanctions
           </h1>
           <p className="text-muted-foreground">
-            Historique des mises à pied par employé
+            Alimenté automatiquement par les sanctions et les procédures
+            disciplinaires enregistrées
           </p>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvelle sanction
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void exporterEnPdf()}
+            disabled={lignes.length === 0}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Exporter PDF
+          </Button>
+          <Button
+            variant="outline"
+            onClick={exporterEnExcel}
+            disabled={lignes.length === 0}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Exporter Excel
+          </Button>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            Registre des mises à pied ({miseAPiedRows.length} mises à pied)
-          </CardTitle>
+          <CardTitle>Registre des sanctions ({lignes.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
-            data={miseAPiedRows}
-            isLoading={registre.isLoading}
+            data={lignes}
+            isLoading={enChargement}
             columns={columns}
+            getRowId={(l) => l.cle}
             searchKeys={["employeeName", "type", "reason"]}
-            searchPlaceholder="Rechercher une mise à pied..."
+            searchPlaceholder="Rechercher une sanction..."
           />
         </CardContent>
       </Card>
-
-      <Modal
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        type="form"
-        size="lg"
-        title={
-          enCoursDeModification ? "Modifier la sanction" : "Nouvelle sanction"
-        }
-        description="Renseignez les informations de la sanction disciplinaire."
-        actions={{
-          secondary: {
-            label: "Annuler",
-            onClick: () => setIsFormOpen(false),
-            variant: "outline",
-          },
-          primary: {
-            label: enCoursDeModification ? "Enregistrer" : "Créer",
-            onClick: () => void handleSave(),
-            disabled: !isFormValid,
-          },
-        }}
-      >
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="employeeId">Employé *</Label>
-              <Combobox
-                options={employeeOptions}
-                value={formData.employeeId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, employeeId: value })
-                }
-                placeholder="Sélectionner un employé"
-                searchPlaceholder="Rechercher un employé..."
-                emptyMessage="Aucun employé trouvé."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="date">Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="type">Type de sanction</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, type: value })
-                }
-              >
-                <SelectTrigger id="type">
-                  <SelectValue placeholder="Choisir un type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TYPES_SANCTION.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="severity">Sévérité</Label>
-              <Select
-                value={formData.severity}
-                onValueChange={(value: "minor" | "major" | "severe") =>
-                  setFormData({ ...formData, severity: value })
-                }
-              >
-                <SelectTrigger id="severity">
-                  <SelectValue placeholder="Choisir une sévérité" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="minor">Mineure</SelectItem>
-                  <SelectItem value="major">Majeure</SelectItem>
-                  <SelectItem value="severe">Grave</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="reason">Motif *</Label>
-              <Input
-                id="reason"
-                value={formData.reason}
-                onChange={(e) =>
-                  setFormData({ ...formData, reason: e.target.value })
-                }
-                placeholder="Ex : abandon de poste"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="issuedBy">Émis par</Label>
-              <Input
-                id="issuedBy"
-                value={formData.issuedBy}
-                onChange={(e) =>
-                  setFormData({ ...formData, issuedBy: e.target.value })
-                }
-                placeholder="Nom du responsable"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              placeholder="Circonstances et faits reprochés"
-              rows={4}
-            />
-          </div>
-        </div>
-      </Modal>
 
       <Modal
         open={!!aConsulter}
@@ -436,23 +338,28 @@ export function SanctionsSection() {
           <div className="space-y-3 text-sm">
             <p>
               <span className="text-muted-foreground">Employé : </span>
-              {aConsulter.employeeName}
+              {aConsulter.employeeName ||
+                getEmployeeName(aConsulter.employeeId)}
             </p>
             <p>
               <span className="text-muted-foreground">Date : </span>
-              {aConsulter.date.toLocaleDateString("fr-FR")}
+              {dateFr(aConsulter.date) || "—"}
             </p>
             <p>
-              <span className="text-muted-foreground">Type : </span>
-              {aConsulter.type}
+              <span className="text-muted-foreground">Origine : </span>
+              {ORIGINES[aConsulter.origine]}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Type de sanction : </span>
+              {aConsulter.type || "—"}
             </p>
             <p>
               <span className="text-muted-foreground">Motif : </span>
-              {aConsulter.reason}
+              {aConsulter.reason || "—"}
             </p>
             <p>
-              <span className="text-muted-foreground">Sévérité : </span>
-              {severityLabels[aConsulter.severity]}
+              <span className="text-muted-foreground">Statut : </span>
+              {aConsulter.statut || "—"}
             </p>
             <p>
               <span className="text-muted-foreground">Émis par : </span>

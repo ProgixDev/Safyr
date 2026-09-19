@@ -21,6 +21,8 @@ export const FiscalRecordTypeSchema = z.enum([
   "avertissement",
   "procedure_disciplinaire",
   "sanction",
+  "responsable_disciplinaire",
+  "sortie_salarie",
   // Registres RH, formation, paie et exploitation
   "cdd",
   "contrat_rh",
@@ -52,6 +54,21 @@ export const FiscalRecordTypeSchema = z.enum([
   "client_crm",
   "client_contrat",
   "client_cadeau",
+  "appel_offre",
+  "appel_offre_document",
+  // Santé & formation : visites de médecine du travail
+  "visite_medicale",
+  // Temps & activités : sans ces valeurs le serveur refusait chaque
+  // création (400) et renvoyait TOUS les registres à la lecture.
+  "conge",
+  "solde_conges",
+  "absence",
+  "cse_role",
+  "seance_cse",
+  // Épargne salariale (PEE, PERECO) : versements enregistrés sur la fiche salarié
+  "epargne",
+  // Paramètres annuels des primes (montant du panier, taux d'habillage…).
+  "parametre_paie",
 ]);
 
 export const CreateFiscalRecordSchema = z.object({

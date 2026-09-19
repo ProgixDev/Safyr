@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { sendCommunicationEmail } from "@safyr/api-client";
+import { ApiError, sendCommunicationEmail } from "@safyr/api-client";
 import { cn } from "@/lib/utils";
 import { useRegistre, useUpdateFiscalRecord } from "@/hooks/fiscal";
+import { useOrganization } from "@/hooks/organization";
+import { useMailboxStatus } from "@/hooks/mailbox";
 import { downloadStoredFile, type StoredFile } from "@/lib/document-files";
 import {
   Card,
@@ -45,7 +47,31 @@ import {
   Landmark,
   CheckCircle2,
   Clock,
+  Archive,
 } from "lucide-react";
+
+const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Message affiché quand l'envoi d'un e-mail échoue. Le serveur renvoie déjà un
+ * texte français explicite (service non configuré, adresse refusée…) ; seuls
+ * les échecs réseau, qui n'ont pas de réponse du serveur, sont traduits ici.
+ */
+function messageErreurEnvoi(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.code === "TIMEOUT") {
+      return "Le serveur met trop de temps à répondre. Réessayez dans un instant.";
+    }
+    if (e.code === "NETWORK_ERROR") {
+      return "Impossible de joindre le serveur. Vérifiez votre connexion internet.";
+    }
+    if (e.code === "INTERNAL_ERROR" || e.code === "HTTP_ERROR") {
+      return "L'envoi d'e-mail a échoué côté serveur. Réessayez ou contactez le support.";
+    }
+    return e.message;
+  }
+  return e instanceof Error ? e.message : "Erreur inconnue.";
+}
 
 /** Ouvre la pièce réellement déposée ; explique si la ligne n'en a pas. */
 function ouvrirPiece(piece: StoredFile | null | undefined, libelle: string) {
@@ -92,7 +118,7 @@ interface Courrier {
   date: string;
   expediteur: string;
   destinataire: string;
-  statut: "lu" | "non_lu" | "traite" | "en_cours";
+  statut: "lu" | "non_lu" | "traite" | "en_cours" | "archive";
   pieceJointe: string | null;
   /** Adresse email utilisée pour l'envoi réel, le cas échéant (courriers sortants). */
   emailDestinataire?: string;
@@ -233,6 +259,15 @@ export default function DiversDocumentsPage() {
   // n'a pas ce problème.
   const renommerDocument = useUpdateFiscalRecord();
 
+  // Adresse du compte : c'est elle qui sert d'adresse d'envoi affichée (les
+  // réponses arrivent dessus, voir CommunicationController côté serveur).
+  const { data: organisation } = useOrganization();
+  // Si la société a connecté sa boîte mail, c'est elle qui envoie (et reçoit
+  // les réponses) : on l'affiche à la place de l'adresse de la fiche.
+  const { data: boiteMail } = useMailboxStatus();
+  const emailBoite = boiteMail?.connected ? (boiteMail.email ?? "") : "";
+  const emailCompte = emailBoite || (organisation?.email?.trim() ?? "");
+
   const organismes = registreOrganismes.lignes;
   const documents = registreDocuments.lignes;
   const courriers = registreCourriers.lignes;
@@ -254,6 +289,9 @@ export default function DiversDocumentsPage() {
     string | null
   >(null);
   const [envoiCourrierEnCours, setEnvoiCourrierEnCours] = useState(false);
+  const [erreurEnvoiCourrier, setErreurEnvoiCourrier] = useState<string | null>(
+    null,
+  );
   const [newCourrier, setNewCourrier] = useState({
     objet: "",
     type: "recu" as "recu" | "envoye",
@@ -330,6 +368,9 @@ export default function DiversDocumentsPage() {
       case "lu":
       case "traite":
         return "bg-green-500";
+      // Archivé = bleu, distinct de « Traité » (vert).
+      case "archive":
+        return "bg-blue-500";
       case "en_cours":
         return "bg-orange-500";
       case "non_lu":
@@ -353,6 +394,8 @@ export default function DiversDocumentsPage() {
         return "En cours";
       case "en_attente":
         return "En attente";
+      case "archive":
+        return "Archivé";
       default:
         return "Inconnu";
     }
@@ -454,23 +497,35 @@ export default function DiversDocumentsPage() {
    */
   const handleCreerCourrier = async () => {
     if (!selectedOrganisme || !newCourrier.objet) return;
+    setErreurEnvoiCourrier(null);
+    const emailSaisi = newCourrier.emailDestinataire.trim();
+    const envoyer = newCourrier.type === "envoye" && emailSaisi !== "";
+    if (envoyer && !EMAIL_VALIDE.test(emailSaisi)) {
+      setErreurEnvoiCourrier(
+        "L'adresse e-mail du destinataire n'est pas valide (exemple : contact@organisme.fr).",
+      );
+      return;
+    }
     setEnvoiCourrierEnCours(true);
     try {
       let statutInitial: CourrierEnregistre["statut"] = "non_lu";
-      if (newCourrier.type === "envoye" && newCourrier.emailDestinataire) {
+      if (envoyer) {
         try {
           await sendCommunicationEmail({
-            recipients: [newCourrier.emailDestinataire],
+            recipients: [emailSaisi],
             subject: newCourrier.objet,
             body: newCourrier.message || newCourrier.objet,
           });
           statutInitial = "traite";
         } catch (e) {
-          alert(
-            `Le courrier a été enregistré mais l'email n'a pas pu être envoyé : ${
-              e instanceof Error ? e.message : "erreur inconnue"
-            }`,
+          // On reste dans le formulaire : rien n'est enregistré comme
+          // « envoyé » alors que le message n'est pas parti, et l'utilisateur
+          // peut corriger l'adresse, réessayer, ou vider le champ e-mail pour
+          // n'archiver que le courrier.
+          setErreurEnvoiCourrier(
+            `L'e-mail n'a pas pu être envoyé. ${messageErreurEnvoi(e)}`,
           );
+          return;
         }
       }
       const ligne: CourrierEnregistre = {
@@ -479,9 +534,14 @@ export default function DiversDocumentsPage() {
         objet: newCourrier.objet,
         type: newCourrier.type,
         date: newCourrier.date,
-        expediteur: newCourrier.expediteur,
+        // Courrier sortant : l'expéditeur par défaut est l'adresse du compte.
+        expediteur:
+          newCourrier.expediteur ||
+          (newCourrier.type === "envoye"
+            ? emailCompte || (organisation?.name ?? "")
+            : ""),
         destinataire: newCourrier.destinataire,
-        emailDestinataire: newCourrier.emailDestinataire || undefined,
+        emailDestinataire: emailSaisi || undefined,
         message: newCourrier.message || undefined,
         documentId: documentPourCourrier ?? undefined,
         statut: statutInitial,
@@ -960,6 +1020,20 @@ export default function DiversDocumentsPage() {
                                 ),
                             },
                             {
+                              label: "Archiver",
+                              icon: Archive,
+                              tone: "upload" as const,
+                              onClick: () =>
+                                void registreCourriers.enregistrer(
+                                  { ...courrier, statut: "archive" },
+                                  {
+                                    period: (courrier.date ?? "").slice(0, 4),
+                                    label: courrier.objet,
+                                    status: "archive",
+                                  },
+                                ),
+                            },
+                            {
                               label: "Marquer comme traité",
                               icon: CheckCircle2,
                               tone: "validate" as const,
@@ -1145,6 +1219,7 @@ export default function DiversDocumentsPage() {
         open={isAddingCourrier}
         onOpenChange={(o) => {
           setIsAddingCourrier(o);
+          setErreurEnvoiCourrier(null);
           if (!o) setDocumentPourCourrier(null);
         }}
         type="form"
@@ -1158,7 +1233,10 @@ export default function DiversDocumentsPage() {
           },
           secondary: {
             label: "Annuler",
-            onClick: () => setIsAddingCourrier(false),
+            onClick: () => {
+              setIsAddingCourrier(false);
+              setErreurEnvoiCourrier(null);
+            },
             variant: "outline" as const,
           },
         }}
@@ -1236,6 +1314,28 @@ export default function DiversDocumentsPage() {
           {newCourrier.type === "envoye" && (
             <>
               <div>
+                <Label>De (adresse d&apos;envoi)</Label>
+                <p className="rounded-md border px-3 py-2 text-sm">
+                  {emailCompte ? (
+                    <>
+                      {organisation?.name ? `${organisation.name} — ` : ""}
+                      {emailCompte}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Aucune adresse e-mail renseignée
+                    </span>
+                  )}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {emailBoite
+                    ? "Le courrier part de la boîte mail connectée de votre société ; les réponses y arriveront. Elle se gère dans « Mon entreprise »."
+                    : emailCompte
+                      ? "Les réponses du destinataire arriveront sur l'adresse de votre compte. Elle se modifie dans « Mon entreprise »."
+                      : "Renseignez l'e-mail de l'entreprise dans « Mon entreprise » pour recevoir les réponses à ce courrier."}
+                </p>
+              </div>
+              <div>
                 <Label htmlFor="courrier-email">
                   Email du destinataire (optionnel — envoie réellement le
                   courrier)
@@ -1269,6 +1369,14 @@ export default function DiversDocumentsPage() {
                 />
               </div>
             </>
+          )}
+          {erreurEnvoiCourrier && (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {erreurEnvoiCourrier}
+            </p>
           )}
         </div>
       </Modal>

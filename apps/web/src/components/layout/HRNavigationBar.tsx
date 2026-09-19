@@ -18,17 +18,18 @@ const navItems: NavItem[] = [
   {
     label: "Entreprise",
     icon: Building2,
+    // Ordre et libellés demandés par le client (remarque du 14/09/2026).
     children: [
       { label: "Mon entreprise", href: "/dashboard/hr/entreprise" },
-      { label: "Sites & Postes", href: "/dashboard/hr/sites" },
       { label: "Clients", href: "/dashboard/hr/entreprise/clients" },
       {
         label: "Sous-traitants",
         href: "/dashboard/hr/entreprise/sous-traitants",
       },
-      { label: "Impôts (SIE)", href: "/dashboard/hr/entreprise/impot-sie" },
+      { label: "Sites & Postes", href: "/dashboard/hr/sites" },
+      { label: "Impôts", href: "/dashboard/hr/entreprise/impot-sie" },
       {
-        label: "Divers documents",
+        label: "Divers organismes",
         href: "/dashboard/hr/entreprise/divers-documents",
       },
       { label: "Alertes", href: "/dashboard/hr/entreprise/alertes" },
@@ -82,21 +83,27 @@ const navItems: NavItem[] = [
     shortLabel: "Temps",
     icon: Calendar,
     children: [
+      // Ordre et libellés demandés par le client (remarque du 14/09/2026) :
+      // « absences » et « congés » sont deux écrans distincts.
       {
-        label: "Relevé des Heures & Sup.",
+        label: "Relevé des Heures",
         href: "/dashboard/hr/time-activity/worked-hours",
       },
       {
         // Fusionne l'ancien menu "Compteur Heures Sup." (onglet "Vue globale").
-        label: "Suivi Compteur Heures Sup.",
+        label: "Suivi Heures Sup",
         href: "/dashboard/hr/time-activity/track-overtime-counter",
       },
       {
-        label: "Gestion des Absences & Congés",
+        label: "Gestion des absences",
         href: "/dashboard/hr/time-activity/absences",
       },
       {
-        label: "Heures de délégation (CSE)",
+        label: "Gestion des Congés",
+        href: "/dashboard/hr/time-activity/conges",
+      },
+      {
+        label: "Heures Délégation CSE",
         href: "/dashboard/hr/time-activity/cse-hours",
       },
     ],

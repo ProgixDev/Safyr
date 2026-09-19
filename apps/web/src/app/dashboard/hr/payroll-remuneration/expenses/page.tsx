@@ -20,21 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Plus,
   CheckCircle,
   XCircle,
-  MoreVertical,
   Euro,
   Clock,
   FileText,
-  Eye,
-  Pencil,
   Trash2,
   Send,
   Receipt,
@@ -47,9 +38,6 @@ import {
   useDeleteExpenseReport,
 } from "@/hooks/payroll";
 import type { ExpenseItem as ApiExpenseItem } from "@safyr/api-client";
-
-// Mock data - replace with API call
-const mockExpenseReports: ExpenseReport[] = [];
 
 const statusLabels = {
   draft: "Brouillon",
@@ -76,10 +64,15 @@ const categoryLabels = {
   other: "Autre",
 };
 
+// Article du formulaire : `originalId` relie une ligne à celle de la note
+// modifiée, pour conserver son statut et ses notes d'approbation.
+type FormItem = Omit<ExpenseItem, "id" | "status"> & { originalId?: string };
+
 type TableItem = ExpenseItem & {
   index: number;
   reportId: string;
   employeeId: string;
+  employeeName: string;
   reportTitle: string;
   reportStatus: string;
   approvalNotes?: string;
@@ -91,7 +84,7 @@ type TableItem = ExpenseItem & {
 };
 
 export default function ExpenseReportsPage() {
-  const mockEmployees = useEmployeeOptions();
+  const salaries = useEmployeeOptions();
   const { data: rawExpenses = [] } = useExpenseReports();
   const createExpenseMutation = useCreateExpenseReport();
   const updateExpenseMutation = useUpdateAnyExpenseReport();
@@ -139,9 +132,13 @@ export default function ExpenseReportsPage() {
   >(null);
   const [groupBy, setGroupBy] = useState<string | undefined>(undefined);
   const [formData, setFormData] = useState({
-    employeeId: "1", // Current user - in real app, get from auth
-    items: [] as Omit<ExpenseItem, "id" | "status">[],
+    employeeId: "",
+    items: [] as FormItem[],
   });
+  // Note dont la suppression attend une confirmation.
+  const [reportToDelete, setReportToDelete] = useState<ExpenseReport | null>(
+    null,
+  );
 
   // Approval notes state
   const [approvalNotes, setApprovalNotes] = useState("");
@@ -154,6 +151,9 @@ export default function ExpenseReportsPage() {
       index: reportIndex * 1000 + itemIndex, // Unique index across reports
       reportId: report.id,
       employeeId: report.employeeId,
+      employeeName:
+        salaries.find((e) => e.id === report.employeeId)?.name ??
+        "Salarié inconnu",
       reportTitle: report.title,
       reportStatus: report.status,
     })),
@@ -162,7 +162,7 @@ export default function ExpenseReportsPage() {
   const handleCreate = () => {
     setEditingExpense(null);
     setFormData({
-      employeeId: "1", // Default employee ID
+      employeeId: "",
       items: [
         {
           category: "fuel",
@@ -185,6 +185,7 @@ export default function ExpenseReportsPage() {
     setFormData({
       employeeId: expense.employeeId,
       items: expense.items.map((item) => ({
+        originalId: item.id,
         category: item.category,
         description: item.description,
         amount: item.amount,
@@ -200,18 +201,6 @@ export default function ExpenseReportsPage() {
     if (report) {
       handleEdit(report);
     }
-  };
-
-  const handleDeleteItem = (itemId: string, reportId: string) => {
-    const report = expenses.find((r) => r.id === reportId);
-    if (!report) return;
-    const remaining = report.items.filter((item) => item.id !== itemId);
-    if (remaining.length === 0) {
-      // Plus aucune ligne → supprimer la note de frais entière.
-      deleteExpenseMutation.mutate(reportId);
-      return;
-    }
-    persistReportItems(reportId, remaining);
   };
 
   const handleAccept = (itemId: string, reportId: string, notes?: string) => {
@@ -260,7 +249,64 @@ export default function ExpenseReportsPage() {
     }
   };
 
+  // Supprime la note entière (toutes ses lignes) après confirmation.
+  const confirmDeleteReport = async () => {
+    if (!reportToDelete) return;
+    try {
+      await deleteExpenseMutation.mutateAsync(reportToDelete.id);
+      setReportToDelete(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de la suppression de la note de frais : ${message}`);
+    }
+  };
+
+  // Décision groupée : les articles d'une même note sont regroupés pour n'écrire
+  // qu'une fois, sinon chaque écriture repartirait de la note d'origine et la
+  // dernière écraserait les autres.
+  const applyBulk = (kind: "accept" | "refuse" | "delete", notes: string) => {
+    const parNote = new Map<string, Set<string>>();
+    for (const item of selectedItems) {
+      if (kind !== "delete" && item.status !== "submitted") continue;
+      const ids = parNote.get(item.reportId) ?? new Set<string>();
+      ids.add(String(item.id));
+      parNote.set(item.reportId, ids);
+    }
+    parNote.forEach((ids, reportId) => {
+      const report = expenses.find((r) => r.id === reportId);
+      if (!report) return;
+      if (kind === "delete") {
+        const remaining = report.items.filter((i) => !ids.has(String(i.id)));
+        if (remaining.length === 0) deleteExpenseMutation.mutate(reportId);
+        else persistReportItems(reportId, remaining);
+        return;
+      }
+      const items = report.items.map((i) => {
+        if (!ids.has(String(i.id))) return i;
+        return kind === "accept"
+          ? {
+              ...i,
+              status: "approved" as const,
+              approvalNotes: notes || undefined,
+              approvedAt: new Date(),
+              approvedBy: "Alice Dubois",
+            }
+          : {
+              ...i,
+              status: "rejected" as const,
+              rejectionNotes: notes || undefined,
+              rejectedAt: new Date(),
+              rejectedBy: "Alice Dubois",
+            };
+      });
+      persistReportItems(reportId, items as unknown as ExpenseItem[]);
+    });
+  };
+
   const handleSave = async (asDraft = false) => {
+    if (!formData.employeeId) return;
+
     const totalAmount = formData.items.reduce(
       (sum, item) => sum + Number(item.amount),
       0,
@@ -269,23 +315,76 @@ export default function ExpenseReportsPage() {
     const toIso = (d: unknown): string =>
       d instanceof Date ? d.toISOString() : String(d ?? "");
 
-    const items: ApiExpenseItem[] = formData.items.map((item, index) => ({
-      id: (index + 1).toString(),
-      category: item.category,
-      description: item.description ?? "",
-      amount: Number(item.amount),
-      date: toIso(item.date),
-      notes: item.notes,
-      status: asDraft ? ("draft" as const) : ("submitted" as const),
-    }));
+    const items: ApiExpenseItem[] = formData.items.map((item, index) => {
+      const saisie = {
+        category: item.category,
+        description: item.description ?? "",
+        amount: Number(item.amount),
+        date: toIso(item.date),
+        notes: item.notes,
+      };
+      const original = editingExpense?.items.find(
+        (o) => o.id === item.originalId,
+      );
+      if (!original) {
+        return {
+          ...saisie,
+          id: editingExpense
+            ? `${Date.now()}-${index}`
+            : (index + 1).toString(),
+          status: asDraft ? ("draft" as const) : ("submitted" as const),
+        };
+      }
+      // Ligne existante : on garde son identifiant, son statut et ses notes.
+      // Une ligne déjà tranchée dont le fond change repart en validation.
+      const fondModifie =
+        original.category !== saisie.category ||
+        original.description !== saisie.description ||
+        Number(original.amount) !== saisie.amount;
+      const tranchee =
+        original.status === "approved" || original.status === "rejected";
+      const status =
+        original.status === "draft" && !asDraft
+          ? ("submitted" as const)
+          : tranchee && fondModifie
+            ? ("submitted" as const)
+            : original.status;
+      const reste = { ...(original as unknown as Record<string, unknown>) };
+      if (tranchee && fondModifie) {
+        for (const cle of [
+          "approvalNotes",
+          "approvedAt",
+          "approvedBy",
+          "rejectionNotes",
+          "rejectedAt",
+          "rejectedBy",
+        ]) {
+          delete reste[cle];
+        }
+      }
+      return { ...reste, ...saisie, id: original.id, status };
+    });
+
+    const statuts = new Set(items.map((i) => i.status));
+    const statutNote = !editingExpense
+      ? asDraft
+        ? ("draft" as const)
+        : ("submitted" as const)
+      : statuts.has("submitted")
+        ? ("submitted" as const)
+        : statuts.size === 1 && statuts.has("draft")
+          ? ("draft" as const)
+          : editingExpense.status;
 
     const expenseData = {
       employeeId: formData.employeeId,
-      title: `Note de frais du ${new Date().toLocaleDateString("fr-FR")}`,
+      title:
+        editingExpense?.title ??
+        `Note de frais du ${new Date().toLocaleDateString("fr-FR")}`,
       items,
       totalAmount,
-      status: asDraft ? ("draft" as const) : ("submitted" as const),
-      exportedToPayroll: false,
+      status: statutNote,
+      exportedToPayroll: editingExpense?.exportedToPayroll ?? false,
     };
 
     try {
@@ -344,13 +443,15 @@ export default function ExpenseReportsPage() {
     {
       key: "employee",
       label: "Employé",
+      sortable: true,
+      sortValue: (item: TableItem) => item.employeeName,
       render: (item: TableItem) => {
-        const employee = mockEmployees.find((e) => e.id === item.employeeId);
+        const employee = salaries.find((e) => e.id === item.employeeId);
         return (
           <div>
-            <div className="font-medium">{employee?.name || "N/A"}</div>
+            <div className="font-medium">{item.employeeName}</div>
             <div className="text-sm text-muted-foreground">
-              {item.employeeId}
+              {employee?.matricule || employee?.position || ""}
             </div>
           </div>
         );
@@ -407,7 +508,10 @@ export default function ExpenseReportsPage() {
           onView={() => handleViewItem(item)}
           onEdit={() => handleEditReport(item.reportId)}
           editLabel="Modifier la note"
-          onDelete={() => handleDeleteItem(item.id, item.reportId)}
+          onDelete={() => {
+            const report = expenses.find((r) => r.id === item.reportId);
+            if (report) setReportToDelete(report);
+          }}
           deleteLabel="Supprimer la note"
         />
       ),
@@ -539,8 +643,11 @@ export default function ExpenseReportsPage() {
             getRowId={(item) => item.index.toString()}
             selectable={true}
             onSelectionChange={setSelectedItems}
-            searchKeys={["description", "reportTitle"]}
-            searchPlaceholder="Rechercher une dépense..."
+            searchKeys={["description", "reportTitle", "employeeName"]}
+            getSearchValue={(item) =>
+              `${item.description} ${item.reportTitle} ${item.employeeName}`
+            }
+            searchPlaceholder="Rechercher une dépense ou un salarié..."
             filters={[
               {
                 key: "status",
@@ -572,8 +679,8 @@ export default function ExpenseReportsPage() {
             groupByLabel={(value) => {
               const strValue = String(value);
               if (groupBy === "employeeId") {
-                const employee = mockEmployees.find((e) => e.id === strValue);
-                return employee?.name || strValue;
+                const employee = salaries.find((e) => e.id === strValue);
+                return employee?.name || "Salarié inconnu";
               }
               if (groupBy === "category") {
                 return (
@@ -605,14 +712,16 @@ export default function ExpenseReportsPage() {
         size="xl"
         actions={{
           primary: {
-            label: "Soumettre",
+            label: editingExpense ? "Enregistrer" : "Soumettre",
             onClick: () => handleSave(false),
             icon: <Send className="h-4 w-4" />,
+            disabled: !formData.employeeId,
           },
           secondary: {
             label: "Enregistrer comme brouillon",
             onClick: () => handleSave(true),
             variant: "outline",
+            disabled: !formData.employeeId,
           },
           tertiary: {
             label: "Annuler",
@@ -622,6 +731,34 @@ export default function ExpenseReportsPage() {
         }}
       >
         <div className="space-y-6">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Salarié *</Label>
+            <Select
+              value={formData.employeeId}
+              onValueChange={(value: string) =>
+                setFormData((prev) => ({ ...prev, employeeId: value }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sélectionner le salarié concerné" />
+              </SelectTrigger>
+              <SelectContent>
+                {salaries.map((salarie) => (
+                  <SelectItem key={salarie.id} value={salarie.id}>
+                    {salarie.name}
+                    {salarie.matricule ? ` (${salarie.matricule})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {editingExpense && !formData.employeeId && (
+              <p className="text-xs text-amber-600">
+                Cette note n&apos;est rattachée à aucun salarié connu :
+                choisissez-en un pour pouvoir l&apos;enregistrer.
+              </p>
+            )}
+          </div>
+
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Articles</Label>
@@ -800,7 +937,7 @@ export default function ExpenseReportsPage() {
               <div>
                 <Label>Employé</Label>
                 <p className="text-sm">
-                  {mockEmployees.find((e) => e.id === viewingItem.employeeId)
+                  {salaries.find((e) => e.id === viewingItem.employeeId)
                     ?.name || "N/A"}
                 </p>
               </div>
@@ -912,6 +1049,53 @@ export default function ExpenseReportsPage() {
           </div>
         ) : null}
       </Modal>
+      {/* Confirmation de suppression d'une note */}
+      <Modal
+        open={reportToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setReportToDelete(null);
+        }}
+        type="warning"
+        title="Supprimer la note de frais"
+        description={
+          reportToDelete
+            ? `${reportToDelete.title} — ${
+                salaries.find((e) => e.id === reportToDelete.employeeId)
+                  ?.name ?? "Salarié inconnu"
+              }`
+            : undefined
+        }
+        actions={{
+          secondary: {
+            label: "Annuler",
+            onClick: () => setReportToDelete(null),
+            variant: "outline",
+          },
+          primary: {
+            label: "Supprimer",
+            onClick: confirmDeleteReport,
+            variant: "destructive",
+            loading: deleteExpenseMutation.isPending,
+          },
+        }}
+      >
+        {reportToDelete && (
+          <div className="space-y-2 text-sm">
+            <p>
+              La note et ses {reportToDelete.items.length} article
+              {reportToDelete.items.length > 1 ? "s" : ""} (
+              {reportToDelete.items
+                .reduce((somme, it) => somme + Number(it.amount), 0)
+                .toFixed(2)}{" "}
+              €) seront supprimés définitivement.
+            </p>
+            <p className="font-medium text-destructive">
+              Cette action est irréversible.
+            </p>
+          </div>
+        )}
+      </Modal>
+
       {/* Bulk Action Warning Modal */}
       <Modal
         open={isBulkActionModalOpen}
@@ -949,23 +1133,7 @@ export default function ExpenseReportsPage() {
                   ? "Refuser"
                   : "Supprimer",
             onClick: () => {
-              if (bulkActionType === "accept") {
-                selectedItems.forEach((item) => {
-                  if (item.status === "submitted") {
-                    handleAccept(item.id, item.reportId, bulkApprovalNotes);
-                  }
-                });
-              } else if (bulkActionType === "refuse") {
-                selectedItems.forEach((item) => {
-                  if (item.status === "submitted") {
-                    handleRefuse(item.id, item.reportId, bulkApprovalNotes);
-                  }
-                });
-              } else if (bulkActionType === "delete") {
-                selectedItems.forEach((item) => {
-                  handleDeleteItem(item.id, item.reportId);
-                });
-              }
+              if (bulkActionType) applyBulk(bulkActionType, bulkApprovalNotes);
               setSelectedItems([]);
               setIsBulkActionModalOpen(false);
               setBulkApprovalNotes("");

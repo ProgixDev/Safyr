@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useEmployeeOptions, useEmployeesRH } from "@/hooks/employees";
 import type { Employee as EmployeeRH } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,14 +19,7 @@ import {
 } from "@/components/ui/select";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Plus,
-  Download,
-  Users,
-  FileText,
-  Calendar,
-  UserCheck,
-} from "lucide-react";
+import { Download, Users, FileText, Calendar, UserCheck } from "lucide-react";
 import { PersonnelRegisterEntry } from "@/lib/types";
 import {
   EMPLOYEE_POSTE_OPTIONS,
@@ -82,6 +75,9 @@ function versEntreeRegistre(
   };
 }
 
+const dateMs = (d: Date | undefined) =>
+  d instanceof Date && !Number.isNaN(d.getTime()) ? d.getTime() : 0;
+
 const contractTypeLabels = {
   CDI: "CDI",
   CDD: "CDD",
@@ -102,23 +98,37 @@ export default function PersonnelRegisterPage() {
   const mockEmployees = useEmployeeOptions();
   const salaries = useEmployeesRH();
 
-  // Le registre suit les dossiers salariés : on le resynchronise dès que la
-  // liste change, tout en gardant les compléments saisis sur cet écran.
-  // Enregistré en base : la liste ne vivait que dans le navigateur.
-  const [entries, setEntries] =
+  // Le registre est calculé à partir des dossiers salariés : une ligne par
+  // salarié, complétée par les modifications enregistrées sur cet écran.
+  //
+  // Il était auparavant recopié en base à chaque rendu où la liste des salariés
+  // changeait — y compris avant que les lignes déjà enregistrées soient chargées.
+  // Chaque visite recréait donc tous les salariés, d'où les noms en double.
+  // On n'écrit plus rien à l'affichage ; seule une modification faite ici est
+  // enregistrée (voir handleSave).
+  const [enregistrees, setEnregistrees] =
     useListePersistante<PersonnelRegisterEntry>("registre_personnel");
-  const [cleSalaries, setCleSalaries] = useState<string | null>(null);
-  const cle = salaries.map((s) => s.id).join(",");
-  if (cle !== cleSalaries) {
-    setCleSalaries(cle);
-    setEntries((precedentes) => {
-      const complements = new Map(precedentes.map((e) => [e.employeeId, e]));
-      return salaries.map((s, i) => ({
-        ...versEntreeRegistre(s, i),
-        ...(complements.get(s.id) ?? {}),
-      }));
+  const entries = useMemo<PersonnelRegisterEntry[]>(() => {
+    // Les doublons déjà présents en base sont écartés : on garde la ligne la
+    // plus récemment modifiée de chaque salarié.
+    const parSalarie = new Map<string, PersonnelRegisterEntry>();
+    for (const e of enregistrees) {
+      const courant = parSalarie.get(e.employeeId);
+      if (!courant || dateMs(e.updatedAt) >= dateMs(courant.updatedAt)) {
+        parSalarie.set(e.employeeId, e);
+      }
+    }
+    const vus = new Set<string>();
+    const uniques = salaries.filter((s) => {
+      if (vus.has(s.id)) return false;
+      vus.add(s.id);
+      return true;
     });
-  }
+    return uniques.map((s, i) => ({
+      ...versEntreeRegistre(s, i),
+      ...(parSalarie.get(s.id) ?? {}),
+    }));
+  }, [salaries, enregistrees]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] =
@@ -154,32 +164,6 @@ export default function PersonnelRegisterPage() {
     return mockEmployees.find((e) => e.id === employeeId)?.name || "N/A";
   };
 
-  const handleCreate = () => {
-    setEditingEntry(null);
-    setFormData({
-      employeeId: "",
-      registrationNumber: "",
-      entryDate: "",
-      exitDate: "",
-      contractType: "CDI",
-      contractWorkTime: "complet",
-      position: "",
-      qualification: "",
-      nationality: "Française",
-      sex: "M",
-      birthDate: "",
-      birthPlace: "",
-      address: "",
-      phone: "",
-      email: "",
-      socialSecurityNumber: "",
-      cnapsProfessionalCardNumber: "",
-      ssiapDiplomaNumber: "",
-      notes: "",
-    });
-    setIsCreateModalOpen(true);
-  };
-
   const handleEdit = (entry: PersonnelRegisterEntry) => {
     setEditingEntry(entry);
     setFormData({
@@ -213,12 +197,6 @@ export default function PersonnelRegisterPage() {
     setIsViewModalOpen(true);
   };
 
-  const handleDelete = (entryId: string) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cette entrée ?")) {
-      setEntries(entries.filter((e) => e.id !== entryId));
-    }
-  };
-
   const handleSave = () => {
     const entryData = {
       employeeId: formData.employeeId,
@@ -242,17 +220,26 @@ export default function PersonnelRegisterPage() {
       notes: formData.notes,
     };
 
-    if (editingEntry) {
-      setEntries(
-        entries.map((entry) =>
-          entry.id === editingEntry.id
-            ? {
-                ...entry,
-                ...entryData,
-                updatedAt: new Date(),
-              }
-            : entry,
-        ),
+    // La ligne enregistrée du salarié (la plus récente s'il y en a plusieurs)
+    // est mise à jour ; les copies en double de ce salarié sont retirées.
+    const doublons = enregistrees.filter(
+      (e) => e.employeeId === formData.employeeId,
+    );
+    const retenue = doublons.reduce<PersonnelRegisterEntry | undefined>(
+      (r, e) => (!r || dateMs(e.updatedAt) >= dateMs(r.updatedAt) ? e : r),
+      undefined,
+    );
+    if (retenue) {
+      setEnregistrees((precedentes) =>
+        precedentes
+          .filter(
+            (e) => e.employeeId !== formData.employeeId || e.id === retenue.id,
+          )
+          .map((e) =>
+            e.id === retenue.id
+              ? { ...e, ...entryData, updatedAt: new Date() }
+              : e,
+          ),
       );
     } else {
       const newEntry: PersonnelRegisterEntry = {
@@ -261,7 +248,7 @@ export default function PersonnelRegisterPage() {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      setEntries([...entries, newEntry]);
+      setEnregistrees((precedentes) => [...precedentes, newEntry]);
     }
 
     setIsCreateModalOpen(false);
@@ -409,7 +396,6 @@ export default function PersonnelRegisterPage() {
         <RowActionsMenu
           onView={() => handleView(entry)}
           onEdit={() => handleEdit(entry)}
-          onDelete={() => handleDelete(entry.id)}
         />
       ),
     },

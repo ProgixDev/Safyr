@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
@@ -9,169 +10,177 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { HoursInput } from "@/components/ui/hours-input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import {
   Euro,
   Users,
   Calculator,
   Download,
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
   Building2,
-  TrendingUp,
-  TrendingDown,
-  Clock,
   Award,
-  BarChart3,
+  Settings,
+  AlertTriangle,
 } from "lucide-react";
-import type { PersonnelCost } from "@/lib/types";
+import {
+  useCoutsSalaries,
+  CLE_TAUX_PATRONAL,
+  CLE_TAUX_SALARIAL,
+  type CoutSalarie,
+} from "@/hooks/payroll";
+import {
+  arrondi2,
+  formaterEuros,
+  formaterNombre,
+  lireNombre,
+  versSaisie,
+} from "@/lib/payroll-primes";
 
-// Mock data
-const mockPersonnelCosts: PersonnelCost[] = [];
-
-const departmentBreakdown = {
-  Sécurité: { count: 25, totalCost: 125000, avgCostPerHour: 25.5 },
-  Direction: { count: 5, totalCost: 35000, avgCostPerHour: 35.2 },
-  RH: { count: 3, totalCost: 18000, avgCostPerHour: 28.75 },
-  Commercial: { count: 8, totalCost: 42000, avgCostPerHour: 22.3 },
-};
-
-// Couleurs par département
-const departmentColors: Record<
-  string,
-  { bg: string; border: string; text: string; icon: string }
-> = {
-  Sécurité: {
+// Couleurs des cartes de répartition (attribuées dans l'ordre des postes).
+const couleursPostes = [
+  {
     bg: "bg-blue-50 dark:bg-blue-950/30",
     border: "border-blue-200 dark:border-blue-800",
     text: "text-blue-700 dark:text-blue-300",
     icon: "text-blue-500",
   },
-  Direction: {
+  {
     bg: "bg-purple-50 dark:bg-purple-950/30",
     border: "border-purple-200 dark:border-purple-800",
     text: "text-purple-700 dark:text-purple-300",
     icon: "text-purple-500",
   },
-  RH: {
+  {
     bg: "bg-green-50 dark:bg-green-950/30",
     border: "border-green-200 dark:border-green-800",
     text: "text-green-700 dark:text-green-300",
     icon: "text-green-500",
   },
-  Commercial: {
+  {
     bg: "bg-orange-50 dark:bg-orange-950/30",
     border: "border-orange-200 dark:border-orange-800",
     text: "text-orange-700 dark:text-orange-300",
     icon: "text-orange-500",
   },
-};
+];
+
+const HEURES_PAR_SEMAINE_EN_MOIS = 52 / 12;
 
 export default function PersonnelCostPage() {
-  const [personnelCosts, setPersonnelCosts] =
-    useState<PersonnelCost[]>(mockPersonnelCosts);
-  const [selectedCost, setSelectedCost] = useState<PersonnelCost | null>(null);
+  const {
+    couts: personnelCosts,
+    isLoading,
+    contratsEnErreur,
+    tauxPatronal,
+    tauxSalarial,
+    parametres,
+    modifierRemuneration,
+  } = useCoutsSalaries();
+
+  // On garde l'identifiant du salarié, pas l'objet : après une modification,
+  // les fenêtres relisent la ligne recalculée.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [editGrossSalary, setEditGrossSalary] = useState(0);
-  const [editWorkedHours, setEditWorkedHours] = useState(0);
+  const [editGrossSalary, setEditGrossSalary] = useState("");
+  const [editWorkedHours, setEditWorkedHours] = useState("");
+  const [isRatesModalOpen, setIsRatesModalOpen] = useState(false);
+  const [tauxSaisis, setTauxSaisis] = useState<Record<string, string>>({});
 
-  const handleViewDetails = (cost: PersonnelCost) => {
-    setSelectedCost(cost);
+  const selectedCost =
+    personnelCosts.find((c) => c.memberId === selectedId) ?? null;
+
+  const handleViewDetails = (cost: CoutSalarie) => {
+    setSelectedId(cost.memberId);
     setIsDetailsModalOpen(true);
   };
 
-  const handleEdit = (cost: PersonnelCost) => {
-    setSelectedCost(cost);
-    setEditGrossSalary(cost.grossSalary);
-    setEditWorkedHours(cost.workedHours);
+  const handleEdit = (cost: CoutSalarie) => {
+    setSelectedId(cost.memberId);
+    setEditGrossSalary(versSaisie(cost.grossSalary));
+    setEditWorkedHours(versSaisie(cost.workedHours));
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = (cost: PersonnelCost) => {
-    setSelectedCost(cost);
-    setIsDeleteModalOpen(true);
-  };
+  // Aperçu immédiat du recalcul avec les valeurs saisies (mêmes formules que
+  // le tableau, qui se recalcule ensuite depuis le contrat enregistré).
+  const apercuBrut = lireNombre(editGrossSalary);
+  const apercuHeures = lireNombre(editWorkedHours);
+  const apercuCharges = arrondi2((apercuBrut * tauxPatronal) / 100);
+  const apercuTotal = arrondi2(apercuBrut + apercuCharges);
+  const apercuHoraire =
+    apercuHeures > 0 ? arrondi2(apercuTotal / apercuHeures) : 0;
 
-  const confirmEdit = () => {
-    if (selectedCost) {
-      setPersonnelCosts(
-        personnelCosts.map((c) => {
-          if (c.employeeId !== selectedCost.employeeId) return c;
-
-          // Les charges et les coûts sont dérivés du brut : sans ce recalcul,
-          // modifier le salaire brut ne changeait rien à l'écran.
-          const round2 = (n: number) => Math.round(n * 100) / 100;
-          const ratio = c.grossSalary > 0 ? editGrossSalary / c.grossSalary : 1;
-
-          const employerContributions = round2(c.employerContributions * ratio);
-          const employeeContributions = round2(c.employeeContributions * ratio);
-          const totalEmployerCost = round2(
-            editGrossSalary + employerContributions,
-          );
-
-          return {
-            ...c,
-            grossSalary: editGrossSalary,
-            workedHours: editWorkedHours,
-            netSalary: round2(c.netSalary * ratio),
-            taxableNet: round2(c.taxableNet * ratio),
-            employeeContributions,
-            employerContributions,
-            totalEmployerCost,
-            totalCost: totalEmployerCost,
-            costPerHour:
-              editWorkedHours > 0
-                ? round2(totalEmployerCost / editWorkedHours)
-                : 0,
-          };
-        }),
-      );
+  const confirmEdit = async () => {
+    if (!selectedCost?.contract) return;
+    try {
+      await modifierRemuneration.mutateAsync({
+        memberId: selectedCost.memberId,
+        contractId: selectedCost.contract.id,
+        grossSalary: apercuBrut,
+        heuresMensuelles: apercuHeures,
+      });
       setIsEditModalOpen(false);
-      setSelectedCost(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de l'enregistrement du salaire : ${message}`);
     }
   };
 
-  const confirmDelete = () => {
-    if (selectedCost) {
-      setPersonnelCosts(
-        personnelCosts.filter((c) => c.employeeId !== selectedCost.employeeId),
-      );
-      setIsDeleteModalOpen(false);
-      setSelectedCost(null);
+  const enregistrerTaux = async () => {
+    const valeurs: Record<string, number> = {};
+    for (const [cle, saisie] of Object.entries(tauxSaisis)) {
+      valeurs[cle] = Math.min(100, Math.max(0, arrondi2(lireNombre(saisie))));
+    }
+    try {
+      if (Object.keys(valeurs).length > 0) {
+        await parametres.enregistrer(valeurs);
+      }
+      setIsRatesModalOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`Échec de l'enregistrement des taux : ${message}`);
     }
   };
 
+  const somme = (choix: (c: CoutSalarie) => number) =>
+    arrondi2(personnelCosts.reduce((total, c) => total + choix(c), 0));
+
+  const totalHeures = somme((c) => c.workedHours);
   const totalCosts = {
-    grossPayroll: personnelCosts.reduce(
-      (sum, cost) => sum + cost.grossSalary,
-      0,
-    ),
-    netPayroll: personnelCosts.reduce((sum, cost) => sum + cost.netSalary, 0),
-    employerContributions: personnelCosts.reduce(
-      (sum, cost) => sum + cost.employerContributions,
-      0,
-    ),
-    totalEmployerCost: personnelCosts.reduce(
-      (sum, cost) => sum + cost.totalEmployerCost,
-      0,
-    ),
+    grossPayroll: somme((c) => c.grossSalary),
+    netPayroll: somme((c) => c.netSalary),
+    employerContributions: somme((c) => c.employerContributions),
+    totalEmployerCost: somme((c) => c.totalEmployerCost),
+    // Coût moyen pondéré : coût total ÷ heures totales (et non moyenne des taux).
     avgCostPerHour:
-      personnelCosts.reduce((sum, cost) => sum + cost.costPerHour, 0) /
-      personnelCosts.length,
+      totalHeures > 0
+        ? arrondi2(somme((c) => c.totalEmployerCost) / totalHeures)
+        : 0,
   };
+  const partNet =
+    totalCosts.grossPayroll > 0
+      ? Math.round((totalCosts.netPayroll / totalCosts.grossPayroll) * 1000) /
+        10
+      : 0;
 
-  const columns: ColumnDef<PersonnelCost>[] = [
+  // Répartition par poste (le module n'a pas de notion de service).
+  const parPoste = Object.entries(
+    personnelCosts.reduce<
+      Record<string, { count: number; totalCost: number; heures: number }>
+    >((acc, c) => {
+      const groupe = (acc[c.poste] ??= { count: 0, totalCost: 0, heures: 0 });
+      groupe.count += 1;
+      groupe.totalCost += c.totalEmployerCost;
+      groupe.heures += c.workedHours;
+      return acc;
+    }, {}),
+  ).sort((a, b) => b[1].totalCost - a[1].totalCost);
+
+  const sansContrat = personnelCosts.filter((c) => !c.contract).length;
+
+  const columns: ColumnDef<CoutSalarie>[] = [
     {
       key: "employee",
       label: "Employé",
@@ -181,7 +190,19 @@ export default function PersonnelCostPage() {
       render: (cost) => (
         <div>
           <div className="font-medium">{cost.employeeName}</div>
-          <div className="text-sm text-muted-foreground">{cost.employeeId}</div>
+          <div className="text-sm text-muted-foreground">
+            {cost.matricule || cost.poste}
+          </div>
+          {!cost.contract && (
+            <Badge variant="outline" className="mt-1 text-xs">
+              Sans contrat actif
+            </Badge>
+          )}
+          {cost.brutManquant && (
+            <Badge variant="outline" className="mt-1 text-xs">
+              Salaire à renseigner
+            </Badge>
+          )}
         </div>
       ),
     },
@@ -190,49 +211,60 @@ export default function PersonnelCostPage() {
       label: "Salaire brut",
       icon: Euro,
       sortable: true,
+      sortValue: (cost) => cost.grossSalary,
       render: (cost) => (
-        <span className="font-medium">
-          {cost.grossSalary.toLocaleString("fr-FR")} €
-        </span>
+        <span className="font-medium">{formaterEuros(cost.grossSalary)}</span>
       ),
     },
     {
       key: "netSalary",
       label: "Salaire net",
       sortable: true,
-      render: (cost) => <span>{cost.netSalary.toLocaleString("fr-FR")} €</span>,
+      sortValue: (cost) => cost.netSalary,
+      render: (cost) => <span>{formaterEuros(cost.netSalary)}</span>,
     },
     {
       key: "employeeContributions",
       label: "Charges salariales",
       sortable: true,
+      sortValue: (cost) => cost.employeeContributions,
       render: (cost) => (
-        <span>{cost.employeeContributions.toLocaleString("fr-FR")} €</span>
+        <span>{formaterEuros(cost.employeeContributions)}</span>
       ),
     },
     {
       key: "employerContributions",
       label: "Charges patronales",
       sortable: true,
+      sortValue: (cost) => cost.employerContributions,
       render: (cost) => (
-        <span>{cost.employerContributions.toLocaleString("fr-FR")} €</span>
+        <span>{formaterEuros(cost.employerContributions)}</span>
       ),
     },
     {
       key: "totalEmployerCost",
       label: "Coût total employeur",
       sortable: true,
+      sortValue: (cost) => cost.totalEmployerCost,
       render: (cost) => (
         <span className="font-semibold text-primary">
-          {cost.totalEmployerCost.toLocaleString("fr-FR")} €
+          {formaterEuros(cost.totalEmployerCost)}
         </span>
       ),
     },
     {
       key: "workedHours",
-      label: "Heures travaillées",
+      label: "Heures mensuelles",
       sortable: true,
-      render: (cost) => <span>{cost.workedHours}h</span>,
+      sortValue: (cost) => cost.workedHours,
+      render: (cost) => (
+        <span>
+          {formaterNombre(cost.workedHours)} h
+          {cost.heuresEstimees && (
+            <span className="text-xs text-muted-foreground"> (35 h)</span>
+          )}
+        </span>
+      ),
     },
     {
       key: "costPerHour",
@@ -250,38 +282,10 @@ export default function PersonnelCostPage() {
       key: "actions",
       label: "Actions",
       render: (cost) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => handleViewDetails(cost)}
-              className="text-green-600 focus:text-green-700 focus:bg-green-50"
-            >
-              <Eye className="h-4 w-4 mr-2 text-green-600" />
-              Voir
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleEdit(cost)}
-              className="text-orange-600 focus:text-orange-700 focus:bg-orange-50"
-            >
-              <Edit className="h-4 w-4 mr-2 text-orange-600" />
-              Modifier
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => handleDelete(cost)}
-              className="text-red-600 focus:text-red-700 focus:bg-red-50"
-            >
-              <Trash2 className="h-4 w-4 mr-2 text-red-600" />
-              Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <RowActionsMenu
+          onView={() => handleViewDetails(cost)}
+          onEdit={() => handleEdit(cost)}
+        />
       ),
     },
   ];
@@ -299,6 +303,17 @@ export default function PersonnelCostPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              setTauxSaisis({});
+              setIsRatesModalOpen(true);
+            }}
+          >
+            <Settings className="h-4 w-4" />
+            Taux de charges
+          </Button>
           <Button variant="outline" className="gap-2">
             <Download className="h-4 w-4" />
             Exporter
@@ -306,112 +321,132 @@ export default function PersonnelCostPage() {
         </div>
       </div>
 
+      {(sansContrat > 0 || contratsEnErreur > 0) && !isLoading && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            {sansContrat > 0 &&
+              `${sansContrat} salarié${sansContrat > 1 ? "s" : ""} sans contrat actif : leur salaire brut n'est pas connu (0 €). Renseignez le contrat dans leur fiche, onglet Contrats. `}
+            {contratsEnErreur > 0 &&
+              `${contratsEnErreur} contrat${contratsEnErreur > 1 ? "s" : ""} n'ont pas pu être chargés.`}
+          </p>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <InfoCardContainer>
         <InfoCard
           icon={Euro}
           title="Masse salariale brute"
-          value={`${totalCosts.grossPayroll.toLocaleString("fr-FR")} €`}
-          subtext="+3.2% vs mois dernier"
+          value={formaterEuros(totalCosts.grossPayroll)}
+          subtext={`${personnelCosts.length} salarié${personnelCosts.length > 1 ? "s" : ""}`}
           color="green"
         />
 
         <InfoCard
           icon={Euro}
           title="Masse salariale nette"
-          value={`${totalCosts.netPayroll.toLocaleString("fr-FR")} €`}
-          subtext="80.2% de la masse brute"
+          value={formaterEuros(totalCosts.netPayroll)}
+          subtext={`${formaterNombre(partNet)} % de la masse brute`}
           color="blue"
         />
 
         <InfoCard
           icon={Euro}
           title="Charges patronales"
-          value={`${totalCosts.employerContributions.toLocaleString("fr-FR")} €`}
-          subtext="25.1% de la masse brute"
+          value={formaterEuros(totalCosts.employerContributions)}
+          subtext={`Taux estimé : ${formaterNombre(tauxPatronal)} %`}
           color="orange"
         />
 
         <InfoCard
           icon={Euro}
           title="Coût total employeur"
-          value={`${totalCosts.totalEmployerCost.toLocaleString("fr-FR")} €`}
-          subtext="+2.8% vs mois dernier"
+          value={formaterEuros(totalCosts.totalEmployerCost)}
+          subtext="Brut + charges patronales"
           color="purple"
         />
 
         <InfoCard
           icon={Calculator}
           title="Coût moyen / heure"
-          value={`${totalCosts.avgCostPerHour.toFixed(2)} €`}
-          subtext="Par heure travaillée"
+          value={formaterEuros(totalCosts.avgCostPerHour)}
+          subtext="Coût total ÷ heures mensuelles"
           color="gray"
         />
       </InfoCardContainer>
 
-      {/* Department Breakdown - Version améliorée avec petits cadres */}
+      {/* Répartition par poste */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Building2 className="h-5 w-5" />
-            Répartition par département
+            Répartition par poste
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Object.entries(departmentBreakdown).map(([dept, data]) => {
-              const colors =
-                departmentColors[dept] || departmentColors.Sécurité;
-              return (
-                <div
-                  key={dept}
-                  className={`rounded-lg border p-4 ${colors.bg} ${colors.border}`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Building2 className={`h-4 w-4 ${colors.icon}`} />
-                      <h4 className={`font-semibold ${colors.text}`}>{dept}</h4>
-                    </div>
-                    <Badge variant="outline" className="font-mono">
-                      {data.count} employé{data.count !== 1 ? "s" : ""}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Coût total
-                      </span>
-                      <span className="font-semibold">
-                        {data.totalCost.toLocaleString("fr-FR")} €
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Coût moyen / h
-                      </span>
-                      <Badge variant="secondary" className="font-mono">
-                        {data.avgCostPerHour.toFixed(2)} €/h
+          {parPoste.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {isLoading ? "Chargement…" : "Aucun salarié à analyser."}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {parPoste.map(([poste, data], index) => {
+                const colors = couleursPostes[index % couleursPostes.length];
+                const moyenne =
+                  data.heures > 0 ? arrondi2(data.totalCost / data.heures) : 0;
+                return (
+                  <div
+                    key={poste}
+                    className={`rounded-lg border p-4 ${colors.bg} ${colors.border}`}
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className={`h-4 w-4 ${colors.icon}`} />
+                        <h4 className={`font-semibold ${colors.text}`}>
+                          {poste}
+                        </h4>
+                      </div>
+                      <Badge variant="outline" className="font-mono">
+                        {data.count} employé{data.count !== 1 ? "s" : ""}
                       </Badge>
                     </div>
-                    <div className="flex items-center justify-between pt-2 border-t">
-                      <span className="text-sm text-muted-foreground">
-                        Coût / employé
-                      </span>
-                      <span className="text-sm font-medium">
-                        {(data.totalCost / data.count).toLocaleString("fr-FR")}{" "}
-                        €
-                      </span>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Coût total
+                        </span>
+                        <span className="font-semibold">
+                          {formaterEuros(data.totalCost)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Coût moyen / h
+                        </span>
+                        <Badge variant="secondary" className="font-mono">
+                          {moyenne.toFixed(2)} €/h
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between border-t pt-2">
+                        <span className="text-sm text-muted-foreground">
+                          Coût / employé
+                        </span>
+                        <span className="text-sm font-medium">
+                          {formaterEuros(data.totalCost / data.count)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Top 5 costs - Version améliorée avec petits cadres */}
+      {/* Top 5 costs */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -420,72 +455,77 @@ export default function PersonnelCostPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {personnelCosts
-              .sort((a, b) => b.totalEmployerCost - a.totalEmployerCost)
-              .slice(0, 5)
-              .map((cost, index) => {
-                const colors = [
-                  "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/30",
-                  "border-gray-300 bg-gray-50 dark:bg-gray-950/30",
-                  "border-orange-300 bg-orange-50 dark:bg-orange-950/30",
-                  "border-blue-200 bg-blue-50 dark:bg-blue-950/30",
-                  "border-green-200 bg-green-50 dark:bg-green-950/30",
-                ];
-                const rankColors = [
-                  "text-yellow-600 dark:text-yellow-400",
-                  "text-gray-500 dark:text-gray-400",
-                  "text-orange-600 dark:text-orange-400",
-                  "text-blue-600 dark:text-blue-400",
-                  "text-green-600 dark:text-green-400",
-                ];
-                return (
-                  <div
-                    key={cost.employeeId}
-                    className={`flex items-center justify-between rounded-lg border-2 p-4 ${colors[index]}`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
-                        <span
-                          className={`text-lg font-bold ${rankColors[index]}`}
-                        >
-                          #{index + 1}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="font-medium">{cost.employeeName}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {cost.employeeId}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge
-                            variant="outline"
-                            className="font-mono text-xs"
+          {personnelCosts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {isLoading ? "Chargement…" : "Aucun salarié à analyser."}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {[...personnelCosts]
+                .sort((a, b) => b.totalEmployerCost - a.totalEmployerCost)
+                .slice(0, 5)
+                .map((cost, index) => {
+                  const colors = [
+                    "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/30",
+                    "border-gray-300 bg-gray-50 dark:bg-gray-950/30",
+                    "border-orange-300 bg-orange-50 dark:bg-orange-950/30",
+                    "border-blue-200 bg-blue-50 dark:bg-blue-950/30",
+                    "border-green-200 bg-green-50 dark:bg-green-950/30",
+                  ];
+                  const rankColors = [
+                    "text-yellow-600 dark:text-yellow-400",
+                    "text-gray-500 dark:text-gray-400",
+                    "text-orange-600 dark:text-orange-400",
+                    "text-blue-600 dark:text-blue-400",
+                    "text-green-600 dark:text-green-400",
+                  ];
+                  return (
+                    <div
+                      key={cost.memberId}
+                      className={`flex items-center justify-between rounded-lg border-2 p-4 ${colors[index]}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
+                          <span
+                            className={`text-lg font-bold ${rankColors[index]}`}
                           >
-                            {cost.costPerHour.toFixed(2)} €/h
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {cost.workedHours}h
+                            #{index + 1}
                           </span>
                         </div>
+                        <div>
+                          <div className="font-medium">{cost.employeeName}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {cost.matricule || cost.poste}
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className="font-mono text-xs"
+                            >
+                              {cost.costPerHour.toFixed(2)} €/h
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {formaterNombre(cost.workedHours)} h
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-primary">
+                          {formaterEuros(cost.totalEmployerCost)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Brut : {formaterEuros(cost.grossSalary)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Charges : {formaterEuros(cost.employerContributions)}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-primary">
-                        {cost.totalEmployerCost.toLocaleString("fr-FR")} €
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Brut: {cost.grossSalary.toLocaleString("fr-FR")} €
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Charges:{" "}
-                        {cost.employerContributions.toLocaleString("fr-FR")} €
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+                  );
+                })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -498,11 +538,12 @@ export default function PersonnelCostPage() {
           <DataTable
             onRowClick={handleViewDetails}
             data={personnelCosts}
+            isLoading={isLoading}
             columns={columns}
-            searchKeys={["employeeName", "employeeId"]}
-            getSearchValue={(cost) => `${cost.employeeName} ${cost.employeeId}`}
+            searchKeys={["employeeName", "matricule"]}
+            getSearchValue={(cost) => `${cost.employeeName} ${cost.matricule}`}
             searchPlaceholder="Rechercher par nom ou numéro d'employé..."
-            getRowId={(cost) => cost.employeeId}
+            getRowId={(cost) => cost.memberId}
           />
         </CardContent>
       </Card>
@@ -514,6 +555,19 @@ export default function PersonnelCostPage() {
         type="details"
         title="Voir le coût salarial"
         size="lg"
+        actions={
+          selectedCost
+            ? {
+                primary: {
+                  label: "Modifier",
+                  onClick: () => {
+                    setIsDetailsModalOpen(false);
+                    handleEdit(selectedCost);
+                  },
+                },
+              }
+            : undefined
+        }
       >
         {selectedCost && (
           <div className="space-y-6">
@@ -521,12 +575,18 @@ export default function PersonnelCostPage() {
               <div>
                 <Label className="text-sm font-medium">Employé</Label>
                 <p className="text-sm text-muted-foreground">
-                  {selectedCost.employeeName} ({selectedCost.employeeId})
+                  <Link
+                    href={`/dashboard/hr/collaborators/${selectedCost.memberId}`}
+                    className="text-primary hover:underline"
+                  >
+                    {selectedCost.employeeName}
+                  </Link>{" "}
+                  {selectedCost.matricule && `(${selectedCost.matricule})`}
                 </p>
               </div>
               <div>
                 <Label className="text-sm font-medium">Période</Label>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm capitalize text-muted-foreground">
                   {selectedCost.period}
                 </p>
               </div>
@@ -535,76 +595,49 @@ export default function PersonnelCostPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm font-medium">Salaire brut</Label>
-                <p className="text-sm font-mono">
-                  {selectedCost.grossSalary.toLocaleString("fr-FR")}{" "}
-                  {selectedCost.currency}
+                <p className="font-mono text-sm">
+                  {formaterEuros(selectedCost.grossSalary)}
                 </p>
               </div>
               <div>
                 <Label className="text-sm font-medium">Salaire net</Label>
-                <p className="text-sm font-mono">
-                  {selectedCost.netSalary.toLocaleString("fr-FR")}{" "}
-                  {selectedCost.currency}
+                <p className="font-mono text-sm">
+                  {formaterEuros(selectedCost.netSalary)}
                 </p>
               </div>
               <div>
                 <Label className="text-sm font-medium">Charges employeur</Label>
-                <p className="text-sm font-mono">
-                  {selectedCost.employerContributions.toLocaleString("fr-FR")}{" "}
-                  {selectedCost.currency}
+                <p className="font-mono text-sm">
+                  {formaterEuros(selectedCost.employerContributions)}
                 </p>
               </div>
               <div>
                 <Label className="text-sm font-medium">
                   Coût total employeur
                 </Label>
-                <p className="text-sm font-mono">
-                  {selectedCost.totalEmployerCost.toLocaleString("fr-FR")}{" "}
-                  {selectedCost.currency}
+                <p className="font-mono text-sm">
+                  {formaterEuros(selectedCost.totalEmployerCost)}
                 </p>
               </div>
               <div>
-                <Label className="text-sm font-medium">
-                  Heures travaillées
-                </Label>
-                <p className="text-sm font-mono">{selectedCost.workedHours}h</p>
+                <Label className="text-sm font-medium">Heures mensuelles</Label>
+                <p className="font-mono text-sm">
+                  {formaterNombre(selectedCost.workedHours)} h
+                </p>
               </div>
               <div>
                 <Label className="text-sm font-medium">Coût par heure</Label>
-                <p className="text-sm font-mono">
-                  {selectedCost.costPerHour.toFixed(2)} {selectedCost.currency}
-                  /h
+                <p className="font-mono text-sm">
+                  {selectedCost.costPerHour.toFixed(2)} €/h
                 </p>
               </div>
             </div>
 
-            {(selectedCost.allowances > 0 ||
-              selectedCost.bonuses > 0 ||
-              selectedCost.maintenance > 0) && (
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Indemnités</Label>
-                  <p className="text-sm font-mono">
-                    {selectedCost.allowances.toLocaleString("fr-FR")}{" "}
-                    {selectedCost.currency}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Primes</Label>
-                  <p className="text-sm font-mono">
-                    {selectedCost.bonuses.toLocaleString("fr-FR")}{" "}
-                    {selectedCost.currency}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Maintenance</Label>
-                  <p className="text-sm font-mono">
-                    {selectedCost.maintenance.toLocaleString("fr-FR")}{" "}
-                    {selectedCost.currency}
-                  </p>
-                </div>
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {selectedCost.contract
+                ? `Salaire issu du contrat ${selectedCost.contract.type} actif (${selectedCost.poste}). Charges estimées : patronales ${formaterNombre(tauxPatronal)} %, salariales ${formaterNombre(tauxSalarial)} %.`
+                : "Aucun contrat actif : renseignez-le dans la fiche salarié, onglet Contrats."}
+            </p>
           </div>
         )}
       </Modal>
@@ -624,67 +657,155 @@ export default function PersonnelCostPage() {
           primary: {
             label: "Enregistrer",
             onClick: confirmEdit,
+            loading: modifierRemuneration.isPending,
+            disabled: !selectedCost?.contract || apercuBrut <= 0,
           },
         }}
       >
         {selectedCost && (
           <div className="space-y-4">
-            <div className="p-4 bg-muted/30 rounded-lg">
+            <div className="rounded-lg bg-muted/30 p-4">
               <h4 className="font-medium">{selectedCost.employeeName}</h4>
               <p className="text-sm text-muted-foreground">
-                {selectedCost.employeeId}
+                {selectedCost.matricule || selectedCost.poste}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-gross-salary">Salaire brut</Label>
-                <Input
-                  id="edit-gross-salary"
-                  type="number"
-                  value={editGrossSalary}
-                  onChange={(e) =>
-                    setEditGrossSalary(parseFloat(e.target.value) || 0)
-                  }
-                />
+            {!selectedCost.contract ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                Ce salarié n&apos;a pas de contrat actif : le salaire est lu
+                dans le contrat.{" "}
+                <Link
+                  href={`/dashboard/hr/collaborators/${selectedCost.memberId}`}
+                  className="font-medium underline"
+                >
+                  Ouvrir sa fiche
+                </Link>{" "}
+                pour créer le contrat.
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-worked-hours">Heures travaillées</Label>
-                <HoursInput
-                  value={editWorkedHours}
-                  onChange={(value) => setEditWorkedHours(value)}
-                  step={0.5}
-                />
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-gross-salary">
+                      Salaire brut mensuel (€)
+                    </Label>
+                    <Input
+                      id="edit-gross-salary"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editGrossSalary}
+                      onChange={(e) => setEditGrossSalary(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-worked-hours">Heures mensuelles</Label>
+                    <Input
+                      id="edit-worked-hours"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editWorkedHours}
+                      onChange={(e) => setEditWorkedHours(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enregistré dans le contrat en heures par semaine (
+                      {formaterNombre(
+                        apercuHeures / HEURES_PAR_SEMAINE_EN_MOIS,
+                      )}{" "}
+                      h).
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 rounded-lg border p-4 text-sm">
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Charges patronales ({formaterNombre(tauxPatronal)} %)
+                    </div>
+                    <div className="font-mono">
+                      {formaterEuros(apercuCharges)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Coût total employeur
+                    </div>
+                    <div className="font-mono font-semibold">
+                      {formaterEuros(apercuTotal)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Coût / heure
+                    </div>
+                    <div className="font-mono">
+                      {apercuHoraire.toFixed(2)} €/h
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      {/* Taux de charges */}
       <Modal
-        open={isDeleteModalOpen}
-        onOpenChange={setIsDeleteModalOpen}
+        open={isRatesModalOpen}
+        onOpenChange={setIsRatesModalOpen}
         type="form"
-        title="Confirmer la suppression"
+        title="Taux de charges"
+        description="Estimation appliquée au salaire brut des contrats pour calculer charges, net et coût employeur. Ajustez-les à votre situation (réductions générales, prévoyance…)."
         actions={{
           secondary: {
             label: "Annuler",
-            onClick: () => setIsDeleteModalOpen(false),
+            onClick: () => setIsRatesModalOpen(false),
             variant: "outline",
           },
           primary: {
-            label: "Supprimer",
-            onClick: confirmDelete,
+            label: "Enregistrer",
+            onClick: enregistrerTaux,
+            loading: parametres.enCours,
+            disabled: Object.keys(tauxSaisis).length === 0,
           },
         }}
       >
-        {selectedCost && (
-          <p>
-            Êtes-vous sûr de vouloir supprimer les coûts pour{" "}
-            {selectedCost.employeeName} ?
-          </p>
-        )}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Charges patronales (% du brut)</Label>
+            <Input
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              value={tauxSaisis[CLE_TAUX_PATRONAL] ?? versSaisie(tauxPatronal)}
+              onChange={(e) =>
+                setTauxSaisis((prev) => ({
+                  ...prev,
+                  [CLE_TAUX_PATRONAL]: e.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Charges salariales (% du brut)</Label>
+            <Input
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              value={tauxSaisis[CLE_TAUX_SALARIAL] ?? versSaisie(tauxSalarial)}
+              onChange={(e) =>
+                setTauxSaisis((prev) => ({
+                  ...prev,
+                  [CLE_TAUX_SALARIAL]: e.target.value,
+                }))
+              }
+            />
+          </div>
+        </div>
       </Modal>
     </div>
   );

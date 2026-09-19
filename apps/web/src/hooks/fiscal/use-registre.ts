@@ -46,6 +46,8 @@ const SCOPE: Record<FiscalRecordType, "tax" | "akto" | "divers"> = {
   avertissement: "divers",
   procedure_disciplinaire: "divers",
   sanction: "divers",
+  responsable_disciplinaire: "divers",
+  sortie_salarie: "divers",
   cdd: "divers",
   contrat_rh: "divers",
   registre_personnel: "divers",
@@ -75,8 +77,16 @@ const SCOPE: Record<FiscalRecordType, "tax" | "akto" | "divers"> = {
   client_crm: "divers",
   client_contrat: "divers",
   client_cadeau: "divers",
+  appel_offre: "divers",
+  appel_offre_document: "divers",
+  visite_medicale: "divers",
   conge: "divers",
   solde_conges: "divers",
+  absence: "divers",
+  cse_role: "divers",
+  seance_cse: "divers",
+  epargne: "divers",
+  parametre_paie: "divers",
 };
 
 export function useRegistre<T extends LigneRegistre>(
@@ -84,7 +94,13 @@ export function useRegistre<T extends LigneRegistre>(
   champsFichiers: readonly string[],
 ) {
   const scope = SCOPE[type];
-  const { data: records = [], isLoading } = useFiscalRecords(type);
+  const { data: enregistres = [], isLoading } = useFiscalRecords(type);
+  // Un type inconnu du serveur (pas encore redéployé) renvoie TOUS les
+  // registres : on ne garde que ceux du type demandé.
+  const records = useMemo(
+    () => enregistres.filter((r) => r.type === type),
+    [enregistres, type],
+  );
   const { data: pieces = [] } = useAttachments(scope);
   const creer = useCreateFiscalRecord();
   const modifier = useUpdateFiscalRecord();

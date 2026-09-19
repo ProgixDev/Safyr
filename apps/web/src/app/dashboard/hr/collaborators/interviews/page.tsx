@@ -30,6 +30,8 @@ import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
 import { Progress } from "@/components/ui/progress";
 import { useRegistre } from "@/hooks/fiscal/use-registre";
+import { BADGE_TONS, type BadgeTon } from "@/lib/hr-status-badges";
+import { cn } from "@/lib/utils";
 
 /**
  * Lignes telles qu'elles sont enregistrees en base : les dates y sont des
@@ -67,11 +69,13 @@ const statusLabels = {
   cancelled: "Annulé",
 };
 
-const statusColors = {
-  scheduled: "default",
-  completed: "secondary",
-  cancelled: "destructive",
-} as const;
+// Planifié = orange, Terminé = vert, Annulé = rouge (demande du client).
+const statusColors: Record<"scheduled" | "completed" | "cancelled", BadgeTon> =
+  {
+    scheduled: "orange",
+    completed: "vert",
+    cancelled: "rouge",
+  };
 
 const objectiveStatusLabels = {
   active: "Actif",
@@ -79,11 +83,14 @@ const objectiveStatusLabels = {
   cancelled: "Annulé",
 };
 
-const objectiveStatusColors = {
-  active: "default",
-  completed: "secondary",
-  cancelled: "destructive",
-} as const;
+const objectiveStatusColors: Record<
+  "active" | "completed" | "cancelled",
+  BadgeTon
+> = {
+  active: "bleu",
+  completed: "vert",
+  cancelled: "rouge",
+};
 
 const categoryLabels = {
   performance: "Performance",
@@ -318,7 +325,9 @@ export default function InterviewsPage() {
         : interviewType === "annual"
           ? registreAnnuel
           : registreProfessionnel;
-    void registre.supprimerLigne(id);
+    registre
+      .supprimerLigne(id)
+      .catch(() => alert("Échec de la suppression. Réessayez."));
   };
 
   const handleSave = async () => {
@@ -326,6 +335,29 @@ export default function InterviewsPage() {
       mockEmployees.find((e) => e.id === formData.employeeId)?.name ??
       "Salarié";
 
+    // Modifier un objectif terminé ne doit pas le remettre « Actif ».
+    const statutObjectif =
+      editingItem?.itemType === "objective" ? editingItem.status : "active";
+
+    try {
+      await enregistrerSelonType(nomEmploye, statutObjectif);
+    } catch (erreur) {
+      alert(
+        erreur instanceof Error
+          ? `Échec de l'enregistrement : ${erreur.message}`
+          : "Échec de l'enregistrement.",
+      );
+      return;
+    }
+
+    setDocumentFile(null);
+    setIsCreateModalOpen(false);
+  };
+
+  const enregistrerSelonType = async (
+    nomEmploye: string,
+    statutObjectif: LigneObjectif["status"],
+  ) => {
     if (currentType === "objectives") {
       const ligne: LigneObjectif = {
         id: editingItem?.originalId ?? "",
@@ -335,13 +367,13 @@ export default function InterviewsPage() {
         category: formData.category,
         targetDate: formData.targetDate,
         progress: formData.progress,
-        status: "active",
+        status: statutObjectif,
         notes: formData.notes,
       };
       const id = await registreObjectifs.enregistrer(ligne, {
         period: (formData.targetDate || new Date().toISOString()).slice(0, 7),
         label: formData.title || `Objectif — ${nomEmploye}`,
-        status: "active",
+        status: statutObjectif,
       });
       if (documentFile) {
         await registreObjectifs.attacherFichier(id, "document", documentFile);
@@ -371,9 +403,6 @@ export default function InterviewsPage() {
         await registre.attacherFichier(id, "document", documentFile);
       }
     }
-
-    setDocumentFile(null);
-    setIsCreateModalOpen(false);
   };
 
   const addObjective = () => {
@@ -481,7 +510,10 @@ export default function InterviewsPage() {
       key: "status",
       label: "Statut",
       render: (item: CombinedItem) => (
-        <Badge variant={getItemStatusColor(item)}>
+        <Badge
+          variant="outline"
+          className={cn(BADGE_TONS[getItemStatusColor(item)])}
+        >
           {getItemStatusLabel(item)}
         </Badge>
       ),
@@ -843,7 +875,10 @@ export default function InterviewsPage() {
 
             <div>
               <Label>Statut</Label>
-              <Badge variant={statusColors[viewingItem.status]}>
+              <Badge
+                variant="outline"
+                className={cn(BADGE_TONS[statusColors[viewingItem.status]])}
+              >
                 {statusLabels[viewingItem.status]}
               </Badge>
             </div>
@@ -939,7 +974,12 @@ export default function InterviewsPage() {
 
             <div>
               <Label>Statut</Label>
-              <Badge variant={objectiveStatusColors[viewingItem.status]}>
+              <Badge
+                variant="outline"
+                className={cn(
+                  BADGE_TONS[objectiveStatusColors[viewingItem.status]],
+                )}
+              >
                 {objectiveStatusLabels[viewingItem.status]}
               </Badge>
             </div>

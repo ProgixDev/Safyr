@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
@@ -20,25 +21,27 @@ import {
   Plus,
   ExternalLink,
   FileText,
+  FolderOpen,
+  RefreshCcw,
   Clock,
   CheckCircle,
-  Download,
-  Upload,
-  Trash2,
+  XCircle,
 } from "lucide-react";
-import {
-  RowActionsMenu,
-  DocumentActionsMenu,
-} from "@/components/ui/row-actions-menu";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { cn } from "@/lib/utils";
-import {
-  pickAndUploadFile,
-  downloadStoredFile,
-  type StoredFile,
-} from "@/lib/document-files";
+import { type StoredFile } from "@/lib/document-files";
 import { useRegistre } from "@/hooks/fiscal";
 import { useEmployeeOptions } from "@/hooks/employees";
-import { Combobox } from "@/components/ui/combobox";
+import { MultiSelect } from "@/components/ui/multi-select";
+import {
+  STATUTS_DOSSIER,
+  TEINTES,
+  TEINTE_STATUT_DOSSIER,
+  normaliserStatutDossier,
+  type StatutDossier,
+} from "@/components/safety-training/couleurs";
+import { SelectStatutDossier } from "@/components/safety-training/statut-dossier";
+import { MenuPiece } from "@/components/safety-training/menu-piece";
 
 /**
  * Pièces attendues d'un dossier de financement : devis du prestataire,
@@ -61,14 +64,19 @@ interface AKTOOPCODossier {
   reference: string;
   type: "AKTO" | "OPCO";
   title: string;
-  employeeId?: string;
+  /** Salariés concernés : identifiants, et noms figés à l'enregistrement. */
+  employeeIds?: string[];
+  employeeNames?: string[];
+  /** Ancien champ à salarié unique, lu pour les dossiers déjà enregistrés. */
   employeeName?: string;
   trainingType: string;
+  /** Dates de la formation (AAAA-MM-JJ). */
+  startDate?: string;
+  endDate?: string;
   amount: number;
-  status: "À créer" | "En cours" | "Soumis" | "Validé" | "Refusé";
+  status: StatutDossier;
   accountUrl?: string;
   createdAt: string;
-  submittedAt?: string;
   validatedAt?: string;
   documents: DossierDocuments;
 }
@@ -79,20 +87,55 @@ const CHAMPS_PIECES = ["devis", "convention", "facture"] as const;
 type DossierEnregistre = Omit<AKTOOPCODossier, "documents"> &
   Partial<Record<DocumentSlot, StoredFile | null>>;
 
+/** Retire les pièces (déjà rattachées à part) avant d'enregistrer la ligne. */
+function versEnregistre(dossier: AKTOOPCODossier): DossierEnregistre {
+  const { documents, ...reste } = dossier;
+  void documents;
+  return reste as DossierEnregistre;
+}
+
 const AKTO_URL = "https://www.akto.fr";
+const URL_DOCUMENTS =
+  "/dashboard/hr/safety-health-training/training-plan/akto/documents";
+
+const FORMULAIRE_VIDE = {
+  type: "AKTO" as "AKTO" | "OPCO",
+  title: "",
+  employeeIds: [] as string[],
+  trainingType: "",
+  startDate: "",
+  endDate: "",
+  amount: "",
+  accountUrl: "",
+};
+
+const dateFr = (iso?: string) =>
+  iso ? new Date(iso).toLocaleDateString("fr-FR") : "—";
+
+/** Noms des salariés d'un dossier, y compris pour l'ancien champ à salarié unique. */
+function nomsSalaries(dossier: AKTOOPCODossier): string[] {
+  if (dossier.employeeNames?.length) return dossier.employeeNames;
+  return dossier.employeeName ? [dossier.employeeName] : [];
+}
 
 export default function AKTOOPCOPage() {
-  // Le salarié se choisit dans la liste : c'était une saisie libre,
-  // sujette aux fautes de frappe et sans lien avec le dossier.
-  const optionsSalaries = useEmployeeOptions().map((salarie) => ({
-    value: salarie.name,
+  // Les salariés se choisissent dans la liste (plusieurs possibles) : c'était
+  // une saisie libre, sujette aux fautes de frappe et sans lien avec le dossier.
+  const salaries = useEmployeeOptions();
+  const optionsSalaries = salaries.map((salarie) => ({
+    value: salarie.id,
     label: salarie.name,
+    description: salarie.matricule || undefined,
   }));
+  const nomDe = (id: string) =>
+    salaries.find((salarie) => salarie.id === id)?.name ?? id;
+
   // Dossiers enregistrés en base : ils ne vivaient qu'en mémoire, et les
   // pièces déposées disparaissaient à la déconnexion.
   const registre = useRegistre<DossierEnregistre>("akto", CHAMPS_PIECES);
   const dossiers: AKTOOPCODossier[] = registre.lignes.map((ligne) => ({
     ...(ligne as unknown as AKTOOPCODossier),
+    status: normaliserStatutDossier(ligne.status),
     documents: Object.fromEntries(
       CHAMPS_PIECES.filter((champ) => ligne[champ]).map((champ) => [
         champ,
@@ -102,29 +145,30 @@ export default function AKTOOPCOPage() {
   }));
 
   const infosDossier = (d: AKTOOPCODossier) => ({
-    period: (d.createdAt ?? "").slice(0, 4),
+    period: (d.startDate || d.createdAt || "").slice(0, 4),
     label: d.title,
     status: d.status,
     amount: d.amount,
   });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedDossier, setSelectedDossier] =
-    useState<AKTOOPCODossier | null>(null);
+  // On garde l'identifiant, pas une copie du dossier : la fiche reflète ainsi
+  // les pièces déposées ou le statut modifié sans avoir à être rouverte.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [statutId, setStatutId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    type: "AKTO" as "AKTO" | "OPCO",
-    title: "",
-    employeeName: "",
-    trainingType: "",
-    amount: "",
-    accountUrl: "",
-  });
+  const [formData, setFormData] = useState(FORMULAIRE_VIDE);
+
+  const selectedDossier = dossiers.find((d) => d.id === selectedId) ?? null;
+  const dossierStatut = dossiers.find((d) => d.id === statutId) ?? null;
 
   const aktoDossiers = dossiers.filter((d) => d.type === "AKTO");
   const opcoDossiers = dossiers.filter((d) => d.type === "OPCO");
-  const inProgress = dossiers.filter((d) => d.status === "En cours").length;
-  const validated = dossiers.filter((d) => d.status === "Validé").length;
+  const parStatut = (statut: StatutDossier) =>
+    dossiers.filter((d) => d.status === statut).length;
+
+  const periodeInvalide =
+    Boolean(formData.startDate && formData.endDate) &&
+    formData.endDate < formData.startDate;
 
   const columns: ColumnDef<AKTOOPCODossier>[] = [
     {
@@ -149,13 +193,35 @@ export default function AKTOOPCOPage() {
       render: (dossier) => <span className="font-medium">{dossier.title}</span>,
     },
     {
-      key: "employeeName",
-      label: "Employé",
-      render: (dossier) => dossier.employeeName || "Groupe",
+      key: "employeeNames",
+      label: "Salariés",
+      render: (dossier) => {
+        const noms = nomsSalaries(dossier);
+        if (noms.length === 0) return "Groupe";
+        return (
+          <span title={noms.join(", ")}>
+            {noms.length <= 2
+              ? noms.join(", ")
+              : `${noms[0]} +${noms.length - 1}`}
+          </span>
+        );
+      },
     },
     {
       key: "trainingType",
       label: "Formation",
+    },
+    {
+      key: "startDate",
+      label: "Début",
+      sortable: true,
+      render: (dossier) => dateFr(dossier.startDate),
+    },
+    {
+      key: "endDate",
+      label: "Fin",
+      sortable: true,
+      render: (dossier) => dateFr(dossier.endDate),
     },
     {
       key: "amount",
@@ -169,21 +235,13 @@ export default function AKTOOPCOPage() {
     {
       key: "status",
       label: "Statut",
-      render: (dossier) => {
-        const variants: Record<
-          string,
-          "default" | "secondary" | "outline" | "destructive"
-        > = {
-          "À créer": "outline",
-          "En cours": "default",
-          Soumis: "secondary",
-          Validé: "default",
-          Refusé: "destructive",
-        };
-        return (
-          <Badge variant={variants[dossier.status]}>{dossier.status}</Badge>
-        );
-      },
+      // Modifiable directement dans le tableau : Créé, Refusé, Validé, Archivé.
+      render: (dossier) => (
+        <SelectStatutDossier
+          statut={dossier.status}
+          onChange={(statut) => changerStatut(dossier, statut)}
+        />
+      ),
     },
     // Vue globale : une colonne par pièce, pour voir d'un coup d'œil ce qui
     // manque sur chaque dossier sans avoir à l'ouvrir.
@@ -205,14 +263,10 @@ export default function AKTOOPCOPage() {
             >
               {fichier ? fichier.name : "Non fourni"}
             </span>
-            <DocumentActionsMenu
+            <MenuPiece
+              fichier={fichier}
               onUpload={() => void handleUploadDocument(dossier, key)}
-              onDownload={
-                fichier ? () => void downloadStoredFile(fichier) : undefined
-              }
-              onDelete={
-                fichier ? () => handleRemoveDocument(dossier, key) : undefined
-              }
+              onDelete={() => handleRemoveDocument(dossier, key)}
             />
           </div>
         );
@@ -222,24 +276,27 @@ export default function AKTOOPCOPage() {
 
   const handleCreate = () => {
     setEditingId(null);
-    setFormData({
-      type: "AKTO",
-      title: "",
-      employeeName: "",
-      trainingType: "",
-      amount: "",
-      accountUrl: "",
-    });
+    setFormData(FORMULAIRE_VIDE);
     setIsCreateModalOpen(true);
   };
 
   const handleEdit = (dossier: AKTOOPCODossier) => {
     setEditingId(dossier.id);
+    // Un dossier ancien n'a que le nom du salarié : on retrouve son identifiant
+    // dans la liste, sinon on garde le nom tel quel pour ne pas le perdre.
+    const ids =
+      dossier.employeeIds && dossier.employeeIds.length > 0
+        ? dossier.employeeIds
+        : nomsSalaries(dossier).map(
+            (nom) => salaries.find((s) => s.name === nom)?.id ?? nom,
+          );
     setFormData({
       type: dossier.type,
       title: dossier.title,
-      employeeName: dossier.employeeName ?? "",
+      employeeIds: ids,
       trainingType: dossier.trainingType,
+      startDate: dossier.startDate ?? "",
+      endDate: dossier.endDate ?? "",
       amount: String(dossier.amount),
       accountUrl: dossier.accountUrl ?? "",
     });
@@ -248,25 +305,31 @@ export default function AKTOOPCOPage() {
 
   const handleDelete = (dossierId: string) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer ce dossier ?")) {
+      if (selectedId === dossierId) setSelectedId(null);
       void registre.supprimerLigne(dossierId);
     }
   };
 
   const handleSave = () => {
+    const champsFormulaire = {
+      type: formData.type,
+      title: formData.title,
+      employeeIds: formData.employeeIds,
+      employeeNames: formData.employeeIds.map(nomDe),
+      // L'ancien champ à salarié unique est remplacé par la liste.
+      employeeName: undefined,
+      trainingType: formData.trainingType,
+      startDate: formData.startDate || undefined,
+      endDate: formData.endDate || undefined,
+      amount: parseFloat(formData.amount) || 0,
+      accountUrl: formData.accountUrl || undefined,
+    };
     if (editingId) {
       const existant = dossiers.find((d) => d.id === editingId);
       if (existant) {
-        const misAJour = {
-          ...existant,
-          type: formData.type,
-          title: formData.title,
-          employeeName: formData.employeeName || undefined,
-          trainingType: formData.trainingType,
-          amount: parseFloat(formData.amount) || 0,
-          accountUrl: formData.accountUrl || undefined,
-        };
+        const misAJour: AKTOOPCODossier = { ...existant, ...champsFormulaire };
         void registre.enregistrer(
-          misAJour as unknown as DossierEnregistre,
+          versEnregistre(misAJour),
           infosDossier(misAJour),
         );
       }
@@ -274,30 +337,48 @@ export default function AKTOOPCOPage() {
       setIsCreateModalOpen(false);
       return;
     }
-    const typeCount = dossiers.filter((d) => d.type === formData.type).length;
+    // Numéro suivant : le plus grand déjà attribué + 1 (et non le nombre de
+    // dossiers, qui redonnait un numéro existant après une suppression).
+    const annee = new Date().getFullYear();
+    const prefixe = `${formData.type}-${annee}-`;
+    const dernier = Math.max(
+      0,
+      ...dossiers
+        .filter((d) => d.reference?.startsWith(prefixe))
+        .map((d) => parseInt(d.reference.slice(prefixe.length), 10) || 0),
+    );
     const newDossier: AKTOOPCODossier = {
-      id: (dossiers.length + 1).toString(),
-      reference: `${formData.type}-2024-${String(typeCount + 1).padStart(3, "0")}`,
-      type: formData.type,
-      title: formData.title,
-      employeeName: formData.employeeName || undefined,
-      trainingType: formData.trainingType,
-      amount: parseFloat(formData.amount) || 0,
-      status: "À créer",
-      accountUrl: formData.accountUrl || undefined,
+      ...champsFormulaire,
+      // Ignoré à la création : c'est le serveur qui attribue l'identifiant.
+      id: "",
+      reference: `${prefixe}${String(dernier + 1).padStart(3, "0")}`,
+      status: "Créé",
       createdAt: new Date().toISOString().split("T")[0],
       documents: {},
     };
     void registre.enregistrer(
-      newDossier as unknown as DossierEnregistre,
+      versEnregistre(newDossier),
       infosDossier(newDossier),
     );
     setIsCreateModalOpen(false);
   };
 
   const handleRowClick = (dossier: AKTOOPCODossier) => {
-    setSelectedDossier(dossier);
-    setIsViewModalOpen(true);
+    setSelectedId(dossier.id);
+  };
+
+  /** Change le statut du dossier ; la date de validation suit le statut « Validé ». */
+  const changerStatut = (dossier: AKTOOPCODossier, statut: StatutDossier) => {
+    if (statut === dossier.status) return;
+    const misAJour: AKTOOPCODossier = {
+      ...dossier,
+      status: statut,
+      validatedAt:
+        statut === "Validé"
+          ? new Date().toISOString().split("T")[0]
+          : dossier.validatedAt,
+    };
+    void registre.enregistrer(versEnregistre(misAJour), infosDossier(misAJour));
   };
 
   /** Attache (ou remplace) une pièce du dossier : devis, convention, facture. */
@@ -307,7 +388,7 @@ export default function AKTOOPCOPage() {
   ) => {
     try {
       await registre.televerserPiece(
-        dossier as unknown as DossierEnregistre,
+        versEnregistre(dossier),
         slot,
         infosDossier(dossier),
       );
@@ -327,22 +408,6 @@ export default function AKTOOPCOPage() {
     void registre.retirerPiece(dossier.id, slot);
   };
 
-  const handleSubmitDossier = (dossierId: string) => {
-    const dossier = dossiers.find((d) => d.id === dossierId);
-    if (dossier) {
-      const soumis = {
-        ...dossier,
-        status: "Soumis" as const,
-        submittedAt: new Date().toISOString().split("T")[0],
-      };
-      void registre.enregistrer(
-        soumis as unknown as DossierEnregistre,
-        infosDossier(soumis),
-      );
-    }
-    alert("Dossier soumis avec succès!");
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -353,7 +418,13 @@ export default function AKTOOPCOPage() {
             formation
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href={URL_DOCUMENTS}>
+              <FolderOpen className="h-4 w-4 mr-2 text-blue-500" />
+              Documents AKTO
+            </Link>
+          </Button>
           <Button variant="outline" asChild>
             <a href={AKTO_URL} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4 mr-2" />
@@ -371,30 +442,32 @@ export default function AKTOOPCOPage() {
       <InfoCardContainer>
         <InfoCard
           icon={FileText}
-          title="Dossiers AKTO"
-          value={aktoDossiers.length}
+          title="Dossiers"
+          value={dossiers.length}
+          subtext={`${aktoDossiers.length} AKTO · ${opcoDossiers.length} OPCO · ${parStatut("Archivé")} archivé(s)`}
           color="blue"
         />
 
         <InfoCard
-          icon={FileText}
-          title="Dossiers OPCO"
-          value={opcoDossiers.length}
-          color="green"
-        />
-
-        <InfoCard
           icon={Clock}
-          title="En cours"
-          value={inProgress}
+          title="Créés"
+          value={parStatut("Créé")}
+          subtext="En attente de réponse"
           color="orange"
         />
 
         <InfoCard
           icon={CheckCircle}
           title="Validés"
-          value={validated}
+          value={parStatut("Validé")}
           color="green"
+        />
+
+        <InfoCard
+          icon={XCircle}
+          title="Refusés"
+          value={parStatut("Refusé")}
+          color="red"
         />
       </InfoCardContainer>
 
@@ -408,6 +481,14 @@ export default function AKTOOPCOPage() {
           <RowActionsMenu
             onView={() => handleRowClick(dossier)}
             onEdit={() => handleEdit(dossier)}
+            extraItems={[
+              {
+                label: "Modifier le statut",
+                icon: RefreshCcw,
+                tone: "neutral",
+                onClick: () => setStatutId(dossier.id),
+              },
+            ]}
             onDelete={() => handleDelete(dossier.id)}
           />
         )}
@@ -428,6 +509,7 @@ export default function AKTOOPCOPage() {
           primary: {
             label: editingId ? "Enregistrer" : "Créer",
             onClick: handleSave,
+            disabled: !formData.title.trim() || periodeInvalide,
           },
           secondary: {
             label: "Annuler",
@@ -468,18 +550,19 @@ export default function AKTOOPCOPage() {
           </div>
 
           <div>
-            <Label htmlFor="employeeName">
-              Employé (optionnel - laisser vide pour formation groupe)
+            <Label htmlFor="employeeIds">
+              Salariés (optionnel - laisser vide pour formation groupe)
             </Label>
-            <Combobox
+            <MultiSelect
+              id="employeeIds"
               options={optionsSalaries}
-              value={formData.employeeName}
-              onValueChange={(valeur) =>
-                setFormData({ ...formData, employeeName: valeur })
+              value={formData.employeeIds}
+              onValueChange={(ids) =>
+                setFormData({ ...formData, employeeIds: ids })
               }
-              placeholder="Sélectionner un employé"
-              searchPlaceholder="Rechercher un employé..."
-              emptyMessage="Aucun employé trouvé."
+              placeholder="Sélectionner un ou plusieurs salariés"
+              searchPlaceholder="Rechercher un salarié..."
+              emptyMessage="Aucun salarié trouvé."
             />
           </div>
 
@@ -505,6 +588,39 @@ export default function AKTOOPCOPage() {
                 <SelectItem value="Autre">Autre</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="startDate">Date de début de la formation</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, startDate: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="endDate">Date de fin de la formation</Label>
+              <Input
+                id="endDate"
+                type="date"
+                min={formData.startDate || undefined}
+                value={formData.endDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, endDate: e.target.value })
+                }
+                aria-invalid={periodeInvalide}
+              />
+            </div>
+            {periodeInvalide && (
+              <p className="col-span-2 text-xs text-destructive">
+                La date de fin doit être postérieure ou égale à la date de
+                début.
+              </p>
+            )}
           </div>
 
           <div>
@@ -535,17 +651,64 @@ export default function AKTOOPCOPage() {
         </div>
       </Modal>
 
+      {/* Modifier le statut (menu d'actions) */}
+      <Modal
+        open={dossierStatut !== null}
+        onOpenChange={(ouvert) => {
+          if (!ouvert) setStatutId(null);
+        }}
+        type="form"
+        title="Modifier le statut du dossier"
+        description={dossierStatut?.title}
+        size="sm"
+        actions={{
+          secondary: {
+            label: "Fermer",
+            onClick: () => setStatutId(null),
+            variant: "outline",
+          },
+        }}
+      >
+        {dossierStatut && (
+          <div className="grid gap-2">
+            {STATUTS_DOSSIER.map((statut) => (
+              <Button
+                key={statut}
+                type="button"
+                variant="outline"
+                className={cn(
+                  "justify-between border",
+                  TEINTES[TEINTE_STATUT_DOSSIER[statut]],
+                  dossierStatut.status === statut && "ring-2 ring-offset-1",
+                )}
+                onClick={() => {
+                  changerStatut(dossierStatut, statut);
+                  setStatutId(null);
+                }}
+              >
+                {statut}
+                {dossierStatut.status === statut && (
+                  <span className="text-xs font-normal">Statut actuel</span>
+                )}
+              </Button>
+            ))}
+          </div>
+        )}
+      </Modal>
+
       {/* View Modal */}
       <Modal
-        open={isViewModalOpen}
-        onOpenChange={setIsViewModalOpen}
+        open={selectedDossier !== null}
+        onOpenChange={(ouvert) => {
+          if (!ouvert) setSelectedId(null);
+        }}
         type="details"
         title="Détails du dossier"
         size="lg"
         actions={{
           secondary: {
             label: "Fermer",
-            onClick: () => setIsViewModalOpen(false),
+            onClick: () => setSelectedId(null),
           },
         }}
       >
@@ -575,12 +738,16 @@ export default function AKTOOPCOPage() {
               <p className="text-sm font-medium">{selectedDossier.title}</p>
             </div>
 
-            {selectedDossier.employeeName && (
+            {nomsSalaries(selectedDossier).length > 0 && (
               <div>
-                <Label>Employé</Label>
-                <p className="text-sm font-medium">
-                  {selectedDossier.employeeName}
-                </p>
+                <Label>Salariés</Label>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {nomsSalaries(selectedDossier).map((nom) => (
+                    <Badge key={nom} variant="secondary">
+                      {nom}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -597,11 +764,29 @@ export default function AKTOOPCOPage() {
                   {selectedDossier.amount.toLocaleString("fr-FR")} €
                 </p>
               </div>
+              <div>
+                <Label>Début de la formation</Label>
+                <p className="text-sm font-medium">
+                  {dateFr(selectedDossier.startDate)}
+                </p>
+              </div>
+              <div>
+                <Label>Fin de la formation</Label>
+                <p className="text-sm font-medium">
+                  {dateFr(selectedDossier.endDate)}
+                </p>
+              </div>
             </div>
 
             <div>
               <Label>Statut</Label>
-              <Badge variant="default">{selectedDossier.status}</Badge>
+              <div className="mt-1">
+                <SelectStatutDossier
+                  statut={selectedDossier.status}
+                  onChange={(statut) => changerStatut(selectedDossier, statut)}
+                  className="h-8 text-sm"
+                />
+              </div>
             </div>
 
             {selectedDossier.accountUrl && (
@@ -624,39 +809,33 @@ export default function AKTOOPCOPage() {
               <div>
                 <Label>Date de création</Label>
                 <p className="text-sm font-medium">
-                  {new Date(selectedDossier.createdAt).toLocaleDateString(
-                    "fr-FR",
-                  )}
+                  {dateFr(selectedDossier.createdAt)}
                 </p>
               </div>
-              {selectedDossier.submittedAt && (
-                <div>
-                  <Label>Date de soumission</Label>
-                  <p className="text-sm font-medium">
-                    {new Date(selectedDossier.submittedAt).toLocaleDateString(
-                      "fr-FR",
-                    )}
-                  </p>
-                </div>
-              )}
+              {selectedDossier.status === "Validé" &&
+                selectedDossier.validatedAt && (
+                  <div>
+                    <Label>Date de validation</Label>
+                    <p className="text-sm font-medium text-green-600">
+                      {dateFr(selectedDossier.validatedAt)}
+                    </p>
+                  </div>
+                )}
             </div>
-
-            {selectedDossier.validatedAt && (
-              <div>
-                <Label>Date de validation</Label>
-                <p className="text-sm font-medium text-green-600">
-                  {new Date(selectedDossier.validatedAt).toLocaleDateString(
-                    "fr-FR",
-                  )}
-                </p>
-              </div>
-            )}
 
             {/* Vue détaillée : une ligne par pièce du dossier de financement */}
             <div className="pt-4 border-t">
-              <Label className="text-base font-semibold mb-3 block">
-                Documents du dossier
-              </Label>
+              <div className="mb-3 flex items-center justify-between">
+                <Label className="text-base font-semibold">
+                  Documents du dossier
+                </Label>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href={URL_DOCUMENTS}>
+                    <FolderOpen className="h-3.5 w-3.5 mr-1 text-blue-500" />
+                    Tous les documents AKTO
+                  </Link>
+                </Button>
+              </div>
               <div className="space-y-2">
                 {DOCUMENT_SLOTS.map(({ key, label }) => {
                   const fichier = selectedDossier.documents[key];
@@ -671,82 +850,19 @@ export default function AKTOOPCOPage() {
                           {fichier?.name ?? "Non fourni"}
                         </p>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        {fichier && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void downloadStoredFile(fichier)}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Télécharger
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            void handleUploadDocument(selectedDossier, key)
-                          }
-                        >
-                          <Upload className="h-3 w-3 mr-1" />
-                          {fichier ? "Remplacer" : "Téléverser"}
-                        </Button>
-                        {fichier && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() =>
-                              handleRemoveDocument(selectedDossier, key)
-                            }
-                            title="Supprimer le document"
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                          </Button>
-                        )}
-                      </div>
+                      <MenuPiece
+                        fichier={fichier}
+                        onUpload={() =>
+                          void handleUploadDocument(selectedDossier, key)
+                        }
+                        onDelete={() =>
+                          handleRemoveDocument(selectedDossier, key)
+                        }
+                      />
                     </div>
                   );
                 })}
               </div>
-            </div>
-
-            <div className="pt-4 border-t space-y-2">
-              {selectedDossier.status === "À créer" && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    handleSubmitDossier(selectedDossier.id);
-                    setIsViewModalOpen(false);
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Créer et soumettre le dossier
-                </Button>
-              )}
-
-              {selectedDossier.status === "En cours" && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                  <p className="text-sm text-blue-600 font-medium">
-                    <Clock className="h-4 w-4 inline mr-1" />
-                    Dossier en cours de traitement
-                  </p>
-                </div>
-              )}
-
-              {selectedDossier.status === "Validé" && (
-                <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                  <p className="text-sm text-green-600 font-medium">
-                    <CheckCircle className="h-4 w-4 inline mr-1" />
-                    Dossier validé le{" "}
-                    {new Date(selectedDossier.validatedAt!).toLocaleDateString(
-                      "fr-FR",
-                    )}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         )}

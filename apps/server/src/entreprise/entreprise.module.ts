@@ -7,6 +7,8 @@ import { SubcontractorsController } from "./subcontractors.controller";
 import { SubcontractorsService } from "./subcontractors.service";
 import { AttachmentsController } from "./attachments.controller";
 import { AttachmentsService } from "./attachments.service";
+import { ReceiptExtractionController } from "./receipt-extraction.controller";
+import { ReceiptExtractionService } from "./receipt-extraction.service";
 import { StorageModule } from "@/storage/storage.module";
 
 @Module({
@@ -15,7 +17,13 @@ import { StorageModule } from "@/storage/storage.module";
     ClientsController,
     SubcontractorsController,
     AttachmentsController,
+    ReceiptExtractionController,
   ],
-  providers: [ClientsService, SubcontractorsService, AttachmentsService],
+  providers: [
+    ClientsService,
+    SubcontractorsService,
+    AttachmentsService,
+    ReceiptExtractionService,
+  ],
 })
 export class EntrepriseModule {}

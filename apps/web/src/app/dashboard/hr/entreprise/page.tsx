@@ -47,6 +47,7 @@ import { tvaDepuisSiretOuSiren } from "@/lib/tva";
 import { CompanySearch } from "@/components/ui/company-search";
 import { PhoneField } from "@/components/ui/phone-field";
 import { formatDate, formatDateForInput } from "@/lib/date-utils";
+import { MailboxSettingsCard } from "@/components/mailbox/MailboxSettingsCard";
 
 export default function InformationEntreprisePage() {
   const { data: organization, isLoading: isOrgLoading } = useOrganization();
@@ -241,7 +242,9 @@ function EntrepriseContent({
    * l'attribut download et échoue silencieusement.
    */
   const ouvrirDocumentStocke = async (key: string, messageErreur: string) => {
-    const fenetre = window.open("", "_blank", "noopener,noreferrer");
+    // Sans "noopener" : il ferait renvoyer null à window.open (spécification).
+    const fenetre = window.open("", "_blank");
+    if (fenetre) fenetre.opener = null;
     try {
       const url = await getSignedUrl(key);
       if (fenetre) {
@@ -419,6 +422,8 @@ function EntrepriseContent({
           color="purple"
         />
       </InfoCardContainer>
+
+      <MailboxSettingsCard />
 
       <Tabs defaultValue="info" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 rounded-xl">

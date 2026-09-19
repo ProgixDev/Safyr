@@ -16,7 +16,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
-import { Plus, Trash2, FileDown, FileSpreadsheet } from "lucide-react";
+import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import {
+  Plus,
+  Trash2,
+  FileDown,
+  FileSpreadsheet,
+  ShieldAlert,
+  ShieldCheck,
+  AlertTriangle,
+  Flame,
+  ClipboardList,
+  ListChecks,
+  HardHat,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  CADRES,
+  TEINTES,
+  type Teinte,
+} from "@/components/safety-training/couleurs";
 import { exportDuerpToPdf, exportDuerpToExcel } from "@/lib/duerp-export";
 import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
@@ -24,7 +43,7 @@ interface Risk {
   risque: string;
   cause: string;
   gravite: "Grave" | "Moyenne" | "Faible";
-  probabilite: "Moyenne" | "Faible";
+  probabilite: "Élevée" | "Moyenne" | "Faible";
   mesures: string;
 }
 
@@ -368,6 +387,99 @@ const initialPostes: Poste[] = [
   },
 ];
 
+/**
+ * Cotation d'un risque : gravité (1 à 3) × probabilité (1 à 3).
+ * 1-2 faible, 3-4 moyen, 6 élevé, 9 critique (grave ET probable).
+ */
+const POINTS_GRAVITE: Record<Risk["gravite"], number> = {
+  Faible: 1,
+  Moyenne: 2,
+  Grave: 3,
+};
+const POINTS_PROBABILITE: Record<Risk["probabilite"], number> = {
+  Faible: 1,
+  Moyenne: 2,
+  Élevée: 3,
+};
+
+type Niveau = "Faible" | "Moyen" | "Élevé" | "Critique";
+
+const NIVEAUX: {
+  niveau: Niveau;
+  teinte: Teinte;
+  cadre: keyof typeof CADRES;
+  icone: typeof ShieldCheck;
+  aide: string;
+}[] = [
+  {
+    niveau: "Faible",
+    teinte: "vert",
+    cadre: "vert",
+    icone: ShieldCheck,
+    aide: "Risque maîtrisé",
+  },
+  {
+    niveau: "Moyen",
+    teinte: "orange",
+    cadre: "orange",
+    icone: AlertTriangle,
+    aide: "À surveiller",
+  },
+  {
+    niveau: "Élevé",
+    teinte: "rouge",
+    cadre: "rouge",
+    icone: ShieldAlert,
+    aide: "Action à planifier",
+  },
+  {
+    niveau: "Critique",
+    teinte: "critique",
+    cadre: "critique",
+    icone: Flame,
+    aide: "Action immédiate",
+  },
+];
+
+function scoreRisque(risk: Risk): number {
+  return (
+    (POINTS_GRAVITE[risk.gravite] ?? 2) *
+    (POINTS_PROBABILITE[risk.probabilite] ?? 2)
+  );
+}
+
+function niveauDeScore(score: number): Niveau {
+  if (score >= 9) return "Critique";
+  if (score >= 6) return "Élevé";
+  if (score >= 3) return "Moyen";
+  return "Faible";
+}
+
+const niveauRisque = (risk: Risk): Niveau => niveauDeScore(scoreRisque(risk));
+
+const infosNiveau = (niveau: Niveau) =>
+  NIVEAUX.find((n) => n.niveau === niveau)!;
+
+/** Badge coloré : vert / orange / rouge, rouge foncé pour « critique ». */
+function BadgeNiveau({
+  teinte,
+  children,
+}: {
+  teinte: Teinte;
+  children: string;
+}) {
+  return (
+    <Badge variant="outline" className={TEINTES[teinte]}>
+      {children}
+    </Badge>
+  );
+}
+
+const teinteGravite = (g: string): Teinte =>
+  g === "Grave" ? "rouge" : g === "Moyenne" ? "orange" : "vert";
+const teinteProbabilite = (p: string): Teinte =>
+  p === "Élevée" ? "rouge" : p === "Moyenne" ? "orange" : "vert";
+
 export default function DUERPPage() {
   // Les postes livrés restent dans le code ; les ajouts et les évaluations
   // du client sont enregistrés en base.
@@ -379,28 +491,12 @@ export default function DUERPPage() {
   const [newPosteTitle, setNewPosteTitle] = useState("");
   const [newRisks, setNewRisks] = useState<Risk[]>([]);
 
-  const getGraviteBadge = (gravite: string) => {
-    if (gravite === "Grave") {
-      return <Badge variant="destructive">{gravite}</Badge>;
-    }
-    if (gravite === "Moyenne") {
-      return <Badge variant="secondary">{gravite}</Badge>;
-    }
-    return <Badge variant="outline">{gravite}</Badge>;
-  };
-
-  const getProbabiliteBadge = (probabilite: string) => {
-    if (probabilite === "Moyenne") {
-      return <Badge variant="secondary">{probabilite}</Badge>;
-    }
-    return <Badge variant="outline">{probabilite}</Badge>;
-  };
-
   const riskColumns: ColumnDef<Risk>[] = [
     {
       key: "risque",
       label: "Risque identifié",
       sortable: true,
+      render: (risk) => <span className="font-medium">{risk.risque}</span>,
     },
     {
       key: "cause",
@@ -411,13 +507,33 @@ export default function DUERPPage() {
       key: "gravite",
       label: "Gravité",
       sortable: true,
-      render: (risk) => getGraviteBadge(risk.gravite),
+      sortValue: (risk) => POINTS_GRAVITE[risk.gravite],
+      render: (risk) => (
+        <BadgeNiveau teinte={teinteGravite(risk.gravite)}>
+          {risk.gravite}
+        </BadgeNiveau>
+      ),
     },
     {
       key: "probabilite",
       label: "Probabilité",
       sortable: true,
-      render: (risk) => getProbabiliteBadge(risk.probabilite),
+      sortValue: (risk) => POINTS_PROBABILITE[risk.probabilite],
+      render: (risk) => (
+        <BadgeNiveau teinte={teinteProbabilite(risk.probabilite)}>
+          {risk.probabilite}
+        </BadgeNiveau>
+      ),
+    },
+    {
+      key: "niveau",
+      label: "Niveau de risque",
+      sortable: true,
+      sortValue: scoreRisque,
+      render: (risk) => {
+        const info = infosNiveau(niveauRisque(risk));
+        return <BadgeNiveau teinte={info.teinte}>{info.niveau}</BadgeNiveau>;
+      },
     },
     {
       key: "mesures",
@@ -504,6 +620,11 @@ export default function DUERPPage() {
     ]);
   };
 
+  const tousLesRisques = postes.flatMap((poste) => poste.risks);
+  const nombreParNiveau = (niveau: Niveau) =>
+    tousLesRisques.filter((risk) => niveauRisque(risk) === niveau).length;
+  const aTraiter = nombreParNiveau("Élevé") + nombreParNiveau("Critique");
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-start justify-between">
@@ -539,25 +660,146 @@ export default function DUERPPage() {
         </div>
       </div>
 
+      {/* Synthèse : mêmes cartes colorées que « Analyse des coûts ». */}
+      <InfoCardContainer>
+        <InfoCard
+          icon={HardHat}
+          title="Postes évalués"
+          value={postes.length}
+          subtext="Postes couverts par le DUERP"
+          color="blue"
+        />
+        <InfoCard
+          icon={ClipboardList}
+          title="Risques identifiés"
+          value={tousLesRisques.length}
+          subtext="Tous postes confondus"
+          color="purple"
+        />
+        <InfoCard
+          icon={ShieldAlert}
+          title="À traiter en priorité"
+          value={aTraiter}
+          subtext="Risques élevés ou critiques"
+          color="red"
+        />
+        <InfoCard
+          icon={ListChecks}
+          title="Risques maîtrisés"
+          value={nombreParNiveau("Faible")}
+          subtext="Niveau faible"
+          color="green"
+        />
+      </InfoCardContainer>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <ShieldAlert className="h-5 w-5" />
+            Répartition par niveau de risque
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {NIVEAUX.map(({ niveau, cadre, teinte, icone: Icone, aide }) => {
+              const couleurs = CADRES[cadre];
+              const nombre = nombreParNiveau(niveau);
+              const part =
+                tousLesRisques.length > 0
+                  ? (nombre / tousLesRisques.length) * 100
+                  : 0;
+              return (
+                <div
+                  key={niveau}
+                  className={cn(
+                    "rounded-lg border p-4",
+                    couleurs.bg,
+                    couleurs.border,
+                  )}
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icone className={cn("h-4 w-4", couleurs.icon)} />
+                      <h4 className={cn("font-semibold", couleurs.text)}>
+                        {niveau}
+                      </h4>
+                    </div>
+                    <BadgeNiveau teinte={teinte}>
+                      {`${nombre} risque${nombre > 1 ? "s" : ""}`}
+                    </BadgeNiveau>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Part des risques
+                      </span>
+                      <Badge variant="secondary" className="font-mono">
+                        {part.toFixed(1)} %
+                      </Badge>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-background/60">
+                      <div
+                        className={cn(
+                          "h-full rounded-full",
+                          niveau === "Faible" && "bg-green-500",
+                          niveau === "Moyen" && "bg-orange-500",
+                          niveau === "Élevé" && "bg-red-500",
+                          niveau === "Critique" && "bg-red-800",
+                        )}
+                        style={{ width: `${part}%` }}
+                      />
+                    </div>
+                    <p className="border-t pt-2 text-sm text-muted-foreground">
+                      {aide}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="space-y-6">
-        {postes.map((poste) => (
-          <Card key={poste.id}>
-            <CardHeader>
-              <CardTitle className="text-xl font-medium">
-                Poste : {poste.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                data={poste.risks}
-                columns={riskColumns}
-                searchKeys={["risque", "cause", "mesures"]}
-                searchPlaceholder="Rechercher un risque..."
-                itemsPerPage={10}
-              />
-            </CardContent>
-          </Card>
-        ))}
+        {postes.map((poste) => {
+          // Le poste prend la couleur de son risque le plus grave.
+          const pire = niveauDeScore(
+            Math.max(0, ...poste.risks.map(scoreRisque)),
+          );
+          const infos = infosNiveau(pire);
+          const couleurs = CADRES[infos.cadre];
+          const Icone = infos.icone;
+          return (
+            <Card key={poste.id} className={cn("border-l-4", couleurs.border)}>
+              <CardHeader className={cn("rounded-t-xl", couleurs.bg)}>
+                <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-xl font-medium">
+                  <span className="flex items-center gap-2">
+                    <Icone className={cn("h-5 w-5", couleurs.icon)} />
+                    Poste : {poste.title}
+                  </span>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="outline" className="font-mono">
+                      {poste.risks.length} risque
+                      {poste.risks.length > 1 ? "s" : ""}
+                    </Badge>
+                    <BadgeNiveau teinte={infos.teinte}>
+                      {`Niveau max. : ${pire}`}
+                    </BadgeNiveau>
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <DataTable
+                  data={poste.risks}
+                  columns={riskColumns}
+                  searchKeys={["risque", "cause", "mesures"]}
+                  searchPlaceholder="Rechercher un risque..."
+                  itemsPerPage={10}
+                />
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <Modal
@@ -699,6 +941,7 @@ export default function DUERPPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="Élevée">Élevée</SelectItem>
                             <SelectItem value="Moyenne">Moyenne</SelectItem>
                             <SelectItem value="Faible">Faible</SelectItem>
                           </SelectContent>

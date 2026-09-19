@@ -19,25 +19,21 @@ import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, CheckCircle, Send } from "lucide-react";
-import { Warning } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
 import { useRegistre } from "@/hooks/fiscal/use-registre";
-import { sendCommunicationEmail } from "@safyr/api-client";
+import { useOrganization } from "@/hooks/organization";
+import { CourrierDialog } from "./CourrierDialog";
+import { ResponsableSelect } from "./ResponsableSelect";
+import {
+  TYPES_SANCTION,
+  TYPE_SANCTION_PAR_DEFAUT,
+  dateFr,
+  horodatage,
+  type LigneSanction,
+} from "./discipline-shared";
 
-/** Ligne enregistrée en base : la date y est une chaîne ISO. */
-interface LigneAvertissement {
-  id: string;
-  employeeId: string;
-  date: string;
-  reason: string;
-  description: string;
-  issuedBy: string;
-  status: "active" | "lifted";
-}
-
-const EPOQUE = new Date(0);
 const CHAMPS_FICHIERS = ["document"] as const;
 
 const statusLabels = {
@@ -50,193 +46,167 @@ const statusColors = {
   lifted: "secondary",
 } as const;
 
+/** Les sanctions saisies avant l'ajout du type étaient des avertissements. */
+const typeDe = (ligne: { type?: string }) =>
+  ligne.type || TYPE_SANCTION_PAR_DEFAUT;
+
+const formulaireVide = () => ({
+  employeeId: "",
+  date: new Date().toISOString().split("T")[0],
+  type: TYPE_SANCTION_PAR_DEFAUT as string,
+  reason: "",
+  description: "",
+  issuedBy: "",
+  status: "active" as "active" | "lifted",
+});
+
 export function WarningsSection() {
-  const mockEmployees = useEmployeeOptions();
-  const employeeOptions = mockEmployees.map((employee) => ({
+  const employees = useEmployeeOptions();
+  const { data: organisation } = useOrganization();
+  const employeeOptions = employees.map((employee) => ({
     value: employee.id,
     label: employee.name,
   }));
-  // Les avertissements sont enregistrés en base : ils restaient auparavant
-  // dans l'état React et disparaissaient au rechargement de la page.
-  const registre = useRegistre<LigneAvertissement>(
-    "avertissement",
-    CHAMPS_FICHIERS,
-  );
-  const warnings = useMemo<Warning[]>(
+  // Les sanctions sont enregistrées en base (registre « avertissement » : la
+  // clé n'a pas changé pour retrouver les lignes déjà saisies).
+  const registre = useRegistre<LigneSanction>("avertissement", CHAMPS_FICHIERS);
+  const sanctions = useMemo(
     () =>
-      registre.lignes.map((ligne) => ({
-        id: ligne.id,
-        employeeId: ligne.employeeId ?? "",
-        date: ligne.date ? new Date(ligne.date) : EPOQUE,
-        reason: ligne.reason ?? "",
-        description: ligne.description ?? "",
-        issuedBy: ligne.issuedBy ?? "",
-        status: ligne.status ?? "active",
-        createdAt: EPOQUE,
-        updatedAt: EPOQUE,
-      })),
+      [...registre.lignes].sort(
+        (a, b) => horodatage(b.date) - horodatage(a.date),
+      ),
     [registre.lignes],
   );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [editingWarning, setEditingWarning] = useState<Warning | null>(null);
-  const [viewingWarning, setViewingWarning] = useState<Warning | null>(null);
-  const [courrierWarning, setCourrierWarning] = useState<Warning | null>(
-    null,
-  );
-  const [courrierForm, setCourrierForm] = useState({
-    subject: "",
-    message: "",
-  });
-  const [envoiCourrierEnCours, setEnvoiCourrierEnCours] = useState(false);
-  const [formData, setFormData] = useState({
-    employeeId: "",
-    date: "",
-    reason: "",
-    description: "",
-    issuedBy: "Alice Dubois", // Mock current user
-    status: "active" as "active" | "lifted",
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<LigneSanction | null>(null);
+  const [courrierSanction, setCourrierSanction] =
+    useState<LigneSanction | null>(null);
+  const [formData, setFormData] = useState(formulaireVide);
+  const [erreurSauvegarde, setErreurSauvegarde] = useState<string | null>(null);
+  const [enregistrement, setEnregistrement] = useState(false);
+
+  const getEmployeeName = (employeeId: string) => {
+    const employee = employees.find((e) => e.id === employeeId);
+    return employee ? employee.name : "Employé inconnu";
+  };
 
   const handleCreate = () => {
-    setEditingWarning(null);
-    setFormData({
-      employeeId: "",
-      date: new Date().toISOString().split("T")[0],
-      reason: "",
-      description: "",
-      issuedBy: "Alice Dubois",
-      status: "active",
-    });
+    setEditingId(null);
+    // Par défaut vide : le responsable est choisi dans la liste enregistrée.
+    setFormData(formulaireVide());
+    setErreurSauvegarde(null);
     setIsCreateModalOpen(true);
   };
 
-  const handleEdit = (warning: Warning) => {
-    setEditingWarning(warning);
+  const handleEdit = (sanction: LigneSanction) => {
+    setEditingId(sanction.id);
     setFormData({
-      employeeId: warning.employeeId,
-      date: warning.date.toISOString().split("T")[0],
-      reason: warning.reason,
-      description: warning.description,
-      issuedBy: warning.issuedBy,
-      status: warning.status,
+      employeeId: sanction.employeeId,
+      date: (sanction.date ?? "").slice(0, 10),
+      type: typeDe(sanction),
+      reason: sanction.reason ?? "",
+      description: sanction.description ?? "",
+      issuedBy: sanction.issuedBy ?? "",
+      status: sanction.status ?? "active",
     });
+    setErreurSauvegarde(null);
     setIsCreateModalOpen(true);
   };
 
-  const handleView = (warning: Warning) => {
-    setViewingWarning(warning);
+  const handleView = (sanction: LigneSanction) => {
+    setViewing(sanction);
     setIsViewModalOpen(true);
   };
 
-  const handleDelete = (warningId: string) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cet avertissement ?")) {
-      void registre.supprimerLigne(warningId);
+  const handleDelete = (id: string) => {
+    if (confirm("Êtes-vous sûr de vouloir supprimer cette sanction ?")) {
+      void registre.supprimerLigne(id);
     }
   };
 
-  const enregistrer = async (ligne: LigneAvertissement) => {
-    const nom =
-      mockEmployees.find((e) => e.id === ligne.employeeId)?.name ?? "Salarié";
+  const enregistrer = async (ligne: LigneSanction) => {
     await registre.enregistrer(ligne, {
       period: (ligne.date || new Date().toISOString()).slice(0, 7),
-      label: `Avertissement — ${nom}`,
+      label: `${typeDe(ligne)} — ${getEmployeeName(ligne.employeeId)}`,
       status: ligne.status,
     });
   };
 
   const handleSave = async () => {
-    await enregistrer({
-      id: editingWarning?.id ?? "",
-      employeeId: formData.employeeId,
-      date: formData.date,
-      reason: formData.reason,
-      description: formData.description,
-      issuedBy: formData.issuedBy,
-      status: formData.status,
-    });
-    setIsCreateModalOpen(false);
+    setEnregistrement(true);
+    setErreurSauvegarde(null);
+    try {
+      await enregistrer({
+        id: editingId ?? "",
+        employeeId: formData.employeeId,
+        date: formData.date,
+        type: formData.type,
+        reason: formData.reason,
+        description: formData.description,
+        issuedBy: formData.issuedBy,
+        status: formData.status,
+      });
+      setIsCreateModalOpen(false);
+    } catch (e) {
+      setErreurSauvegarde(
+        `Échec de l'enregistrement : ${e instanceof Error ? e.message : "erreur inconnue"}`,
+      );
+    } finally {
+      setEnregistrement(false);
+    }
   };
 
   const handleStatusChange = (
-    warningId: string,
-    newStatus: Warning["status"],
+    id: string,
+    newStatus: LigneSanction["status"],
   ) => {
-    const avertissement = warnings.find((w) => w.id === warningId);
-    if (!avertissement) return;
-    void enregistrer({
-      id: avertissement.id,
-      employeeId: avertissement.employeeId,
-      date: avertissement.date.toISOString().split("T")[0],
-      reason: avertissement.reason,
-      description: avertissement.description,
-      issuedBy: avertissement.issuedBy,
-      status: newStatus,
-    });
+    const sanction = sanctions.find((s) => s.id === id);
+    if (!sanction) return;
+    void enregistrer({ ...sanction, status: newStatus });
   };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleOpenCourrier = (warning: Warning) => {
-    setCourrierWarning(warning);
-    setCourrierForm({
-      subject: `Avertissement du ${warning.date.toLocaleDateString("fr-FR")}`,
-      message: `Bonjour,\n\nNous vous notifions par la présente un avertissement pour le motif suivant : ${warning.reason}.\n\n${warning.description}\n\nCordialement,\n${warning.issuedBy}`,
-    });
-  };
-
-  const handleEnvoyerCourrier = async () => {
-    if (!courrierWarning) return;
-    const employee = mockEmployees.find(
-      (e) => e.id === courrierWarning.employeeId,
-    );
-    if (!employee?.email) {
-      alert("Ce salarié n'a pas d'adresse email enregistrée.");
-      return;
-    }
-    setEnvoiCourrierEnCours(true);
-    try {
-      const result = await sendCommunicationEmail({
-        recipients: [employee.email],
-        subject: courrierForm.subject,
-        body: courrierForm.message,
-      });
-      alert(`Courrier envoyé à ${result.sent} destinataire(s).`);
-      setCourrierWarning(null);
-    } catch (e) {
-      alert(
-        `Échec de l'envoi du courrier : ${e instanceof Error ? e.message : "erreur inconnue"}`,
-      );
-    } finally {
-      setEnvoiCourrierEnCours(false);
-    }
+  const modeleCourrier = (sanction: LigneSanction) => {
+    const type = typeDe(sanction);
+    return {
+      objet: `${type} du ${dateFr(sanction.date)}`,
+      corps: [
+        "Madame, Monsieur,",
+        "",
+        `Nous vous notifions par la présente la sanction disciplinaire suivante : ${type.toLowerCase()}, pour le motif suivant : ${sanction.reason}.`,
+        "",
+        sanction.description,
+        "",
+        "Cordialement,",
+        sanction.issuedBy || organisation?.name || "La Direction",
+      ].join("\n"),
+    };
   };
 
   const isFormValid =
     formData.employeeId &&
     formData.date &&
+    formData.type &&
     formData.reason &&
     formData.description;
 
-  const getEmployeeName = (employeeId: string) => {
-    const employee = mockEmployees.find((e) => e.id === employeeId);
-    return employee ? employee.name : "Employé inconnu";
-  };
-
-  const columns: ColumnDef<Warning>[] = [
+  const columns: ColumnDef<LigneSanction>[] = [
     {
       key: "employeeId",
       label: "Employé",
-      render: (warning: Warning) => (
+      render: (sanction) => (
         <div>
           <div className="font-medium">
             <Link
-              href={`/dashboard/hr/employees/${warning.employeeId}`}
+              href={`/dashboard/hr/employees/${sanction.employeeId}`}
               className="text-primary hover:underline"
             >
-              {getEmployeeName(warning.employeeId)}
+              {getEmployeeName(sanction.employeeId)}
             </Link>
           </div>
         </div>
@@ -245,92 +215,104 @@ export function WarningsSection() {
     {
       key: "date",
       label: "Date",
-      render: (warning: Warning) => warning.date.toLocaleDateString("fr-FR"),
+      render: (sanction) => dateFr(sanction.date),
+    },
+    {
+      key: "type",
+      label: "Type de sanction",
+      render: (sanction) => typeDe(sanction),
     },
     {
       key: "reason",
       label: "Motif",
-      render: (warning: Warning) => warning.reason,
+      render: (sanction) => sanction.reason,
     },
     {
       key: "status",
       label: "Statut",
-      render: (warning: Warning) => (
-        <Badge variant={statusColors[warning.status]}>
-          {statusLabels[warning.status]}
+      render: (sanction) => (
+        <Badge variant={statusColors[sanction.status ?? "active"]}>
+          {statusLabels[sanction.status ?? "active"]}
         </Badge>
       ),
     },
     {
       key: "actions",
       label: "Actions",
-      render: (warning: Warning) => (
+      render: (sanction) => (
         <RowActionsMenu
-          onView={() => handleView(warning)}
-          onEdit={() => handleEdit(warning)}
+          onView={() => handleView(sanction)}
+          onEdit={() => handleEdit(sanction)}
           extraItems={[
             {
               label: "Envoyer un courrier",
               icon: Send,
               tone: "send",
-              onClick: () => handleOpenCourrier(warning),
+              onClick: () => setCourrierSanction(sanction),
             },
-            ...(warning.status === "active"
+            ...(sanction.status !== "lifted"
               ? [
                   {
-                    label: "Lever l'avertissement",
+                    label: "Lever la sanction",
                     icon: CheckCircle,
                     tone: "validate" as const,
-                    onClick: () => handleStatusChange(warning.id, "lifted"),
+                    onClick: () => handleStatusChange(sanction.id, "lifted"),
                   },
                 ]
               : []),
           ]}
-          onDelete={() => handleDelete(warning.id)}
+          onDelete={() => handleDelete(sanction.id)}
         />
       ),
     },
   ];
 
+  const courrierEmployee = courrierSanction
+    ? employees.find((e) => e.id === courrierSanction.employeeId)
+    : undefined;
+  const courrierModele = courrierSanction
+    ? modeleCourrier(courrierSanction)
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Avertissements</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Sanctions</h1>
           <p className="text-muted-foreground">
-            Gestion des avertissements disciplinaires
+            Gestion des sanctions disciplinaires
           </p>
         </div>
         <Button onClick={handleCreate} className="gap-2">
           <Plus className="h-4 w-4" />
-          Nouvel avertissement
+          Nouvelle sanction
         </Button>
       </div>
 
-      {/* Warnings Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Avertissements ({warnings.length})</CardTitle>
+          <CardTitle>Sanctions ({sanctions.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
-            data={warnings}
+            data={sanctions}
+            isLoading={registre.isLoading}
             columns={columns}
-            searchKeys={["reason", "description"]}
-            searchPlaceholder="Rechercher des avertissements..."
+            getSearchValue={(s) =>
+              `${getEmployeeName(s.employeeId)} ${typeDe(s)} ${s.reason ?? ""} ${s.description ?? ""}`
+            }
+            searchPlaceholder="Rechercher des sanctions..."
           />
         </CardContent>
       </Card>
 
-      {/* Create/Edit Modal */}
+      {/* Création / modification */}
       <Modal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         type="form"
-        title={
-          editingWarning ? "Modifier l'avertissement" : "Nouvel avertissement"
-        }
-        description="Ajoutez ou modifiez les informations de l'avertissement."
+        title={editingId ? "Modifier la sanction" : "Nouvelle sanction"}
+        description="Ajoutez ou modifiez les informations de la sanction."
         size="lg"
         actions={{
           secondary: {
@@ -339,9 +321,13 @@ export function WarningsSection() {
             variant: "outline",
           },
           primary: {
-            label: editingWarning ? "Enregistrer" : "Créer",
+            label: enregistrement
+              ? "Enregistrement…"
+              : editingId
+                ? "Enregistrer"
+                : "Créer",
             onClick: () => void handleSave(),
-            disabled: !isFormValid,
+            disabled: !isFormValid || enregistrement,
           },
         }}
       >
@@ -373,6 +359,34 @@ export function WarningsSection() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="type">Type de sanction *</Label>
+              <Select
+                value={formData.type}
+                onValueChange={(value) => handleInputChange("type", value)}
+              >
+                <SelectTrigger id="type">
+                  <SelectValue placeholder="Choisir un type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TYPES_SANCTION.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                  {/* Type saisi autrefois et absent de la liste actuelle. */}
+                  {formData.type &&
+                    !(TYPES_SANCTION as readonly string[]).includes(
+                      formData.type,
+                    ) && (
+                      <SelectItem value={formData.type}>
+                        {formData.type}
+                      </SelectItem>
+                    )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="reason">Motif *</Label>
               <Input
                 id="reason"
@@ -391,7 +405,7 @@ export function WarningsSection() {
                   handleInputChange("status", value)
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -399,6 +413,15 @@ export function WarningsSection() {
                   <SelectItem value="lifted">Levée</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="issuedBy">Émis par</Label>
+              <ResponsableSelect
+                id="issuedBy"
+                value={formData.issuedBy}
+                onChange={(nom) => handleInputChange("issuedBy", nom)}
+              />
             </div>
           </div>
 
@@ -408,33 +431,27 @@ export function WarningsSection() {
               id="description"
               value={formData.description}
               onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Détails de l'avertissement..."
+              placeholder="Détails de la sanction..."
               rows={3}
               required
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="issuedBy">Émis par</Label>
-            <Input
-              id="issuedBy"
-              value={formData.issuedBy}
-              onChange={(e) => handleInputChange("issuedBy", e.target.value)}
-              placeholder="Nom de l'émetteur"
-            />
-          </div>
+          {erreurSauvegarde && (
+            <p className="text-sm text-destructive">{erreurSauvegarde}</p>
+          )}
         </div>
       </Modal>
 
-      {/* View Modal */}
+      {/* Détails */}
       <Modal
         open={isViewModalOpen}
         onOpenChange={setIsViewModalOpen}
         type="details"
-        title="Détails de l'avertissement"
+        title="Détails de la sanction"
         description={
-          viewingWarning
-            ? `${getEmployeeName(viewingWarning.employeeId)} - ${viewingWarning.reason}`
+          viewing
+            ? `${getEmployeeName(viewing.employeeId)} - ${viewing.reason}`
             : ""
         }
         actions={{
@@ -444,41 +461,43 @@ export function WarningsSection() {
           },
         }}
       >
-        {viewingWarning && (
+        {viewing && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Employé</Label>
                 <p className="text-sm font-medium">
-                  {getEmployeeName(viewingWarning.employeeId)}
+                  {getEmployeeName(viewing.employeeId)}
                 </p>
               </div>
               <div>
                 <Label>Date</Label>
-                <p className="text-sm font-medium">
-                  {viewingWarning.date.toLocaleDateString("fr-FR")}
-                </p>
+                <p className="text-sm font-medium">{dateFr(viewing.date)}</p>
+              </div>
+              <div>
+                <Label>Type de sanction</Label>
+                <p className="text-sm font-medium">{typeDe(viewing)}</p>
               </div>
               <div>
                 <Label>Motif</Label>
-                <p className="text-sm font-medium">{viewingWarning.reason}</p>
+                <p className="text-sm font-medium">{viewing.reason}</p>
               </div>
               <div>
                 <Label>Statut</Label>
-                <Badge variant={statusColors[viewingWarning.status]}>
-                  {statusLabels[viewingWarning.status]}
+                <Badge variant={statusColors[viewing.status ?? "active"]}>
+                  {statusLabels[viewing.status ?? "active"]}
                 </Badge>
               </div>
               <div>
                 <Label>Émis par</Label>
-                <p className="text-sm font-medium">{viewingWarning.issuedBy}</p>
+                <p className="text-sm font-medium">{viewing.issuedBy || "—"}</p>
               </div>
             </div>
 
             <div>
               <Label>Description</Label>
               <Textarea
-                value={viewingWarning.description}
+                value={viewing.description}
                 readOnly
                 className="min-h-20"
               />
@@ -488,60 +507,16 @@ export function WarningsSection() {
       </Modal>
 
       {/* Envoi d'un courrier au salarié concerné */}
-      <Modal
-        open={!!courrierWarning}
-        onOpenChange={(o) => !o && setCourrierWarning(null)}
-        type="form"
-        title="Envoyer un courrier"
-        description={
-          courrierWarning
-            ? `À ${getEmployeeName(courrierWarning.employeeId)}`
-            : ""
-        }
-        size="lg"
-        actions={{
-          primary: {
-            label: envoiCourrierEnCours ? "Envoi…" : "Envoyer",
-            onClick: () => void handleEnvoyerCourrier(),
-            disabled: envoiCourrierEnCours || !courrierForm.subject,
-          },
-          secondary: {
-            label: "Annuler",
-            onClick: () => setCourrierWarning(null),
-            variant: "outline",
-          },
-        }}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="courrier-subject">Objet</Label>
-            <Input
-              id="courrier-subject"
-              value={courrierForm.subject}
-              onChange={(e) =>
-                setCourrierForm((prev) => ({
-                  ...prev,
-                  subject: e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="courrier-message">Message</Label>
-            <Textarea
-              id="courrier-message"
-              value={courrierForm.message}
-              onChange={(e) =>
-                setCourrierForm((prev) => ({
-                  ...prev,
-                  message: e.target.value,
-                }))
-              }
-              rows={8}
-            />
-          </div>
-        </div>
-      </Modal>
+      {courrierSanction && courrierModele && (
+        <CourrierDialog
+          key={courrierSanction.id}
+          destinataireNom={getEmployeeName(courrierSanction.employeeId)}
+          destinataireEmail={courrierEmployee?.email ?? ""}
+          objetInitial={courrierModele.objet}
+          corpsInitial={courrierModele.corps}
+          onClose={() => setCourrierSanction(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Building2, MapPin, Users, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +22,10 @@ export default function SitesPage() {
   const deleteMutation = useDeleteSite();
   const sites = useMemo<Site[]>(() => data ?? [], [data]);
 
-  const [createOpen, setCreateOpen] = useState(false);
+  // Ouvre directement le formulaire depuis l'action rapide « Nouveau site »
+  // du tableau de bord (/...?new=1).
+  const searchParams = useSearchParams();
+  const [createOpen, setCreateOpen] = useState(searchParams.get("new") === "1");
   const [toEdit, setToEdit] = useState<Site | null>(null);
   const [toDelete, setToDelete] = useState<Site | null>(null);
 

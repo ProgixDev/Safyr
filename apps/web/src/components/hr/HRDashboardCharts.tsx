@@ -64,7 +64,7 @@ function ChartCard({
   return (
     <Card className="glass-card border-border/40 h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-light text-muted-foreground">
+        <CardTitle className="text-sm font-semibold text-foreground">
           {title}
         </CardTitle>
       </CardHeader>

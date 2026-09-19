@@ -609,6 +609,12 @@ export interface Equipment {
   /** Email de remise (à signer) envoyé au salarié lors de l'assignation. */
   emailEnvoye?: boolean;
 
+  // Avantages : montant et périodicité propres à chaque salarié (ex. 8 €/jour)
+  amount?: number;
+  periodicity?: "hour" | "day" | "month" | "year";
+  /** Cartes cadeaux : plafond annuel par événement (fête des mères, Noël…). */
+  giftEvents?: { code: string; label: string; amount: number }[];
+
   condition: "new" | "good" | "fair" | "poor" | "damaged";
   status: "assigned" | "returned" | "lost" | "damaged" | "exhausted";
   notes?: string;
@@ -853,7 +859,11 @@ export type PayrollVariableType =
   | "indemnite_habillage"
   | "tenue"
   | "nbre_deplacement"
-  | "autres_indemnites";
+  | "autres_indemnites"
+  | "prime_anciennete"
+  | "treizieme_mois"
+  | "astreinte"
+  | "majoration_dimanche_ferie";
 
 export interface Allowance {
   id: string;

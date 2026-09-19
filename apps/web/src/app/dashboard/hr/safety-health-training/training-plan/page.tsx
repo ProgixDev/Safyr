@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useEmployeesRH } from "@/hooks/employees";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MultiSelect } from "@/components/ui/multi-select";
 import {
   Select,
   SelectContent,
@@ -48,17 +49,27 @@ import type { TrainingPlan, TrainingBudget } from "@/lib/types";
 import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
 
 /**
- * Les participants sont stockés sous forme de matricules (ex. "EMP001").
- * On affiche le nom du salarié quand il est connu, sinon le matricule.
+ * Les participants sont stockés sous forme de matricules (ex. "EMP001"), ou de
+ * l'identifiant du salarié quand il n'a pas de matricule.
+ * On affiche le nom du salarié quand il est connu, sinon la valeur enregistrée.
  */
+function cleParticipant(salarie: { id: string; employeeNumber: string }) {
+  return salarie.employeeNumber || salarie.id;
+}
+
 function getParticipantName(
-  employeeNumber: string,
-  salaries: { employeeNumber: string; firstName: string; lastName: string }[],
+  participant: string,
+  salaries: {
+    id: string;
+    employeeNumber: string;
+    firstName: string;
+    lastName: string;
+  }[],
 ) {
-  const employee = salaries.find((e) => e.employeeNumber === employeeNumber);
+  const employee = salaries.find((e) => cleParticipant(e) === participant);
   return employee
-    ? `${employee.firstName} ${employee.lastName}`
-    : employeeNumber;
+    ? `${employee.firstName} ${employee.lastName}`.trim()
+    : participant;
 }
 
 // Types de formation avec descriptions
@@ -190,7 +201,13 @@ const mockTrainingBudget: TrainingBudget = {
 };
 
 export default function TrainingPlanPage() {
-  const mockEmployees = useEmployeesRH();
+  const mockEmployees = useEmployeeOptions();
+  // Participants : les vrais salariés, cochés dans une liste déroulante.
+  const optionsParticipants = mockEmployees.map((salarie) => ({
+    value: cleParticipant(salarie),
+    label: salarie.name,
+    description: salarie.employeeNumber || undefined,
+  }));
   // Enregistré en base : la liste ne vivait que dans le navigateur.
   const [trainingPlans, setTrainingPlans] =
     useListePersistante<TrainingPlan>("plan_formation");
@@ -206,7 +223,7 @@ export default function TrainingPlanPage() {
     description: "",
     plannedDate: "",
     duration: "",
-    participants: "",
+    participants: [] as string[],
     trainer: "",
     location: "",
     budget: "",
@@ -237,7 +254,7 @@ export default function TrainingPlanPage() {
       description: plan.description || "",
       plannedDate: plan.plannedDate.toISOString().split("T")[0],
       duration: plan.duration.toString(),
-      participants: plan.participants.join(", "),
+      participants: plan.participants,
       trainer: plan.trainer || "",
       location: plan.location || "",
       budget: plan.budget.toString(),
@@ -268,10 +285,7 @@ export default function TrainingPlanPage() {
                 description: planForm.description,
                 plannedDate: new Date(planForm.plannedDate),
                 duration: parseInt(planForm.duration) || 0,
-                participants: planForm.participants
-                  .split(",")
-                  .map((p) => p.trim())
-                  .filter((p) => p),
+                participants: planForm.participants,
                 trainer: planForm.trainer,
                 location: planForm.location,
                 budget: parseFloat(planForm.budget) || 0,
@@ -288,10 +302,7 @@ export default function TrainingPlanPage() {
         description: planForm.description,
         plannedDate: new Date(planForm.plannedDate),
         duration: parseInt(planForm.duration) || 0,
-        participants: planForm.participants
-          .split(",")
-          .map((p) => p.trim())
-          .filter((p) => p),
+        participants: planForm.participants,
         trainer: planForm.trainer,
         location: planForm.location,
         budget: parseFloat(planForm.budget) || 0,
@@ -310,7 +321,7 @@ export default function TrainingPlanPage() {
       description: "",
       plannedDate: "",
       duration: "",
-      participants: "",
+      participants: [],
       trainer: "",
       location: "",
       budget: "",
@@ -324,7 +335,7 @@ export default function TrainingPlanPage() {
       description: "",
       plannedDate: "",
       duration: "",
-      participants: "",
+      participants: [],
       trainer: "",
       location: "",
       budget: "",
@@ -411,7 +422,10 @@ export default function TrainingPlanPage() {
       label: "Participants",
       icon: Users,
       render: (plan) => (
-        <span className="text-sm">{plan.participants.length} participants</span>
+        <span className="text-sm">
+          {plan.participants.length} participant
+          {plan.participants.length > 1 ? "s" : ""}
+        </span>
       ),
     },
     {
@@ -915,23 +929,18 @@ export default function TrainingPlanPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="participants">
-              Participants (séparés par des virgules)
-            </Label>
-            <Input
+            <Label htmlFor="participants">Participants</Label>
+            <MultiSelect
               id="participants"
+              options={optionsParticipants}
               value={planForm.participants}
-              onChange={(e) =>
-                setPlanForm((prev) => ({
-                  ...prev,
-                  participants: e.target.value,
-                }))
+              onValueChange={(participants) =>
+                setPlanForm((prev) => ({ ...prev, participants }))
               }
-              placeholder="EMP001, EMP002, EMP003"
+              placeholder="Sélectionner les salariés participants"
+              searchPlaceholder="Rechercher un salarié..."
+              emptyMessage="Aucun salarié trouvé."
             />
-            <p className="text-xs text-muted-foreground">
-              Entrez les identifiants des participants séparés par des virgules
-            </p>
           </div>
 
           <div className="space-y-2">

@@ -22,7 +22,6 @@ import {
 import {
   Package,
   Plus,
-  Eye,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -42,6 +41,14 @@ import {
 } from "lucide-react";
 import type { Employee, Equipment } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
+import {
+  AvantageMontantFields,
+  champsMontantDepuis,
+  champsMontantVides,
+  formatMontantAvantage,
+  montantDepuisChamps,
+  type ChampsMontant,
+} from "./AvantageMontantFields";
 
 interface EmployeeAvantageTabProps {
   employee: Employee;
@@ -93,6 +100,15 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
     )
     .map((l) => raviverDates(l as unknown as Record<string, unknown>));
 
+  // Une écriture qui échoue ne doit pas passer inaperçue : sans cela le bouton
+  // semblait « ne rien faire ».
+  const signalerEchec = (erreur: unknown) =>
+    alert(
+      erreur instanceof Error
+        ? `Échec de l'enregistrement : ${erreur.message}`
+        : "Échec de l'enregistrement.",
+    );
+
   /** Écrit en base la différence entre l'ancien et le nouvel état. */
   const setEquipment = (
     maj: Equipment[] | ((prev: Equipment[]) => Equipment[]),
@@ -101,20 +117,24 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
     const avant = new Map(equipment.map((e) => [e.id, JSON.stringify(e)]));
     for (const item of suivant) {
       if (avant.get(item.id) === JSON.stringify(item)) continue;
-      void registre.enregistrer(
-        { ...item, memberId: employee.id } as unknown as Equipment & {
-          id: string;
-        },
-        {
-          period: String(new Date().getFullYear()),
-          label: item.name,
-          status: item.status,
-        },
-      );
+      registre
+        .enregistrer(
+          { ...item, memberId: employee.id } as unknown as Equipment & {
+            id: string;
+          },
+          {
+            period: String(new Date().getFullYear()),
+            label: item.name,
+            status: item.status,
+          },
+        )
+        .catch(signalerEchec);
     }
     const gardes = new Set(suivant.map((e) => e.id));
     for (const ancien of equipment) {
-      if (!gardes.has(ancien.id)) void registre.supprimerLigne(ancien.id);
+      if (!gardes.has(ancien.id)) {
+        registre.supprimerLigne(ancien.id).catch(signalerEchec);
+      }
     }
   };
 
@@ -142,6 +162,39 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
     quantity: 1,
     consumable: false,
   });
+  // Montant / périodicité saisis à l'attribution (propres à ce salarié).
+  const [montantAssignation, setMontantAssignation] =
+    useState<ChampsMontant>(champsMontantVides());
+
+  // Modification d'un avantage déjà attribué (montant modifiable par agent).
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editEquipmentId, setEditEquipmentId] = useState<string>("");
+  const [editData, setEditData] = useState({
+    name: "",
+    description: "",
+    serialNumber: "",
+    quantity: 1,
+    notes: "",
+  });
+  const [editMontant, setEditMontant] =
+    useState<ChampsMontant>(champsMontantVides());
+
+  // Suppression d'un avantage attribué (avec confirmation).
+  const [deleteEquipmentId, setDeleteEquipmentId] = useState<string>("");
+
+  const reinitialiserAssignation = () => {
+    setShowAssignModal(false);
+    setSelectedEquipmentId("");
+    setNewEquipmentData({
+      name: "",
+      type: "VACATION_VOUCHER",
+      description: "",
+      serialNumber: "",
+      quantity: 1,
+      consumable: false,
+    });
+    setMontantAssignation(champsMontantVides());
+  };
 
   const getEquipmentIcon = (type: Equipment["type"]) => {
     const icons = {
@@ -239,7 +292,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
     if (selectedEquipmentId === "add-new") {
       // Create new avantage
       equipmentToAssign = {
-        id: `AV-${Date.now()}`,
+        id: `AV-${crypto.randomUUID()}`,
         name: newEquipmentData.name,
         type: newEquipmentData.type,
         description: newEquipmentData.description,
@@ -278,17 +331,54 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
       };
     }
 
+    Object.assign(
+      equipmentToAssign,
+      montantDepuisChamps(montantAssignation, equipmentToAssign.type),
+    );
+
     setEquipment((prev) => [...prev, equipmentToAssign]);
-    setShowAssignModal(false);
-    setSelectedEquipmentId("");
-    setNewEquipmentData({
-      name: "",
-      type: "VACATION_VOUCHER",
-      description: "",
-      serialNumber: "",
-      quantity: 1,
-      consumable: false,
+    reinitialiserAssignation();
+  };
+
+  const ouvrirModification = (item: Equipment) => {
+    setEditEquipmentId(item.id);
+    setEditData({
+      name: item.name,
+      description: item.description ?? "",
+      serialNumber: item.serialNumber ?? "",
+      quantity: item.quantity ?? 1,
+      notes: item.notes ?? "",
     });
+    setEditMontant(champsMontantDepuis(item));
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = () => {
+    const cible = equipment.find((e) => e.id === editEquipmentId);
+    if (!cible || !editData.name.trim()) return;
+    setEquipment((prev) =>
+      prev.map((eq) =>
+        eq.id === editEquipmentId
+          ? {
+              ...eq,
+              name: editData.name.trim(),
+              description: editData.description.trim() || undefined,
+              serialNumber: editData.serialNumber.trim() || undefined,
+              quantity: eq.consumable ? editData.quantity : eq.quantity,
+              notes: editData.notes.trim() || undefined,
+              ...montantDepuisChamps(editMontant, eq.type),
+            }
+          : eq,
+      ),
+    );
+    setShowEditModal(false);
+    setEditEquipmentId("");
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteEquipmentId) return;
+    setEquipment((prev) => prev.filter((eq) => eq.id !== deleteEquipmentId));
+    setDeleteEquipmentId("");
   };
 
   const handleReturnEquipment = () => {
@@ -405,6 +495,16 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
       render: (item) => (
         <span className="text-sm">
           {item.quantity !== undefined ? item.quantity : "-"}
+        </span>
+      ),
+    },
+    {
+      key: "amount",
+      label: "Montant",
+      sortable: true,
+      render: (item) => (
+        <span className="text-sm font-medium whitespace-nowrap">
+          {formatMontantAvantage(item)}
         </span>
       ),
     },
@@ -648,6 +748,8 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                     setDetailsEquipmentId(item.id);
                     setShowDetailsModal(true);
                   }}
+                  onEdit={() => ouvrirModification(item)}
+                  onDelete={() => setDeleteEquipmentId(item.id)}
                   extraItems={[
                     item.consumable
                       ? {
@@ -696,6 +798,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                     setDetailsEquipmentId(item.id);
                     setShowDetailsModal(true);
                   }}
+                  onDelete={() => setDeleteEquipmentId(item.id)}
                 />
               )}
             />
@@ -740,18 +843,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
           },
           secondary: {
             label: "Annuler",
-            onClick: () => {
-              setShowAssignModal(false);
-              setSelectedEquipmentId("");
-              setNewEquipmentData({
-                name: "",
-                type: "VACATION_VOUCHER",
-                description: "",
-                serialNumber: "",
-                quantity: 1,
-                consumable: false,
-              });
-            },
+            onClick: reinitialiserAssignation,
           },
         }}
       >
@@ -939,7 +1031,162 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
               })()}
             </div>
           )}
+
+          {selectedEquipmentId && (
+            <AvantageMontantFields
+              type={
+                selectedEquipmentId === "add-new"
+                  ? newEquipmentData.type
+                  : (availableEquipment.find(
+                      (e) => e.id === selectedEquipmentId,
+                    )?.type ?? "OTHER")
+              }
+              value={montantAssignation}
+              onChange={setMontantAssignation}
+            />
+          )}
         </div>
+      </Modal>
+
+      {/* Edit Avantage Modal */}
+      <Modal
+        open={showEditModal}
+        onOpenChange={(open) => {
+          setShowEditModal(open);
+          if (!open) setEditEquipmentId("");
+        }}
+        type="form"
+        title="Modifier l'avantage"
+        description={`Montant et informations propres à ${employee.firstName} ${employee.lastName}`}
+        actions={{
+          primary: {
+            label: "Enregistrer",
+            onClick: handleSaveEdit,
+            disabled: !editData.name.trim(),
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => {
+              setShowEditModal(false);
+              setEditEquipmentId("");
+            },
+          },
+        }}
+      >
+        {(() => {
+          const cible = equipment.find((e) => e.id === editEquipmentId);
+          if (!cible) return null;
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="edit-name">
+                    Nom <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="edit-name"
+                    value={editData.name}
+                    onChange={(e) =>
+                      setEditData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="edit-description">Description</Label>
+                  <Input
+                    id="edit-description"
+                    value={editData.description}
+                    onChange={(e) =>
+                      setEditData((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-serial">N° série</Label>
+                  <Input
+                    id="edit-serial"
+                    value={editData.serialNumber}
+                    onChange={(e) =>
+                      setEditData((prev) => ({
+                        ...prev,
+                        serialNumber: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                {cible.consumable && (
+                  <div>
+                    <Label htmlFor="edit-quantity">Quantité</Label>
+                    <Input
+                      id="edit-quantity"
+                      type="number"
+                      min="1"
+                      value={editData.quantity}
+                      onChange={(e) =>
+                        setEditData((prev) => ({
+                          ...prev,
+                          quantity: parseInt(e.target.value) || 1,
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
+              <AvantageMontantFields
+                type={cible.type}
+                value={editMontant}
+                onChange={setEditMontant}
+              />
+
+              <div>
+                <Label htmlFor="edit-notes">Notes (optionnel)</Label>
+                <textarea
+                  id="edit-notes"
+                  className="w-full min-h-20 p-3 border rounded-md resize-none"
+                  value={editData.notes}
+                  onChange={(e) =>
+                    setEditData((prev) => ({ ...prev, notes: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* Delete Avantage Modal */}
+      <Modal
+        open={Boolean(deleteEquipmentId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteEquipmentId("");
+        }}
+        type="warning"
+        closable
+        title="Supprimer l'avantage"
+        description="Cette action est définitive."
+        actions={{
+          primary: {
+            label: "Supprimer",
+            variant: "destructive",
+            onClick: handleConfirmDelete,
+          },
+          secondary: {
+            label: "Annuler",
+            onClick: () => setDeleteEquipmentId(""),
+          },
+        }}
+      >
+        <p className="text-sm">
+          Voulez-vous vraiment supprimer l&apos;avantage «{" "}
+          <strong>
+            {equipment.find((e) => e.id === deleteEquipmentId)?.name ?? ""}
+          </strong>{" "}
+          » de {employee.firstName} {employee.lastName} ?
+        </p>
       </Modal>
 
       {/* Return Equipment Modal */}
@@ -1146,6 +1393,22 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                         {getConditionLabel(eq.condition)}
                       </p>
                     </div>
+                  </div>
+
+                  {/* Montant et périodicité propres au salarié */}
+                  <div>
+                    <Label className="text-sm font-medium">Montant</Label>
+                    <p className="text-sm">{formatMontantAvantage(eq)}</p>
+                    {eq.type === "GIFT_CARD" && eq.giftEvents && (
+                      <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                        {eq.giftEvents.map((e) => (
+                          <li key={e.code}>
+                            {e.label} : {e.amount.toLocaleString("fr-FR")} € /
+                            an
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
 
                   {/* Description */}

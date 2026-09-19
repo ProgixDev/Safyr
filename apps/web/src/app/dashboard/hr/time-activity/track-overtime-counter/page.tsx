@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useEmployeeOptions } from "@/hooks/employees";
+import { useEmployeeOptions, useEmployeesRH } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
@@ -103,21 +103,33 @@ const mockMonthlyOvertime: MonthlyOvertime[] = [];
 
 export default function OvertimeTrackingPage() {
   const salaries = useEmployeeOptions();
+  const dossiersRH = useEmployeesRH();
   // Le compteur raisonne par contrat : on part des dossiers salariés réels,
   // avec le plafond légal de 220 h supplémentaires par an.
-  const mockEmployees: EmployeeContract[] = salaries.map((s) => ({
-    employeeId: s.id,
-    employeeName: s.name,
-    employeeNumber: s.matricule,
-    department: s.department,
-    contractType: (s.contractType as ContractType) ?? "CDI",
-    monthlyContractHours: 151.67,
-    annualOvertimeLimit: 220,
-    totalOvertimeAccumulated: 0,
-    totalOvertimePaid: 0,
-    totalOvertimePending: 0,
-  }));
-  const [employees, setEmployees] = useState(mockEmployees);
+  // « Temps partiel » ne s'affiche que si le dossier l'indique. La valeur
+  // "contractType" est CDI/CDD… : la comparer à "full_time" (ce que faisait
+  // l'écran) rendait « Temps partiel » pour tout le monde. Et la liste, figée
+  // dans un useState au premier rendu, restait vide après le chargement.
+  const employees = useMemo<EmployeeContract[]>(() => {
+    const horaires = new Map(dossiersRH.map((d) => [d.id, d.workSchedule]));
+    return salaries.map((s) => {
+      const tempsPartiel = horaires.get(s.id) === "part-time";
+      return {
+        employeeId: s.id,
+        employeeName: s.name,
+        employeeNumber: s.matricule,
+        department: s.department,
+        contractType: tempsPartiel ? "part_time" : "full_time",
+        // Durée légale à temps plein (35 h × 52 / 12) ; le quota d'un temps
+        // partiel dépend de son contrat et n'est pas connu ici.
+        monthlyContractHours: tempsPartiel ? 0 : 151.67,
+        annualOvertimeLimit: 220,
+        totalOvertimeAccumulated: 0,
+        totalOvertimePaid: 0,
+        totalOvertimePending: 0,
+      };
+    });
+  }, [salaries, dossiersRH]);
   // Enregistré en base : les relevés mensuels ne vivaient que dans le navigateur.
   const [monthlyData, setMonthlyData] =
     useListePersistante<MonthlyOvertime>("heures_sup");
@@ -202,7 +214,10 @@ export default function OvertimeTrackingPage() {
     };
     const { variant, label, icon: Icon } = config[status] || config.pending;
     return (
-      <Badge variant={variant as any} className="flex items-center gap-1">
+      <Badge
+        variant={variant as BadgeProps["variant"]}
+        className="flex items-center gap-1"
+      >
         <Icon className="h-3 w-3" />
         {label}
       </Badge>
@@ -238,7 +253,7 @@ export default function OvertimeTrackingPage() {
     );
   };
 
-  const handleAddOvertime = (data: any) => {
+  const handleAddOvertime = (data: Omit<MonthlyOvertime, "id" | "status">) => {
     const newEntry: MonthlyOvertime = {
       id: `m${Date.now()}`,
       ...data,
@@ -711,7 +726,9 @@ export default function OvertimeTrackingPage() {
               <div>
                 <Label className="text-sm font-medium">Quota mensuel</Label>
                 <p className="text-sm font-medium">
-                  {selectedEmployee.monthlyContractHours}h
+                  {selectedEmployee.monthlyContractHours > 0
+                    ? `${selectedEmployee.monthlyContractHours}h`
+                    : "Selon le contrat"}
                 </p>
               </div>
             </div>
@@ -878,7 +895,7 @@ export default function OvertimeTrackingPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Type d'heures</Label>
+            <Label>Type d&apos;heures</Label>
             <Select>
               <SelectTrigger>
                 <SelectValue placeholder="Type" />

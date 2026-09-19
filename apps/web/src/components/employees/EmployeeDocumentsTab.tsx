@@ -129,7 +129,9 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
    * sont plus tolerants, d'ou le bug invisible en test sur Windows).
    */
   const ouvrirDocument = async (storageKey: string) => {
-    const fenetre = window.open("", "_blank", "noopener,noreferrer");
+    // Sans "noopener" : il ferait renvoyer null à window.open (spécification).
+    const fenetre = window.open("", "_blank");
+    if (fenetre) fenetre.opener = null;
     try {
       const url = await getSignedUrl(storageKey);
       if (fenetre) {

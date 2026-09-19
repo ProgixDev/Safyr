@@ -10,6 +10,7 @@ import { HRNavigationBar } from "@/components/layout/HRNavigationBar";
 import { ModuleTopBar } from "@/components/ui/module-top-bar";
 import { Users } from "lucide-react";
 import { sendCommunicationEmail } from "@safyr/api-client";
+import { MailboxPromptHost } from "@/components/mailbox/MailboxPromptHost";
 
 export default function HRLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -71,6 +72,8 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      <MailboxPromptHost />
 
       <ProfileModal
         open={profileModalOpen}
