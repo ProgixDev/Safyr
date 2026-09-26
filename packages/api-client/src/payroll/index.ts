@@ -14,7 +14,10 @@ export interface ExpenseItem {
   description: string;
   amount: number;
   date: string;
+  /** Clé de stockage du justificatif (téléversé via `uploadFile`). */
   receipt?: string;
+  /** Nom d'origine du justificatif, pour l'affichage. */
+  receiptName?: string;
   notes?: string;
   status: "draft" | "submitted" | "approved" | "rejected";
 }
@@ -106,9 +109,7 @@ export async function updateExpenseReport(
   });
 }
 
-export async function deleteExpenseReport(
-  id: string,
-): Promise<ExpenseReport> {
+export async function deleteExpenseReport(id: string): Promise<ExpenseReport> {
   return apiFetch<ExpenseReport>(`/organization/expenses/${id}`, {
     method: "DELETE",
   });

@@ -18,6 +18,8 @@ import { useOrganization } from "@/hooks/organization";
 import { useSignedUrl } from "@/hooks/storage";
 import { useEmployeePhotoUrl } from "@/hooks/employees";
 import { cn } from "@/lib/utils";
+import { formatDateFr } from "@/lib/employee-adapter";
+import type { jsPDF } from "jspdf";
 
 interface EmployeeBadgesTabProps {
   employee: Employee;
@@ -30,16 +32,67 @@ const STATUT_LABELS: Record<Employee["status"], string> = {
   terminated: "Sorti",
 };
 
-/** Les dates absentes sont stockées à l'époque (1970) : on ne les affiche pas. */
-function dateFr(date: Date | undefined): string {
-  if (!date || Number.isNaN(date.getTime()) || date.getFullYear() <= 1970) {
-    return "—";
+/** Taille de police du numéro affiché : plus il est long, plus elle est petite. */
+function taillePolice(valeur: string): string {
+  if (valeur.length <= 13) return "text-xs";
+  if (valeur.length <= 22) return "text-[11px]";
+  return "text-[10px]";
+}
+
+/**
+ * Coupe `texte` en lignes de `largeur` mm au plus, au caractère près : un
+ * numéro sans espace (carte pro, autorisation) ne se coupe pas avec
+ * splitTextToSize et débordait du badge.
+ */
+function couperParCaracteres(
+  doc: jsPDF,
+  texte: string,
+  largeur: number,
+): string[] {
+  const lignes: string[] = [];
+  let courante = "";
+  for (const c of texte) {
+    if (courante && doc.getTextWidth(courante + c) > largeur) {
+      lignes.push(courante);
+      courante = c;
+    } else {
+      courante += c;
+    }
   }
-  return date.toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  if (courante) lignes.push(courante);
+  return lignes;
+}
+
+/**
+ * Écrit `texte` en réduisant la police (de `max` à `min` pt) jusqu'à ce qu'il
+ * tienne sur une ligne de `largeur` mm ; à défaut, il passe sur plusieurs
+ * lignes. Retourne le nombre de lignes écrites.
+ */
+function ecrireAjuste(
+  doc: jsPDF,
+  texte: string,
+  x: number,
+  y: number,
+  largeur: number,
+  max: number,
+  min: number,
+  options: { align?: "left" | "center"; interligne?: number } = {},
+): number {
+  let taille = max;
+  doc.setFontSize(taille);
+  while (taille > min && doc.getTextWidth(texte) > largeur) {
+    taille -= 0.25;
+    doc.setFontSize(taille);
+  }
+  const lignes =
+    doc.getTextWidth(texte) > largeur
+      ? couperParCaracteres(doc, texte, largeur)
+      : [texte];
+  const pas = options.interligne ?? taille * 0.3528 * 1.15;
+  lignes.forEach((ligne, k) =>
+    doc.text(ligne, x, y + k * pas, { align: options.align ?? "left" }),
+  );
+  return lignes.length;
 }
 
 /**
@@ -72,6 +125,61 @@ async function imageEnDataUrl(
   }
 }
 
+/**
+ * Recadre l'image pour qu'elle REMPLISSE exactement son cadre (recadrage
+ * « cover », coins arrondis, fond blanc sous les transparences) : jsPDF
+ * étirerait sinon l'image, ou laisserait des bandes blanches. La largeur suit
+ * le ratio de l'image dans la limite [largeurMin ; largeurMax] (mm).
+ */
+async function imageDansCadre(
+  data: string,
+  hauteurMm: number,
+  largeurMin: number,
+  largeurMax: number,
+  rayonMm: number,
+): Promise<{ data: string; largeurMm: number } | null> {
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new window.Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("image illisible"));
+      i.src = data;
+    });
+    if (!img.naturalWidth || !img.naturalHeight) return null;
+    const ratio = img.naturalWidth / img.naturalHeight;
+    const largeurMm = Math.min(
+      largeurMax,
+      Math.max(largeurMin, hauteurMm * ratio),
+    );
+    const PX_PAR_MM = 12;
+    const w = Math.round(largeurMm * PX_PAR_MM);
+    const h = Math.round(hauteurMm * PX_PAR_MM);
+    const r = rayonMm * PX_PAR_MM;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.arcTo(w, 0, w, h, r);
+    ctx.arcTo(w, h, 0, h, r);
+    ctx.arcTo(0, h, 0, 0, r);
+    ctx.arcTo(0, 0, w, 0, r);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    const echelle = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+    const dw = img.naturalWidth * echelle;
+    const dh = img.naturalHeight * echelle;
+    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    return { data: canvas.toDataURL("image/png"), largeurMm };
+  } catch {
+    return null;
+  }
+}
+
 export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
   const selectedBadgeType = "access";
   const [isFlipped, setIsFlipped] = useState(false);
@@ -92,7 +200,6 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
   const cartePro = employee.cartePro?.trim() || "—";
   const initiales = `${employee.firstName?.[0] ?? ""}${employee.lastName?.[0] ?? ""}`;
   const nomComplet = `${employee.firstName} ${employee.lastName}`.trim();
-  const anneeValidite = new Date().getFullYear();
 
   // Generate QR code on mount and when employee or badge type changes
   useEffect(() => {
@@ -120,9 +227,14 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
     setIsDownloading(true);
     try {
       const { jsPDF } = await import("jspdf");
-      const [logo, photo] = await Promise.all([
+      const [logoBrut, photoBrute] = await Promise.all([
         imageEnDataUrl(logoUrl),
         imageEnDataUrl(photoUrl),
+      ]);
+      // Logo et photo sont recadrés pour remplir exactement leur cadre.
+      const [logo, photo] = await Promise.all([
+        logoBrut ? imageDansCadre(logoBrut.data, 10, 10, 22, 1.5) : null,
+        photoBrute ? imageDansCadre(photoBrute.data, 24, 19, 19, 1.5) : null,
       ]);
       const doc = new jsPDF({
         orientation: "landscape",
@@ -139,30 +251,41 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
 
       // ── Recto ──
       bandeau();
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(3, 2.5, 10, 10, 1.5, 1.5, "F");
+      let largeurLogo = 10;
       if (logo) {
+        largeurLogo = logo.largeurMm;
         try {
-          doc.addImage(logo.data, logo.format, 3.6, 3.1, 8.8, 8.8);
+          doc.addImage(logo.data, "PNG", 3, 2.5, logo.largeurMm, 10);
         } catch {
-          // Format d'image non supporté par jsPDF : badge sans logo.
+          // Image refusée par jsPDF : badge sans logo.
         }
+      } else {
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(3, 2.5, 10, 10, 1.5, 1.5, "F");
       }
+      const xTitre = 3 + largeurLogo + 3;
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.text(companyName.toUpperCase(), 16, 7.5, { maxWidth: 66 });
+      ecrireAjuste(
+        doc,
+        companyName.toUpperCase(),
+        xTitre,
+        7.5,
+        82 - xTitre,
+        7.5,
+        5,
+      );
       doc.setFont("helvetica", "normal");
       doc.setFontSize(5);
       doc.setTextColor(165, 243, 252);
-      doc.text("BADGE PROFESSIONNEL", 16, 11.5);
+      doc.text("BADGE PROFESSIONNEL", xTitre, 11.5);
 
       // Photo (ou initiales)
       if (photo) {
         try {
-          doc.addImage(photo.data, photo.format, 62.5, 19.5, 19, 24);
+          doc.addImage(photo.data, "PNG", 62.5, 19.5, 19, 24);
         } catch {
-          // Photo non convertible : on retombe sur les initiales.
+          // Photo refusée par jsPDF : on retombe sur les initiales.
         }
       } else {
         doc.setFillColor(226, 232, 240);
@@ -173,47 +296,68 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
         doc.text(initiales.toUpperCase(), 72, 33, { align: "center" });
       }
 
+      // Nom sur une ligne si possible (police réduite), sinon deux lignes.
       doc.setTextColor(15, 23, 42);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      const lignesNom = doc.splitTextToSize(nomComplet.toUpperCase(), 54);
-      doc.text(lignesNom.slice(0, 2), 4, 23);
-      const yPoste = 23 + Math.min(lignesNom.length, 2) * 4.2 + 0.5;
+      const lignesNom = ecrireAjuste(
+        doc,
+        nomComplet.toUpperCase(),
+        4,
+        22.5,
+        54,
+        10,
+        7.5,
+      );
+      const yPoste = 22.5 + (lignesNom - 1) * 3.4 + 3.9;
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
       doc.setTextColor(8, 145, 178);
-      doc.text(employee.position || "", 4, yPoste, { maxWidth: 54 });
+      ecrireAjuste(doc, employee.position || "", 4, yPoste, 54, 7, 5.5);
 
+      // Détails : la valeur se réduit puis passe à la ligne plutôt que de
+      // déborder du badge (ou de passer sous la photo).
       const details: [string, string][] = [
         ["Matricule", employee.employeeNumber || "—"],
         ["Carte pro. CNAPS", cartePro],
-        ["Né(e) le", dateFr(employee.dateOfBirth)],
+        ["Né(e) le", formatDateFr(employee.dateOfBirth)],
+        ["Entrée le", formatDateFr(employee.hireDate)],
       ];
-      let y = 37;
+      let y = yPoste + 4.4;
       for (const [libelle, valeur] of details) {
-        doc.setFontSize(5);
+        doc.setFontSize(4.8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 116, 139);
         doc.text(libelle.toUpperCase(), 4, y);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
         doc.setTextColor(15, 23, 42);
-        doc.text(valeur, 28, y);
-        y += 3.6;
+        const largeurValeur = (y < 44 ? 60.5 : 81.6) - 27;
+        const lignes = ecrireAjuste(
+          doc,
+          valeur,
+          27,
+          y,
+          largeurValeur,
+          6.5,
+          4.8,
+          { interligne: 2.2 },
+        );
+        y += 3.3 + (lignes - 1) * 2.2;
       }
 
       doc.setDrawColor(203, 213, 225);
-      doc.line(4, 49.3, 81.6, 49.3);
+      doc.line(4, 47.6, 81.6, 47.6);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(4.5);
       doc.setTextColor(100, 116, 139);
-      doc.text(
+      ecrireAjuste(
+        doc,
         `Autorisation administrative : ${authorizationNumber}${
           companyAddress ? ` — ${companyAddress}` : ""
         }`,
         4,
-        51.8,
-        { maxWidth: 77 },
+        50.2,
+        77.6,
+        4.5,
+        3.8,
+        { interligne: 1.9 },
       );
 
       // ── Verso ──
@@ -228,22 +372,27 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
       }
       doc.setTextColor(15, 23, 42);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.text(`Matricule : ${employee.employeeNumber}`, 42.8, 41.5, {
-        align: "center",
-      });
+      ecrireAjuste(
+        doc,
+        `Matricule : ${employee.employeeNumber || "—"}`,
+        42.8,
+        41.5,
+        78,
+        6.5,
+        4.8,
+        { align: "center", interligne: 2.4 },
+      );
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(5.5);
       doc.setTextColor(100, 116, 139);
-      doc.text(`Valide jusqu'au 31/12/${anneeValidite}`, 42.8, 45, {
-        align: "center",
-      });
-      doc.setFontSize(4.5);
-      doc.text(
+      ecrireAjuste(
+        doc,
         "Badge strictement personnel, à présenter à toute réquisition.",
         42.8,
-        50.5,
-        { align: "center", maxWidth: 78 },
+        48.5,
+        78,
+        4.8,
+        3.8,
+        { align: "center", interligne: 2 },
       );
 
       doc.save(
@@ -257,12 +406,19 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
     }
   };
 
-  const champ = (libelle: string, valeur: string) => (
-    <div className="min-w-0">
+  // Le numéro s'affiche EN ENTIER : police adaptée à sa longueur et retour à
+  // la ligne au caractère près, jamais de troncature.
+  const champ = (libelle: string, valeur: string, className?: string) => (
+    <div className={cn("min-w-0", className)}>
       <dt className="text-[9px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
         {libelle}
       </dt>
-      <dd className="truncate text-xs font-semibold text-slate-900 dark:text-slate-50">
+      <dd
+        className={cn(
+          "break-all font-semibold leading-tight text-slate-900 dark:text-slate-50",
+          taillePolice(valeur),
+        )}
+      >
         {valeur}
       </dd>
     </div>
@@ -314,24 +470,26 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
                 >
                   {/* Bandeau de marque : logo + entreprise */}
                   <div className="flex items-center gap-3 bg-linear-to-r from-[#0f172a] via-[#155e75] to-[#22d3ee] px-4 py-2.5">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-1 shadow">
+                    {/* Cadre du logo : il épouse l'image, qui le remplit
+                        entièrement (aucune marge blanche autour). */}
+                    <div className="flex h-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow">
                       {logoUrl ? (
                         <Image
                           src={logoUrl}
                           alt={companyName}
-                          width={40}
-                          height={40}
+                          width={96}
+                          height={44}
                           unoptimized
-                          className="h-full w-full object-contain"
+                          className="block h-11 w-auto min-w-11 max-w-24 object-cover"
                         />
                       ) : (
-                        <span className="text-xs font-bold text-slate-400">
+                        <span className="px-3 text-xs font-bold text-slate-400">
                           Logo
                         </span>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold uppercase tracking-wide text-white">
+                      <p className="line-clamp-2 break-words text-sm font-bold uppercase leading-tight tracking-wide text-white">
                         {companyName}
                       </p>
                       <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-cyan-100">
@@ -372,18 +530,18 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
                           {STATUT_LABELS[employee.status] ?? employee.status}
                         </span>
                       </div>
-                      <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                      <dl className="grid grid-cols-3 gap-x-3 gap-y-1.5">
                         {champ("Matricule", employee.employeeNumber || "—")}
-                        {champ("Carte pro. CNAPS", cartePro)}
-                        {champ("Né(e) le", dateFr(employee.dateOfBirth))}
-                        {champ("Entrée le", dateFr(employee.hireDate))}
+                        {champ("Né(e) le", formatDateFr(employee.dateOfBirth))}
+                        {champ("Entrée le", formatDateFr(employee.hireDate))}
+                        {champ("Carte pro. CNAPS", cartePro, "col-span-3")}
                       </dl>
                     </div>
                   </div>
 
                   {/* Pied : autorisation administrative et siège */}
                   <div className="border-t border-slate-200 bg-slate-50 px-4 py-1.5 dark:border-slate-700 dark:bg-slate-800/60">
-                    <p className="truncate text-[9px] text-slate-600 dark:text-slate-300">
+                    <p className="line-clamp-2 break-words text-[9px] leading-tight text-slate-600 dark:text-slate-300">
                       <span className="font-semibold">
                         Autorisation administrative :
                       </span>{" "}
@@ -430,11 +588,8 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
                   </div>
 
                   <div className="text-center">
-                    <p className="text-[11px] font-semibold">
-                      Matricule : {employee.employeeNumber}
-                    </p>
-                    <p className="text-[10px] text-cyan-100">
-                      Valide jusqu&apos;au 31/12/{anneeValidite}
+                    <p className="break-all text-[11px] font-semibold leading-tight">
+                      Matricule : {employee.employeeNumber || "—"}
                     </p>
                     <p className="mt-1 text-[9px] text-cyan-100/80">
                       Badge strictement personnel, à présenter à toute

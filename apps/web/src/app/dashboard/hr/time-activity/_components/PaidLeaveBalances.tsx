@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar, Download, FileText, TrendingUp } from "lucide-react";
+import { Calendar, FileText, TrendingUp } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,28 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
-import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { InfoCard } from "@/components/ui/info-card";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { useEmployeeOptions } from "@/hooks/employees";
 import { useRegistre } from "@/hooks/fiscal";
-import { exporterCsvExcel } from "@/lib/export-table";
+import {
+  exporterCsvExcel,
+  exporterPdf,
+  type ColonneExport,
+} from "@/lib/export-table";
+import {
+  BarreFiltres,
+  BoutonsExport,
+  CELLULE_NOMBRE,
+  ENTETES,
+  ENTETE_NOMBRE,
+  GrilleKpi,
+  LIGNE_ZEBREE,
+} from "./OutilsTableau";
 import {
   AUCUN_FICHIER,
   STATUTS,
+  aujourdhuiIso,
   formaterDate,
   messageErreur,
   type DemandeTemps,
@@ -39,6 +53,8 @@ interface SoldeConges {
   cpNTaken: number;
   cpNBalance: number;
   totalBalance: number;
+  /** ISO de la dernière saisie ; absent tant que rien n'a été saisi. */
+  majLe?: string;
 }
 
 type ChampsSaisis = Pick<
@@ -56,7 +72,10 @@ const num = (v: unknown) =>
 
 /** Les soldes se déduisent toujours des acquis et des pris. */
 function calculerSoldes(
-  base: Pick<SoldeConges, "id" | "employeeId" | "employeeName" | "position"> &
+  base: Pick<
+    SoldeConges,
+    "id" | "employeeId" | "employeeName" | "position" | "majLe"
+  > &
     ChampsSaisis,
 ): SoldeConges {
   const cpN2Balance = base.cpN2Acquired - base.cpN2Taken;
@@ -72,6 +91,24 @@ function calculerSoldes(
 }
 
 const arrondi = (n: number) => Math.round(n * 100) / 100;
+
+/** Le tableau trie des chaînes : clé qui ordonne aussi les nombres négatifs. */
+const cleTriNombre = (n: number) => String(Math.round(n * 100) + 1e9);
+
+/** Vert = solde positif, rouge = négatif, gris = à zéro. */
+const classeSolde = (n: number) =>
+  n < 0
+    ? "text-red-600 dark:text-red-400"
+    : n === 0
+      ? "text-muted-foreground"
+      : "text-green-700 dark:text-green-400";
+
+const OPTIONS_SOLDE = [
+  { value: "all", label: "Tous les soldes" },
+  { value: "positif", label: "Solde positif" },
+  { value: "nul", label: "Solde à zéro" },
+  { value: "negatif", label: "Solde négatif" },
+];
 
 export function PaidLeaveBalances() {
   // Chaque salarié du dossier du personnel apparaît, avec un solde à 0 tant
@@ -90,6 +127,7 @@ export function PaidLeaveBalances() {
       employeeId: s.id,
       employeeName: s.name,
       position: s.poste,
+      majLe: existant?.majLe,
       cpN2Acquired: num(existant?.cpN2Acquired),
       cpN2Taken: num(existant?.cpN2Taken),
       cpN1Acquired: num(existant?.cpN1Acquired),
@@ -114,6 +152,11 @@ export function PaidLeaveBalances() {
   });
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  // Filtres gérés ici (et non par le tableau) : l'export reprend ainsi
+  // exactement les lignes affichées.
+  const [recherche, setRecherche] = useState("");
+  const [filtreSolde, setFiltreSolde] = useState("all");
 
   const periodes = [
     { cle: "cpN2", libelle: `CP N-2 (${anneeCourante - 2})` },
@@ -160,7 +203,11 @@ export function PaidLeaveBalances() {
     setEnCours(true);
     setErreur(null);
     try {
-      const ligne = calculerSoldes({ ...courant, ...valeurs() });
+      const ligne = calculerSoldes({
+        ...courant,
+        ...valeurs(),
+        majLe: new Date().toISOString(),
+      });
       await registre.enregistrer(ligne, {
         period: String(anneeCourante),
         label: ligne.employeeName,
@@ -173,25 +220,102 @@ export function PaidLeaveBalances() {
     }
   };
 
-  const exporter = () =>
-    exporterCsvExcel(
-      "soldes-conges-payes",
-      [
-        { titre: "Salarié", valeur: (s: SoldeConges) => s.employeeName },
-        { titre: "Poste", valeur: (s) => s.position },
-        {
-          titre: `CP N-2 (${anneeCourante - 2})`,
-          valeur: (s) => s.cpN2Balance,
-        },
-        {
-          titre: `CP N-1 (${anneeCourante - 1})`,
-          valeur: (s) => s.cpN1Balance,
-        },
-        { titre: `CP N (${anneeCourante})`, valeur: (s) => s.cpNBalance },
-        { titre: "Solde total", valeur: (s) => s.totalBalance },
-      ],
-      donnees,
-    );
+  const requete = recherche.trim().toLowerCase();
+  const donneesAffichees = donnees.filter(
+    (d) =>
+      (requete === "" ||
+        d.employeeName.toLowerCase().includes(requete) ||
+        d.position.toLowerCase().includes(requete)) &&
+      (filtreSolde === "all" ||
+        (filtreSolde === "positif" && d.totalBalance > 0) ||
+        (filtreSolde === "nul" && d.totalBalance === 0) ||
+        (filtreSolde === "negatif" && d.totalBalance < 0)),
+  );
+
+  const reinitialiserFiltres = () => {
+    setRecherche("");
+    setFiltreSolde("all");
+  };
+
+  const acquisTotal = (s: SoldeConges) =>
+    arrondi(s.cpN2Acquired + s.cpN1Acquired + s.cpNAcquired);
+  const prisTotal = (s: SoldeConges) =>
+    arrondi(s.cpN2Taken + s.cpN1Taken + s.cpNTaken);
+
+  const colonnesExport: ColonneExport<SoldeConges>[] = [
+    { titre: "Salarié", valeur: (s) => s.employeeName },
+    { titre: "Poste", valeur: (s) => s.position },
+    { titre: "Acquis (jours)", valeur: acquisTotal, format: "number" },
+    { titre: "Pris (jours)", valeur: prisTotal, format: "number" },
+    {
+      titre: "Restant (jours)",
+      valeur: (s) => arrondi(s.totalBalance),
+      format: "number",
+    },
+    {
+      titre: `Restant N-2 (${anneeCourante - 2})`,
+      valeur: (s) => arrondi(s.cpN2Balance),
+      format: "number",
+    },
+    {
+      titre: `Restant N-1 (${anneeCourante - 1})`,
+      valeur: (s) => arrondi(s.cpN1Balance),
+      format: "number",
+    },
+    {
+      titre: `Restant N (${anneeCourante})`,
+      valeur: (s) => arrondi(s.cpNBalance),
+      format: "number",
+    },
+    // Vide plutôt que « — » : Excel reconnaît alors une vraie colonne de dates.
+    {
+      titre: "Dernière mise à jour",
+      valeur: (s) => (s.majLe ? formaterDate(s.majLe) : ""),
+    },
+  ];
+
+  const sousTitreExport = () => {
+    const parts = [`Année ${anneeCourante}`];
+    if (filtreSolde !== "all")
+      parts.push(
+        OPTIONS_SOLDE.find((o) => o.value === filtreSolde)?.label ?? "",
+      );
+    if (recherche.trim()) parts.push(`Recherche : « ${recherche.trim()} »`);
+    return parts.join(" — ");
+  };
+
+  const somme = (f: (s: SoldeConges) => number) =>
+    arrondi(donneesAffichees.reduce((t, s) => t + f(s), 0));
+
+  const piedExport = () => [
+    "Total",
+    "",
+    somme(acquisTotal),
+    somme(prisTotal),
+    somme((s) => s.totalBalance),
+    somme((s) => s.cpN2Balance),
+    somme((s) => s.cpN1Balance),
+    somme((s) => s.cpNBalance),
+    "",
+  ];
+
+  const nomExport = `soldes-conges-payes-${aujourdhuiIso()}`;
+
+  const exporterEnExcel = () =>
+    exporterCsvExcel(nomExport, colonnesExport, donneesAffichees, {
+      titre: "SOLDES DE CONGÉS PAYÉS",
+      sousTitre: sousTitreExport(),
+      pied: piedExport(),
+      nomFeuille: "Soldes de congés payés",
+    });
+
+  const exporterEnPdf = () =>
+    exporterPdf(nomExport, colonnesExport, donneesAffichees, {
+      titre: "Soldes de congés payés",
+      sousTitre: sousTitreExport(),
+      orientation: "landscape",
+      pied: piedExport(),
+    });
 
   // Jours de congés payés déjà approuvés dans les demandes, par salarié et
   // pour l'année en cours : affichés à titre de repère à côté de la saisie.
@@ -225,29 +349,66 @@ export function PaidLeaveBalances() {
       label: "Salarié",
       sortable: true,
       render: (d) => (
-        <div className="min-w-0">
+        <div className="min-w-48">
           <p className="truncate font-semibold">{d.employeeName}</p>
           <p className="truncate text-sm text-muted-foreground">{d.position}</p>
         </div>
       ),
     },
+    {
+      key: "acquis",
+      label: "Acquis",
+      sortable: true,
+      headerClassName: ENTETE_NOMBRE,
+      sortValue: (d) => cleTriNombre(acquisTotal(d)),
+      render: (d) => <span className={CELLULE_NOMBRE}>{acquisTotal(d)} j</span>,
+    },
+    {
+      key: "pris",
+      label: "Pris",
+      sortable: true,
+      headerClassName: ENTETE_NOMBRE,
+      sortValue: (d) => cleTriNombre(prisTotal(d)),
+      render: (d) => <span className={CELLULE_NOMBRE}>{prisTotal(d)} j</span>,
+    },
     ...periodes.map((p) => ({
       key: `${p.cle}Balance`,
       label: p.libelle,
       sortable: true,
-      render: (d: SoldeConges) => (
-        <span className="font-semibold">
-          {arrondi(d[`${p.cle}Balance` as keyof SoldeConges] as number)} j
-        </span>
-      ),
+      headerClassName: ENTETE_NOMBRE,
+      sortValue: (d: SoldeConges) =>
+        cleTriNombre(d[`${p.cle}Balance` as keyof SoldeConges] as number),
+      render: (d: SoldeConges) => {
+        const n = arrondi(d[`${p.cle}Balance` as keyof SoldeConges] as number);
+        return (
+          <span className={`${CELLULE_NOMBRE} font-semibold ${classeSolde(n)}`}>
+            {n} j
+          </span>
+        );
+      },
     })),
     {
       key: "totalBalance",
-      label: "CP total",
+      label: "Restant",
       sortable: true,
+      headerClassName: ENTETE_NOMBRE,
+      sortValue: (d) => cleTriNombre(d.totalBalance),
       render: (d) => (
-        <span className="text-lg font-bold text-primary">
+        <span
+          className={`${CELLULE_NOMBRE} text-lg font-bold ${classeSolde(d.totalBalance)}`}
+        >
           {arrondi(d.totalBalance)} j
+        </span>
+      ),
+    },
+    {
+      key: "majLe",
+      label: "Dernière mise à jour",
+      sortable: true,
+      sortValue: (d) => d.majLe ?? "",
+      render: (d) => (
+        <span className="whitespace-nowrap text-sm text-muted-foreground">
+          {d.majLe ? formaterDate(d.majLe) : "—"}
         </span>
       ),
     },
@@ -256,18 +417,16 @@ export function PaidLeaveBalances() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-end">
-        <Button
-          variant="outline"
-          onClick={exporter}
-          disabled={donnees.length === 0}
-        >
-          <Download className="mr-2 h-4 w-4 text-violet-500" />
-          Exporter
-        </Button>
+        <BoutonsExport
+          onExcel={exporterEnExcel}
+          onPdf={exporterEnPdf}
+          disabled={donneesAffichees.length === 0}
+        />
       </div>
 
-      <InfoCardContainer>
+      <GrilleKpi colonnes={4}>
         <InfoCard
+          compact
           icon={Calendar}
           title="Salariés"
           value={donnees.length}
@@ -275,6 +434,7 @@ export function PaidLeaveBalances() {
           color="gray"
         />
         <InfoCard
+          compact
           icon={TrendingUp}
           title="CP acquis (N)"
           value={`${arrondi(totalAcquis)} j`}
@@ -282,6 +442,7 @@ export function PaidLeaveBalances() {
           color="blue"
         />
         <InfoCard
+          compact
           icon={Calendar}
           title="CP pris (N)"
           value={`${arrondi(totalPris)} j`}
@@ -289,44 +450,64 @@ export function PaidLeaveBalances() {
           color="green"
         />
         <InfoCard
+          compact
           icon={TrendingUp}
           title="Solde total"
           value={`${arrondi(totalSolde)} j`}
           subtext="Tous salariés"
           color="orange"
         />
-      </InfoCardContainer>
+      </GrilleKpi>
 
       <Card>
         <CardHeader>
           <CardTitle>Soldes de congés payés</CardTitle>
         </CardHeader>
-        <CardContent>
-          <DataTable
-            data={donnees}
-            columns={colonnes}
-            onRowClick={ouvrirDetail}
-            searchKeys={["employeeName", "position"]}
-            searchPlaceholder="Rechercher un salarié..."
-            getRowId={(d) => d.employeeId}
-            actions={(d) => (
-              <RowActionsMenu
-                onView={() => ouvrirDetail(d)}
-                onEdit={() => ouvrirEdition(d)}
-                extraItems={[
-                  {
-                    label: "Historique",
-                    icon: FileText,
-                    tone: "history",
-                    onClick: () => {
-                      setChoisi(d);
-                      setHistoriqueOuvert(true);
-                    },
-                  },
-                ]}
-              />
-            )}
+        <CardContent className="space-y-4">
+          <BarreFiltres
+            recherche={recherche}
+            onRecherche={setRecherche}
+            placeholder="Rechercher un salarié ou un poste..."
+            onReinitialiser={reinitialiserFiltres}
+            resume={`${donneesAffichees.length} sur ${donnees.length} salarié${donnees.length > 1 ? "s" : ""}`}
+            filtres={[
+              {
+                cle: "solde",
+                libelle: "Solde",
+                valeur: filtreSolde,
+                onChange: setFiltreSolde,
+                options: OPTIONS_SOLDE,
+              },
+            ]}
           />
+          <div className={ENTETES.turquoise}>
+            {/* key : le tableau revient à la page 1 quand un filtre change. */}
+            <DataTable
+              key={`${recherche}|${filtreSolde}`}
+              data={donneesAffichees}
+              columns={colonnes}
+              onRowClick={ouvrirDetail}
+              getRowId={(d) => d.employeeId}
+              rowClassName={() => LIGNE_ZEBREE}
+              actions={(d) => (
+                <RowActionsMenu
+                  onView={() => ouvrirDetail(d)}
+                  onEdit={() => ouvrirEdition(d)}
+                  extraItems={[
+                    {
+                      label: "Historique",
+                      icon: FileText,
+                      tone: "history",
+                      onClick: () => {
+                        setChoisi(d);
+                        setHistoriqueOuvert(true);
+                      },
+                    },
+                  ]}
+                />
+              )}
+            />
+          </div>
           {donnees.length === 0 && (
             <p className="pt-2 text-center text-sm text-muted-foreground">
               Aucun salarié dans l&apos;entreprise : créez d&apos;abord un

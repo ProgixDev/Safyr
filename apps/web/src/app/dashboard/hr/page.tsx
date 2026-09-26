@@ -192,6 +192,10 @@ type Teinte = keyof typeof TEINTES;
 
 const TEXTE_SECONDAIRE = "text-slate-600 dark:text-slate-400";
 
+// Paddings resserrés (Card en pose 24 px) pour que tout tienne sur un écran.
+const ENTETE = "px-4 pt-3 pb-1";
+const CORPS = "px-4 pt-0 pb-3";
+
 /** Carte d'indicateur : liseré coloré à gauche, léger dégradé teinté. */
 function CarteKpi({
   teinte,
@@ -206,7 +210,7 @@ function CarteKpi({
   return (
     <Card
       className={cn(
-        "glass-card h-full transition-all hover:shadow-md",
+        "glass-card flex h-full flex-col transition-all hover:shadow-md",
         className,
       )}
       style={{
@@ -232,10 +236,10 @@ function TitreKpi({
 }) {
   return (
     <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
-      <span className={cn("rounded-lg p-1.5", TEINTES[teinte].pastille)}>
+      <span className={cn("shrink-0 rounded-lg p-1", TEINTES[teinte].pastille)}>
         <Icone className="h-4 w-4" />
       </span>
-      {children}
+      <span className="truncate">{children}</span>
     </CardTitle>
   );
 }
@@ -260,16 +264,16 @@ function WidgetIndisponible({
 }) {
   return (
     <CarteKpi teinte={teinte}>
-      <CardHeader className="pb-2">
+      <CardHeader className={ENTETE}>
         <TitreKpi teinte={teinte} icone={icone}>
           {titre}
         </TitreKpi>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
+      <CardContent className={CORPS}>
+        <div className="space-y-1">
           <span
             className={cn(
-              "text-4xl font-semibold tracking-tight opacity-60",
+              "text-3xl font-semibold tracking-tight opacity-60",
               TEINTES[teinte].valeur,
             )}
           >
@@ -285,12 +289,12 @@ function WidgetIndisponible({
 function ChargementWidget() {
   return (
     <Card className="glass-card border-border/40 h-full">
-      <CardHeader className="pb-2">
+      <CardHeader className={ENTETE}>
         <Skeleton className="h-4 w-32" />
       </CardHeader>
-      <CardContent>
-        <Skeleton className="h-10 w-48 mb-4" />
-        <Skeleton className="h-20 w-full" />
+      <CardContent className={CORPS}>
+        <Skeleton className="h-8 w-40 mb-3" />
+        <Skeleton className="h-16 w-full" />
       </CardContent>
     </Card>
   );
@@ -308,45 +312,47 @@ function EmployeeStatsWidget({ isLoading }: { isLoading: boolean }) {
 
   return (
     <CarteKpi teinte="blue">
-      <CardHeader className="pb-2">
+      <CardHeader className={ENTETE}>
         <TitreKpi teinte="blue" icone={Users}>
           Effectif Total
         </TitreKpi>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div>
-            <span
-              className={cn(
-                "text-4xl font-semibold tracking-tight",
-                TEINTES.blue.valeur,
-              )}
-            >
-              {total}
-            </span>
-            <span className={cn("ml-2 text-sm", TEXTE_SECONDAIRE)}>
-              salarié{total > 1 ? "s" : ""}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-blue-500/20">
+      <CardContent className={CORPS}>
+        <div className="space-y-2">
+          <div className="flex items-end justify-between gap-2">
             <div>
-              <p className={cn("text-xs", TEXTE_SECONDAIRE)}>CDI</p>
-              <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-300">
+              <span
+                className={cn(
+                  "text-3xl font-semibold tracking-tight",
+                  TEINTES.blue.valeur,
+                )}
+              >
+                {total}
+              </span>
+              <span className={cn("ml-2 text-xs", TEXTE_SECONDAIRE)}>
+                salarié{total > 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 pb-1 text-xs font-medium">
+              <UserCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-emerald-700 dark:text-emerald-300">
+                {actifs} actif{actifs > 1 ? "s" : ""}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-6 border-t border-blue-500/20 pt-2">
+            <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+              CDI{" "}
+              <span className="text-base font-semibold text-emerald-700 dark:text-emerald-300">
                 {cdi}
-              </p>
-            </div>
-            <div>
-              <p className={cn("text-xs", TEXTE_SECONDAIRE)}>CDD</p>
-              <p className="text-xl font-semibold text-orange-700 dark:text-orange-300">
+              </span>
+            </p>
+            <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+              CDD{" "}
+              <span className="text-base font-semibold text-orange-700 dark:text-orange-300">
                 {cdd}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-emerald-700 dark:text-emerald-300">
-              {actifs} actif{actifs > 1 ? "s" : ""}
-            </span>
+              </span>
+            </p>
           </div>
         </div>
       </CardContent>
@@ -391,48 +397,48 @@ function ComplianceWidget({ isLoading }: { isLoading: boolean }) {
 
   return (
     <CarteKpi teinte="emerald">
-      <CardHeader className="pb-2">
+      <CardHeader className={ENTETE}>
         <TitreKpi teinte="emerald" icone={Shield}>
           Conformité documentaire
         </TitreKpi>
       </CardHeader>
-      <CardContent>
+      <CardContent className={CORPS}>
         {total === 0 ? (
           <p className={cn("text-sm", TEXTE_SECONDAIRE)}>
             Aucun document exigé n&apos;est encore configuré.
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div>
               <span
                 className={cn(
-                  "text-4xl font-semibold tracking-tight",
+                  "text-3xl font-semibold tracking-tight",
                   TEINTES.emerald.valeur,
                 )}
               >
                 {taux}%
               </span>
-              <span className={cn("ml-2 text-sm", TEXTE_SECONDAIRE)}>
+              <span className={cn("ml-2 text-xs", TEXTE_SECONDAIRE)}>
                 conforme
               </span>
             </div>
             <Progress
               value={taux}
-              className={cn("h-2", TEINTES.emerald.barre)}
+              className={cn("h-1.5", TEINTES.emerald.barre)}
             />
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-emerald-500/20">
-              <div>
-                <p className={cn("text-xs", TEXTE_SECONDAIRE)}>À jour</p>
-                <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-300">
+            <div className="flex items-center gap-6 border-t border-emerald-500/20 pt-2">
+              <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+                À jour{" "}
+                <span className="text-base font-semibold text-emerald-700 dark:text-emerald-300">
                   {conformes}
-                </p>
-              </div>
-              <div>
-                <p className={cn("text-xs", TEXTE_SECONDAIRE)}>À fournir</p>
-                <p className="text-lg font-semibold text-orange-700 dark:text-orange-300">
+                </span>
+              </p>
+              <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+                À fournir{" "}
+                <span className="text-base font-semibold text-orange-700 dark:text-orange-300">
                   {aRenouveler}
-                </p>
-              </div>
+                </span>
+              </p>
             </div>
           </div>
         )}
@@ -489,7 +495,7 @@ function TrainingWidget({ isLoading }: { isLoading: boolean }) {
 
   return (
     <CarteKpi teinte="indigo">
-      <CardHeader className="pb-2">
+      <CardHeader className={ENTETE}>
         <div className="flex items-center justify-between">
           <TitreKpi teinte="indigo" icone={Award}>
             Formations & Habilitations
@@ -503,31 +509,30 @@ function TrainingWidget({ isLoading }: { isLoading: boolean }) {
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={CORPS}>
         {totalGeneral === 0 ? (
           <p className={cn("text-sm", TEXTE_SECONDAIRE)}>
             Aucune habilitation enregistrée sur les dossiers salariés.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-1.5">
             {groupes
               .filter((g) => g.total > 0)
               .map((g) => (
-                <div key={g.label} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={cn(
-                        "text-sm font-semibold",
-                        TEINTES[g.teinte].valeur,
-                      )}
-                    >
-                      {g.label}
-                    </span>
-                    <span className={cn("text-xs", TEXTE_SECONDAIRE)}>
-                      {g.total} au total
-                    </span>
-                  </div>
-                  <div className="flex gap-1 h-2">
+                <div
+                  key={g.label}
+                  className="flex items-center gap-2"
+                  title={`${g.total} au total : ${g.valides} valides, ${g.bientot} à renouveler, ${g.expirees} expirées`}
+                >
+                  <span
+                    className={cn(
+                      "w-16 shrink-0 truncate text-xs font-semibold",
+                      TEINTES[g.teinte].valeur,
+                    )}
+                  >
+                    {g.label}
+                  </span>
+                  <div className="flex h-2 min-w-0 flex-1 gap-0.5">
                     <div
                       className="bg-emerald-500 rounded-l-lg"
                       style={{ width: `${(g.valides / g.total) * 100}%` }}
@@ -541,19 +546,30 @@ function TrainingWidget({ isLoading }: { isLoading: boolean }) {
                       style={{ width: `${(g.expirees / g.total) * 100}%` }}
                     />
                   </div>
-                  <div className="flex gap-3 text-xs font-medium">
+                  <span className="shrink-0 text-xs font-semibold tabular-nums">
                     <span className="text-emerald-700 dark:text-emerald-400">
-                      {g.valides} valides
+                      {g.valides}
                     </span>
+                    <span className={TEXTE_SECONDAIRE}>/</span>
                     <span className="text-orange-700 dark:text-orange-400">
-                      {g.bientot} à renouveler
+                      {g.bientot}
                     </span>
+                    <span className={TEXTE_SECONDAIRE}>/</span>
                     <span className="text-red-700 dark:text-red-400">
-                      {g.expirees} expirées
+                      {g.expirees}
                     </span>
-                  </div>
+                  </span>
                 </div>
               ))}
+            <div className="flex gap-3 pt-0.5 text-[11px] font-medium">
+              <span className="text-emerald-700 dark:text-emerald-400">
+                valides
+              </span>
+              <span className="text-orange-700 dark:text-orange-400">
+                à renouveler
+              </span>
+              <span className="text-red-700 dark:text-red-400">expirées</span>
+            </div>
           </div>
         )}
       </CardContent>
@@ -616,7 +632,7 @@ function AlertsWidget({ isLoading }: { isLoading: boolean }) {
 
   return (
     <CarteKpi teinte="red">
-      <CardHeader className="pb-2">
+      <CardHeader className={ENTETE}>
         <div className="flex items-center justify-between">
           <TitreKpi teinte="red" icone={AlertTriangle}>
             Alertes RH
@@ -633,8 +649,8 @@ function AlertsWidget({ isLoading }: { isLoading: boolean }) {
           </span>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
+      <CardContent className={CORPS}>
+        <div className="space-y-1.5">
           {alertes.map((a) => {
             const Icone = a.icon;
             const t = TEINTES[a.teinte];
@@ -642,18 +658,19 @@ function AlertsWidget({ isLoading }: { isLoading: boolean }) {
               <Link
                 key={a.label}
                 href={a.href}
+                title={a.label}
                 className={cn(
-                  "flex items-center justify-between rounded-lg border px-3 py-2 transition-colors",
+                  "flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1 transition-colors",
                   t.bouton,
                 )}
               >
-                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Icone className={cn("h-4 w-4", t.valeur)} />
-                  {a.label}
+                <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-foreground">
+                  <Icone className={cn("h-3.5 w-3.5 shrink-0", t.valeur)} />
+                  <span className="truncate">{a.label}</span>
                 </span>
                 <span
                   className={cn(
-                    "text-lg font-semibold",
+                    "text-base font-semibold",
                     a.count > 0 ? t.valeur : TEXTE_SECONDAIRE,
                   )}
                 >
@@ -741,53 +758,52 @@ function GenderEqualityWidget({ isLoading }: { isLoading: boolean }) {
 
   return (
     <CarteKpi teinte="fuchsia">
-      <CardHeader className="pb-2">
+      <CardHeader
+        className={ENTETE}
+        title="L'index d'égalité professionnelle exige les rémunérations : il sera calculé une fois la paie reliée."
+      >
         <TitreKpi teinte="fuchsia" icone={Scale}>
           Répartition femmes / hommes
         </TitreKpi>
       </CardHeader>
-      <CardContent>
+      <CardContent className={CORPS}>
         {renseignes === 0 ? (
           <p className={cn("text-sm", TEXTE_SECONDAIRE)}>
             Le genre n&apos;est renseigné sur aucun dossier salarié.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div>
               <span
                 className={cn(
-                  "text-4xl font-semibold tracking-tight",
+                  "text-3xl font-semibold tracking-tight",
                   TEINTES.fuchsia.valeur,
                 )}
               >
                 {partFemmes}%
               </span>
-              <span className={cn("ml-2 text-sm", TEXTE_SECONDAIRE)}>
+              <span className={cn("ml-2 text-xs", TEXTE_SECONDAIRE)}>
                 de femmes
               </span>
             </div>
             <Progress
               value={partFemmes}
-              className={cn("h-2", TEINTES.fuchsia.barre)}
+              className={cn("h-1.5", TEINTES.fuchsia.barre)}
             />
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-fuchsia-500/20">
-              <div>
-                <p className={cn("text-xs", TEXTE_SECONDAIRE)}>Femmes</p>
-                <p className="text-lg font-semibold text-fuchsia-700 dark:text-fuchsia-300">
+            <div className="flex items-center gap-6 border-t border-fuchsia-500/20 pt-2">
+              <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+                Femmes{" "}
+                <span className="text-base font-semibold text-fuchsia-700 dark:text-fuchsia-300">
                   {femmes}
-                </p>
-              </div>
-              <div>
-                <p className={cn("text-xs", TEXTE_SECONDAIRE)}>Hommes</p>
-                <p className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+                </span>
+              </p>
+              <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+                Hommes{" "}
+                <span className="text-base font-semibold text-blue-700 dark:text-blue-300">
                   {hommes}
-                </p>
-              </div>
+                </span>
+              </p>
             </div>
-            <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
-              L&apos;index d&apos;égalité professionnelle exige les
-              rémunérations : il sera calculé une fois la paie reliée.
-            </p>
           </div>
         )}
       </CardContent>
@@ -835,11 +851,11 @@ function QuickActionsWidget({ isLoading }: { isLoading: boolean }) {
   if (isLoading) {
     return (
       <Card className="glass-card border-border/40 h-full">
-        <CardHeader className="pb-2">
+        <CardHeader className={ENTETE}>
           <Skeleton className="h-4 w-32" />
         </CardHeader>
-        <CardContent>
-          <Skeleton className="h-32 w-full" />
+        <CardContent className={CORPS}>
+          <Skeleton className="h-10 w-full" />
         </CardContent>
       </Card>
     );
@@ -915,13 +931,16 @@ function QuickActionsWidget({ isLoading }: { isLoading: boolean }) {
 
   return (
     <CarteKpi teinte="cyan">
-      <CardHeader className="pb-2">
-        <TitreKpi teinte="cyan" icone={Zap}>
-          Actions rapides
-        </TitreKpi>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="flex flex-col gap-2 px-4 py-3 xl:flex-row xl:items-center xl:gap-4">
+        <CardTitle className="shrink-0 text-sm font-semibold text-foreground">
+          <span className="flex items-center gap-2">
+            <span className={cn("rounded-lg p-1", TEINTES.cyan.pastille)}>
+              <Zap className="h-4 w-4" />
+            </span>
+            Actions rapides
+          </span>
+        </CardTitle>
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-5 2xl:grid-cols-10">
           {actions.map((action) => {
             const Icon = action.icon;
             const t = TEINTES[action.teinte];
@@ -929,28 +948,23 @@ function QuickActionsWidget({ isLoading }: { isLoading: boolean }) {
               <Link
                 key={action.label}
                 href={action.href}
+                title={action.label}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg border p-3 transition-all group hover:-translate-y-0.5 hover:shadow-md",
+                  "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-all hover:-translate-y-0.5 hover:shadow-md",
                   t.bouton,
                 )}
               >
-                <span className={cn("rounded-md p-1.5 shrink-0", t.pastille)}>
-                  <Icon className="h-4 w-4" />
+                <span className={cn("rounded-md p-1 shrink-0", t.pastille)}>
+                  <Icon className="h-3.5 w-3.5" />
                 </span>
-                <span className="text-sm font-medium text-foreground flex-1">
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
                   {action.label}
                 </span>
-                <ChevronRight
-                  className={cn(
-                    "h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5",
-                    t.valeur,
-                  )}
-                />
               </Link>
             );
           })}
         </div>
-      </CardContent>
+      </div>
     </CarteKpi>
   );
 }
@@ -1103,6 +1117,42 @@ const CHART_WIDGET_IDS = [
   "complianceRadar",
 ];
 
+/** Camemberts : cartes étroites empilées à gauche de la zone graphiques. */
+const ANNEAU_IDS = ["contractTypePie", "employeeStatusPie"];
+
+const CARTES_PAR_RANGEE = 5;
+
+/** Grille d'une rangée de cartes ; la dernière carte impaire prend la largeur. */
+const GRILLE_RANGEE =
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 sm:[&>*:last-child:nth-child(odd)]:col-span-2 xl:[&>*:last-child:nth-child(odd)]:col-span-1";
+
+function decouper<T>(liste: T[], taille: number): T[][] {
+  const rangees: T[][] = [];
+  for (let i = 0; i < liste.length; i += taille) {
+    rangees.push(liste.slice(i, i + taille));
+  }
+  return rangees;
+}
+
+function CelluleGraphique({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-[220px] min-w-0 xl:min-h-0 [&>*]:min-w-0 [&>*]:flex-1",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 const hrWidgetMap = new Map<string, HRWidgetConfig>(
   defaultWidgetConfigs.map((c) => [c.id, c]),
 );
@@ -1138,14 +1188,30 @@ export default function HRDashboardPage() {
     return <Component isLoading={isLoading} />;
   };
 
+  // Vue normale : cartes d'indicateurs, graphiques, actions rapides.
+  const cartes = visibleWidgets.filter(
+    (c) => c.id !== "quickActions" && !CHART_WIDGET_IDS.includes(c.id),
+  );
+  const rangeesCartes = decouper(cartes, CARTES_PAR_RANGEE);
+  const graphiques = visibleWidgets.filter((c) =>
+    CHART_WIDGET_IDS.includes(c.id),
+  );
+  const anneaux = graphiques.filter((c) => ANNEAU_IDS.includes(c.id));
+  const autresGraphiques = graphiques.filter((c) => !ANNEAU_IDS.includes(c.id));
+  const lignesAutres = autresGraphiques.length > 1 ? 2 : 1;
+  const colonnesAutres = Math.ceil(autresGraphiques.length / lignesAutres);
+  const actionsRapides = visibleWidgets.find((c) => c.id === "quickActions");
+
   return (
-    <div className="space-y-6">
+    // min-h-full : la page remplit la hauteur de <main> (les rangées
+    // s'étirent) et ne défile que si le contenu dépasse vraiment.
+    <div className="flex min-h-full flex-col gap-3">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-light tracking-tight">
-            Tableau de bord RH
+          <h1 className="font-serif text-2xl font-light tracking-tight">
+            Dashboard
           </h1>
-          <p className="mt-2 text-sm font-light text-muted-foreground">
+          <p className="text-xs font-light text-muted-foreground">
             Vue d&apos;ensemble des indicateurs clés RH
           </p>
         </div>
@@ -1183,90 +1249,94 @@ export default function HRDashboardPage() {
           onGridDragEnd={handleGridDragEnd}
         />
       ) : (
-        <div className="space-y-6">
-          {/* Top Row - Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {visibleWidgets
-              .filter((config) =>
-                ["employeeStats", "turnover", "compliance", "payroll"].includes(
-                  config.id,
-                ),
-              )
-              .map((config) => (
-                <div key={config.id} className="h-full">
-                  {renderWidget(config)}
-                </div>
-              ))}
-          </div>
-
-          {/* Charts Row - Histogrammes & Camemberts */}
-          {visibleWidgets.some((config) =>
-            CHART_WIDGET_IDS.includes(config.id),
-          ) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {visibleWidgets
-                .filter((config) => CHART_WIDGET_IDS.includes(config.id))
-                .map((config) => (
-                  <div key={config.id} className="h-full">
-                    {renderWidget(config)}
-                  </div>
-                ))}
-            </div>
-          )}
-
-          {/* Second Row - Training & Alerts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visibleWidgets
-              .filter((config) =>
-                ["training", "alerts", "pendingRequests"].includes(config.id),
-              )
-              .map((config) => (
-                <div key={config.id} className="h-full">
-                  {renderWidget(config)}
-                </div>
-              ))}
-          </div>
-
-          {/* Third Row - Detailed Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {visibleWidgets
-              .filter(
-                (config) =>
-                  ![
-                    "employeeStats",
-                    "turnover",
-                    "compliance",
-                    "payroll",
-                    "training",
-                    "alerts",
-                    "pendingRequests",
-                    "quickActions",
-                    ...CHART_WIDGET_IDS,
-                  ].includes(config.id),
-              )
-              .map((config) => (
+        <>
+          {/* Indicateurs : une rangée par tranche de 5 cartes, chaque rangée
+              prend toute la largeur (pas de case vide). */}
+          {rangeesCartes.map((rangee) => (
+            <div
+              key={rangee.map((c) => c.id).join("+")}
+              className={cn(GRILLE_RANGEE, "xl:grid-cols-(--colonnes)")}
+              style={
+                {
+                  "--colonnes": `repeat(${rangee.length}, minmax(0, 1fr))`,
+                } as React.CSSProperties
+              }
+            >
+              {rangee.map((config) => (
                 <div
                   key={config.id}
-                  className={cn(config.span || "", "h-full")}
+                  className="flex min-w-0 [&>*]:min-w-0 [&>*]:flex-1"
                 >
                   {renderWidget(config)}
                 </div>
               ))}
-          </div>
+            </div>
+          ))}
 
-          {/* Bottom Row - Quick Actions */}
-          {visibleWidgets.some((config) => config.id === "quickActions") && (
-            <div className="grid grid-cols-1 gap-4">
-              {visibleWidgets
-                .filter((config) => config.id === "quickActions")
-                .map((config) => (
-                  <div key={config.id} className="h-full">
-                    {renderWidget(config)}
-                  </div>
-                ))}
+          {/* Graphiques : anneaux compacts empilés à gauche, autres graphiques
+              en grille 2 lignes à droite. La zone prend toute la hauteur
+              restante de l'écran (xl et plus). */}
+          {graphiques.length > 0 && (
+            <div
+              className="grid grid-cols-1 gap-3 xl:min-h-[300px] xl:flex-1 xl:grid-cols-(--repartition) xl:grid-rows-[minmax(0,1fr)]"
+              style={
+                {
+                  "--repartition":
+                    anneaux.length > 0 && autresGraphiques.length > 0
+                      ? "minmax(0, 1fr) minmax(0, 3fr)"
+                      : "minmax(0, 1fr)",
+                } as React.CSSProperties
+              }
+            >
+              {anneaux.length > 0 && (
+                <div
+                  className="grid grid-cols-1 gap-3 xl:grid-rows-(--lignes)"
+                  style={
+                    {
+                      "--lignes": `repeat(${anneaux.length}, minmax(0, 1fr))`,
+                    } as React.CSSProperties
+                  }
+                >
+                  {anneaux.map((config) => (
+                    <CelluleGraphique key={config.id}>
+                      {renderWidget(config)}
+                    </CelluleGraphique>
+                  ))}
+                </div>
+              )}
+              {autresGraphiques.length > 0 && (
+                <div
+                  className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-(--colonnes) xl:grid-rows-(--lignes)"
+                  style={
+                    {
+                      "--colonnes": `repeat(${colonnesAutres}, minmax(0, 1fr))`,
+                      "--lignes": `repeat(${lignesAutres}, minmax(0, 1fr))`,
+                    } as React.CSSProperties
+                  }
+                >
+                  {autresGraphiques.map((config, i) => (
+                    <CelluleGraphique
+                      key={config.id}
+                      // Nombre impair : la dernière carte occupe deux colonnes.
+                      className={
+                        autresGraphiques.length % 2 === 1 &&
+                        autresGraphiques.length > 1 &&
+                        i === autresGraphiques.length - 1
+                          ? "sm:col-span-2"
+                          : undefined
+                      }
+                    >
+                      {renderWidget(config)}
+                    </CelluleGraphique>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-        </div>
+
+          {/* Actions rapides */}
+          {actionsRapides && renderWidget(actionsRapides)}
+        </>
       )}
     </div>
   );

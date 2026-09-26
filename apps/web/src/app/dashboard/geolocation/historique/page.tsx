@@ -299,7 +299,7 @@ export default function HistoriquePage() {
   function handleGenerateReport() {
     if (!selectedExecution) return;
     const checkpoints = selectedRoute?.checkpoints ?? [];
-    generatePatrolReport(selectedExecution, checkpoints);
+    void generatePatrolReport(selectedExecution, checkpoints);
   }
 
   // ── Map props ─────────────────────────────────────────────────────

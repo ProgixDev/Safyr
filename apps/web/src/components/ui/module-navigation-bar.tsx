@@ -43,6 +43,8 @@ export interface NavItem {
 export interface ModuleNavigationBarProps {
   moduleIcon: React.ElementType;
   dashboardHref: string;
+  /** Libellé du lien vers l'accueil du module ; par défaut « Tableau de bord ». */
+  dashboardLabel?: string;
   navItems: NavItem[];
   showNav?: boolean;
 }
@@ -87,6 +89,7 @@ const NAV_ITEM_DISABLED = "text-muted-foreground opacity-50 cursor-not-allowed";
 export function ModuleNavigationBar({
   moduleIcon: ModuleIcon,
   dashboardHref,
+  dashboardLabel,
   navItems,
   showNav = true,
 }: ModuleNavigationBarProps) {
@@ -124,7 +127,7 @@ export function ModuleNavigationBar({
                 {isDashboardActive ? (
                   <>
                     <ModuleIcon className={NAV_ICON} />
-                    <span>Tableau de bord</span>
+                    <span>{dashboardLabel ?? "Tableau de bord"}</span>
                   </>
                 ) : activeItem ? (
                   <>
@@ -156,10 +159,16 @@ export function ModuleNavigationBar({
                 )}
               >
                 <ModuleIcon className={NAV_ICON} />
-                <span className="min-[1700px]:hidden">Accueil</span>
-                <span className="hidden min-[1700px]:inline">
-                  Tableau de bord
-                </span>
+                {dashboardLabel ? (
+                  <span>{dashboardLabel}</span>
+                ) : (
+                  <>
+                    <span className="min-[1700px]:hidden">Accueil</span>
+                    <span className="hidden min-[1700px]:inline">
+                      Tableau de bord
+                    </span>
+                  </>
+                )}
               </Link>
 
               <div className="h-5 w-px shrink-0 bg-border" />
@@ -304,7 +313,7 @@ export function ModuleNavigationBar({
               >
                 <ModuleIcon className="h-8 w-8" />
                 <span className="text-sm font-medium text-center">
-                  Tableau de bord
+                  {dashboardLabel ?? "Tableau de bord"}
                 </span>
               </Link>
 

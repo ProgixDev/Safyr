@@ -57,7 +57,8 @@ export type FiscalRecordType =
   | "cse_role"
   | "seance_cse"
   | "parametre_paie"
-  | "epargne";
+  | "epargne"
+  | "fiche_emploi";
 
 /** Ligne d'un registre administratif (TVA, CFE, PAS, courrier, AKTO). */
 export interface FiscalRecord {

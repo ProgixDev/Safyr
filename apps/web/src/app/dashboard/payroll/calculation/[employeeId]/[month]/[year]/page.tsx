@@ -257,7 +257,7 @@ export default function EmployeeMonthDetailPage({ params }: PageProps) {
   const handleExportPDF = () => {
     if (!employee) return;
 
-    generatePayrollBulletinPDF(employee, monthName, year, data, {
+    void generatePayrollBulletinPDF(employee, monthName, year, data, {
       name: "PRODIGE SÉCURITÉ",
       siret: "90820023100011",
       address: "229 rue Saint Honoré",

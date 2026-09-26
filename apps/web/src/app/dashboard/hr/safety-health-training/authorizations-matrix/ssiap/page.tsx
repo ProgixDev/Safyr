@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useEmployeesRH } from "@/hooks/employees";
+import { useEmployeesRH, useHabilitations } from "@/hooks/employees";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
@@ -22,13 +22,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
-import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
+import {
+  StatutHabilitation,
+  THEMES,
+  TitreHabilitation,
+} from "../_components/habilitation-ui";
 import {
   Plus,
   CheckCircle,
   XCircle,
   MoreVertical,
   Award,
+  Flame,
   Clock,
   Calendar,
   Users,
@@ -42,8 +47,7 @@ import type {
   Employee,
 } from "@/lib/types";
 
-// Mock data for SSIAP certifications
-const mockSSIAPCertifications: TrainingCertification[] = [];
+const theme = THEMES.ssiap;
 
 const ssiapLevelLabels: Record<string, string> = {
   "1": "SSIAP 1",
@@ -53,9 +57,10 @@ const ssiapLevelLabels: Record<string, string> = {
 
 export default function SSIAPPage() {
   const mockEmployees = useEmployeesRH();
-  // Enregistré en base : la liste ne vivait que dans le navigateur.
-  const [certifications, setCertifications] =
-    useListePersistante<TrainingCertification>("ssiap");
+  // Source : les diplômes SSIAP des dossiers salariés (onglet « Diplômes et
+  // certifications »), fusionnés avec les anciennes lignes de ce registre.
+  const [certifications, setCertifications, chargement, erreur] =
+    useHabilitations("SSIAP", "ssiap");
   const [isCertificationModalOpen, setIsCertificationModalOpen] =
     useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -135,7 +140,7 @@ export default function SSIAPPage() {
   const handleSelectEmployee = (employee: Employee) => {
     setCertificationForm((prev) => ({
       ...prev,
-      employeeId: employee.employeeNumber,
+      employeeId: employee.employeeNumber || employee.id,
       employeeName: `${employee.firstName} ${employee.lastName}`,
     }));
     setEmployeeSearchOpen(false);
@@ -156,7 +161,8 @@ export default function SSIAPPage() {
       number: certification.number,
       issueDate: certification.issueDate.toISOString().split("T")[0],
       expiryDate: certification.expiryDate.toISOString().split("T")[0],
-      issuer: "SDIS",
+      // Émetteur réel de la certification, pas une valeur figée.
+      issuer: certification.issuer,
     });
     setIsEditMode(true);
     setIsCertificationModalOpen(true);
@@ -244,6 +250,7 @@ export default function SSIAPPage() {
       label: "Employé",
       icon: Users,
       sortable: true,
+      headerClassName: theme.entete,
       sortValue: (certification) => certification.employeeName,
       render: (certification) => (
         <div>
@@ -258,8 +265,12 @@ export default function SSIAPPage() {
       key: "level",
       label: "Niveau",
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
-        <Badge variant="outline">
+        <Badge
+          variant="outline"
+          className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400"
+        >
           {ssiapLevelLabels[certification.level || "1"]}
         </Badge>
       ),
@@ -267,15 +278,17 @@ export default function SSIAPPage() {
     {
       key: "number",
       label: "Numéro",
+      headerClassName: theme.entete,
       render: (certification) => (
         <span className="font-mono text-sm">{certification.number}</span>
       ),
     },
     {
       key: "issueDate",
-      label: "Date d'apos;émission",
+      label: "Date d'émission",
       icon: Calendar,
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
         <span className="text-sm">
           {certification.issueDate.toLocaleDateString("fr-FR")}
@@ -284,9 +297,10 @@ export default function SSIAPPage() {
     },
     {
       key: "expiryDate",
-      label: "Date d'apos;expiration",
+      label: "Date d'expiration",
       icon: Clock,
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
         <span className="text-sm">
           {certification.expiryDate.toLocaleDateString("fr-FR")}
@@ -297,22 +311,9 @@ export default function SSIAPPage() {
       key: "status",
       label: "Statut",
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
-        <Badge
-          variant={
-            certification.status === "valid"
-              ? "default"
-              : certification.status === "expiring-soon"
-                ? "secondary"
-                : "destructive"
-          }
-        >
-          {certification.status === "valid"
-            ? "Valide"
-            : certification.status === "expiring-soon"
-              ? "Expire bientôt"
-              : "Expiré"}
-        </Badge>
+        <StatutHabilitation statut={certification.status} />
       ),
     },
   ];
@@ -330,9 +331,9 @@ export default function SSIAPPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-light tracking-tight">
+          <TitreHabilitation famille="ssiap" icone={Flame}>
             SSIAP
-          </h1>
+          </TitreHabilitation>
           <p className="mt-2 text-sm font-light text-muted-foreground">
             Suivi des certifications SSIAP du personnel
           </p>
@@ -343,14 +344,20 @@ export default function SSIAPPage() {
         </Button>
       </div>
 
+      {erreur && (
+        <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          {erreur}
+        </p>
+      )}
+
       {/* Stats Cards */}
       <InfoCardContainer>
         <InfoCard
           icon={Award}
           title="Total SSIAP"
           value={certifications.length}
-          subtext="Certifications actives"
-          color="blue"
+          subtext="Diplômes des dossiers salariés"
+          color={theme.carteTotal}
         />
         <InfoCard
           icon={CheckCircle}
@@ -379,6 +386,7 @@ export default function SSIAPPage() {
       <DataTable
         onRowClick={handleViewCertification}
         data={certifications}
+        isLoading={chargement}
         columns={columns}
         searchKeys={["employeeName", "number"]}
         getSearchValue={(certification) =>
@@ -487,21 +495,7 @@ export default function SSIAPPage() {
               <div>
                 <Label className="text-sm font-medium">Statut</Label>
                 <div className="mt-1">
-                  <Badge
-                    variant={
-                      selectedCertification.status === "valid"
-                        ? "default"
-                        : selectedCertification.status === "expiring-soon"
-                          ? "secondary"
-                          : "destructive"
-                    }
-                  >
-                    {selectedCertification.status === "valid"
-                      ? "Valide"
-                      : selectedCertification.status === "expiring-soon"
-                        ? "Expire bientôt"
-                        : "Expiré"}
-                  </Badge>
+                  <StatutHabilitation statut={selectedCertification.status} />
                 </div>
               </div>
               <div>
@@ -572,7 +566,10 @@ export default function SSIAPPage() {
             label: isEditMode ? "Mettre à jour" : "Créer",
             onClick: handleCreateOrUpdateCertification,
             disabled:
-              !certificationForm.employeeName || !certificationForm.number,
+              !certificationForm.employeeName ||
+              !certificationForm.number ||
+              !certificationForm.issueDate ||
+              !certificationForm.expiryDate,
           },
         }}
       >
@@ -692,7 +689,9 @@ export default function SSIAPPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="issueDate">Date d&apos;émission</Label>
+              <Label htmlFor="issueDate">
+                Date d&apos;émission <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="issueDate"
                 type="date"
@@ -706,7 +705,10 @@ export default function SSIAPPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="expiryDate">Date d&apos;expiration</Label>
+              <Label htmlFor="expiryDate">
+                Date d&apos;expiration{" "}
+                <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="expiryDate"
                 type="date"

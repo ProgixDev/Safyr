@@ -32,7 +32,17 @@ import {
   type Certification as ApiCertification,
 } from "@safyr/api-client";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
-import { CertificationFormDialog } from "./CertificationFormDialog";
+import {
+  CERTIFICATION_SCOPE,
+  CERTIFICATION_SLOT,
+  CertificationFormDialog,
+} from "./CertificationFormDialog";
+import {
+  useAttachDocument,
+  useAttachments,
+  useDeleteAttachment,
+} from "@/hooks/contracts";
+import { pickFile } from "@/lib/document-files";
 import { Modal } from "@/components/ui/modal";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { formatDate } from "@/lib/date-utils";
@@ -85,6 +95,34 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
   const [certToDelete, setCertToDelete] = useState<ApiCertification | null>(
     null,
   );
+
+  // Justificatifs des certifications (pièces jointes, un par certification).
+  const { data: piecesCertif = [] } = useAttachments(CERTIFICATION_SCOPE);
+  const attacherCertif = useAttachDocument(CERTIFICATION_SCOPE);
+  const detacherCertif = useDeleteAttachment(CERTIFICATION_SCOPE);
+  const pieceDe = (certId: string) =>
+    piecesCertif.find(
+      (p) => p.scopeId === certId && p.slot === CERTIFICATION_SLOT,
+    );
+
+  const televerserCertif = async (cert: ApiCertification) => {
+    const fichier = await pickFile();
+    if (!fichier) return;
+    setTeleversementErreur(null);
+    try {
+      await attacherCertif.mutateAsync({
+        file: fichier,
+        scopeId: cert.id,
+        slot: CERTIFICATION_SLOT,
+      });
+    } catch (err) {
+      setTeleversementErreur(
+        `Échec du téléversement : ${
+          err instanceof Error ? err.message : "erreur inconnue"
+        }`,
+      );
+    }
+  };
 
   const apiCertifications = useMemo<ApiCertification[]>(
     () => apiEmployee?.certifications ?? [],
@@ -282,6 +320,21 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
       key: "issuer",
       label: "Émetteur",
       render: (cert) => <span className="truncate">{cert.issuer}</span>,
+    },
+    {
+      key: "document",
+      label: "Document",
+      render: (cert) => {
+        const piece = pieceDe(cert.id);
+        return piece ? (
+          <span className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
+            <FileText className="h-4 w-4 shrink-0" />
+            <span className="max-w-40 truncate">{piece.name}</span>
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">Non fourni</span>
+        );
+      },
     },
     {
       key: "expiryDate",
@@ -625,15 +678,33 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
             searchKeys={["type", "number", "issuer"]}
             searchPlaceholder="Rechercher une certification..."
             itemsPerPage={10}
-            actions={(cert) => (
-              <RowActionsMenu
-                onEdit={() => {
-                  setCertEditing(cert);
-                  setCertDialogOpen(true);
-                }}
-                onDelete={() => setCertToDelete(cert)}
-              />
-            )}
+            actions={(cert) => {
+              const piece = pieceDe(cert.id);
+              // Même menu que les documents au-dessus : voir, téléverser ou
+              // remplacer, télécharger, puis modifier / supprimer.
+              return (
+                <RowActionsMenu
+                  onView={
+                    piece
+                      ? () => void ouvrirDocument(piece.storageKey)
+                      : undefined
+                  }
+                  onUpload={() => void televerserCertif(cert)}
+                  uploadLabel={piece ? "Remplacer" : "Téléverser"}
+                  onDownload={
+                    piece
+                      ? () => void ouvrirDocument(piece.storageKey)
+                      : undefined
+                  }
+                  onEdit={() => {
+                    setCertEditing(cert);
+                    setCertDialogOpen(true);
+                  }}
+                  onDelete={() => setCertToDelete(cert)}
+                  disabled={attacherCertif.isPending}
+                />
+              );
+            }}
           />
         </CardContent>
       </Card>
@@ -669,7 +740,12 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
             disabled: deleteCertMutation.isPending,
             onClick: async () => {
               if (!certToDelete) return;
+              const piece = pieceDe(certToDelete.id);
               await deleteCertMutation.mutateAsync(certToDelete.id);
+              // Le justificatif ne doit pas rester orphelin dans le stockage.
+              if (piece) {
+                await detacherCertif.mutateAsync(piece.id).catch(() => {});
+              }
               setCertToDelete(null);
             },
           },

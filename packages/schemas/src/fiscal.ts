@@ -69,6 +69,8 @@ export const FiscalRecordTypeSchema = z.enum([
   "epargne",
   // Paramètres annuels des primes (montant du panier, taux d'habillage…).
   "parametre_paie",
+  // Grille salariale et période d'essai d'un salarié (étape « Emploi »).
+  "fiche_emploi",
 ]);
 
 export const CreateFiscalRecordSchema = z.object({

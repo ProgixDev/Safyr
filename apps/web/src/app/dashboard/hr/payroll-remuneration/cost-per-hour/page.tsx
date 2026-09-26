@@ -10,6 +10,7 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import {
   Euro,
@@ -20,13 +21,18 @@ import {
   Award,
   Settings,
   AlertTriangle,
+  Info,
+  Percent,
 } from "lucide-react";
 import {
   useCoutsSalaries,
+  CLE_RGDU_ACTIVE,
   CLE_TAUX_PATRONAL,
   CLE_TAUX_SALARIAL,
   type CoutSalarie,
 } from "@/hooks/payroll";
+import { calculerCout } from "@/lib/cout-salarie";
+import { heuresMensuellesVersHebdo } from "@/lib/heures-contrat";
 import {
   arrondi2,
   formaterEuros,
@@ -63,7 +69,7 @@ const couleursPostes = [
   },
 ];
 
-const HEURES_PAR_SEMAINE_EN_MOIS = 52 / 12;
+const formaterCoefficient = (c: number) => c.toFixed(4).replace(".", ",");
 
 export default function PersonnelCostPage() {
   const {
@@ -72,6 +78,8 @@ export default function PersonnelCostPage() {
     contratsEnErreur,
     tauxPatronal,
     tauxSalarial,
+    appliquerRgdu,
+    effectifMoins50,
     parametres,
     modifierRemuneration,
   } = useCoutsSalaries();
@@ -105,10 +113,14 @@ export default function PersonnelCostPage() {
   // le tableau, qui se recalcule ensuite depuis le contrat enregistré).
   const apercuBrut = lireNombre(editGrossSalary);
   const apercuHeures = lireNombre(editWorkedHours);
-  const apercuCharges = arrondi2((apercuBrut * tauxPatronal) / 100);
-  const apercuTotal = arrondi2(apercuBrut + apercuCharges);
-  const apercuHoraire =
-    apercuHeures > 0 ? arrondi2(apercuTotal / apercuHeures) : 0;
+  const apercu = calculerCout({
+    brut: apercuBrut,
+    heures: apercuHeures,
+    tauxPatronal,
+    tauxSalarial,
+    appliquerRgdu,
+    effectifMoins50,
+  });
 
   const confirmEdit = async () => {
     if (!selectedCost?.contract) return;
@@ -152,6 +164,8 @@ export default function PersonnelCostPage() {
     grossPayroll: somme((c) => c.grossSalary),
     netPayroll: somme((c) => c.netSalary),
     employerContributions: somme((c) => c.employerContributions),
+    reductionRgdu: somme((c) => c.reductionRgdu),
+    employerContributionsApres: somme((c) => c.chargesPatronalesApresReduction),
     totalEmployerCost: somme((c) => c.totalEmployerCost),
     // Coût moyen pondéré : coût total ÷ heures totales (et non moyenne des taux).
     avgCostPerHour:
@@ -242,6 +256,32 @@ export default function PersonnelCostPage() {
       ),
     },
     {
+      key: "reductionRgdu",
+      label: "Réduction RGDU",
+      sortable: true,
+      sortValue: (cost) => cost.reductionRgdu,
+      render: (cost) =>
+        cost.reductionRgdu > 0 ? (
+          <span
+            className="text-green-600 dark:text-green-400"
+            title={`Coefficient ${formaterCoefficient(cost.coefficientRgdu)}`}
+          >
+            − {formaterEuros(cost.reductionRgdu)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: "employerContributionsApres",
+      label: "Charges patronales après réduction",
+      sortable: true,
+      sortValue: (cost) => cost.chargesPatronalesApresReduction,
+      render: (cost) => (
+        <span>{formaterEuros(cost.chargesPatronalesApresReduction)}</span>
+      ),
+    },
+    {
       key: "totalEmployerCost",
       label: "Coût total employeur",
       sortable: true,
@@ -321,6 +361,23 @@ export default function PersonnelCostPage() {
         </div>
       </div>
 
+      <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200">
+        <Info className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="space-y-1">
+          <p>
+            Charges patronales = brut × {formaterNombre(tauxPatronal)} %.{" "}
+            {appliquerRgdu
+              ? `La réduction RGDU (exonération de cotisations employeur) est ensuite déduite : coefficient = 0,02 + ${effectifMoins50 ? "0,38" : "0,3821"} × [0,5 × (3 × SMIC ÷ brut − 1)]^1,75, arrondi à 4 décimales (SMIC de 1 823,03 € pour 151,67 h, proratisé au temps de travail), puis réduction = brut × coefficient. Coût employeur = brut + charges après réduction.`
+              : "La réduction RGDU est désactivée (bouton « Taux de charges »)."}
+          </p>
+          <p className="text-xs opacity-90">
+            Attention : si le taux de {formaterNombre(tauxPatronal)} % est déjà
+            net des exonérations, appliquer la réduction les compte deux fois.
+            Ajustez le taux ou désactivez la réduction selon votre cas.
+          </p>
+        </div>
+      </div>
+
       {(sansContrat > 0 || contratsEnErreur > 0) && !isLoading && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -355,15 +412,27 @@ export default function PersonnelCostPage() {
           icon={Euro}
           title="Charges patronales"
           value={formaterEuros(totalCosts.employerContributions)}
-          subtext={`Taux estimé : ${formaterNombre(tauxPatronal)} %`}
+          subtext={`Taux estimé : ${formaterNombre(tauxPatronal)} % · après réduction : ${formaterEuros(totalCosts.employerContributionsApres)}`}
           color="orange"
+        />
+
+        <InfoCard
+          icon={Percent}
+          title="Réductions RGDU"
+          value={formaterEuros(totalCosts.reductionRgdu)}
+          subtext={
+            appliquerRgdu
+              ? "Exonérations de cotisations employeur"
+              : "Réduction désactivée"
+          }
+          color="teal"
         />
 
         <InfoCard
           icon={Euro}
           title="Coût total employeur"
           value={formaterEuros(totalCosts.totalEmployerCost)}
-          subtext="Brut + charges patronales"
+          subtext="Brut + charges patronales après réduction"
           color="purple"
         />
 
@@ -518,7 +587,8 @@ export default function PersonnelCostPage() {
                           Brut : {formaterEuros(cost.grossSalary)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Charges : {formaterEuros(cost.employerContributions)}
+                          Charges :{" "}
+                          {formaterEuros(cost.chargesPatronalesApresReduction)}
                         </div>
                       </div>
                     </div>
@@ -600,15 +670,43 @@ export default function PersonnelCostPage() {
                 </p>
               </div>
               <div>
-                <Label className="text-sm font-medium">Salaire net</Label>
+                <Label className="text-sm font-medium">
+                  Salaire net avant impôt
+                </Label>
                 <p className="font-mono text-sm">
                   {formaterEuros(selectedCost.netSalary)}
                 </p>
               </div>
               <div>
-                <Label className="text-sm font-medium">Charges employeur</Label>
+                <Label className="text-sm font-medium">
+                  Charges salariales ({formaterNombre(tauxSalarial)} %)
+                </Label>
+                <p className="font-mono text-sm">
+                  {formaterEuros(selectedCost.employeeContributions)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">
+                  Charges patronales ({formaterNombre(tauxPatronal)} %)
+                </Label>
                 <p className="font-mono text-sm">
                   {formaterEuros(selectedCost.employerContributions)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Réduction RGDU</Label>
+                <p className="font-mono text-sm">
+                  {selectedCost.reductionRgdu > 0
+                    ? `− ${formaterEuros(selectedCost.reductionRgdu)} (coefficient ${formaterCoefficient(selectedCost.coefficientRgdu)})`
+                    : formaterEuros(0)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">
+                  Charges patronales après réduction
+                </Label>
+                <p className="font-mono text-sm">
+                  {formaterEuros(selectedCost.chargesPatronalesApresReduction)}
                 </p>
               </div>
               <div>
@@ -635,7 +733,7 @@ export default function PersonnelCostPage() {
 
             <p className="text-xs text-muted-foreground">
               {selectedCost.contract
-                ? `Salaire issu du contrat ${selectedCost.contract.type} actif (${selectedCost.poste}). Charges estimées : patronales ${formaterNombre(tauxPatronal)} %, salariales ${formaterNombre(tauxSalarial)} %.`
+                ? `Salaire issu du contrat ${selectedCost.contract.type} actif (${selectedCost.poste}). Charges estimées : patronales ${formaterNombre(tauxPatronal)} %, salariales ${formaterNombre(tauxSalarial)} % (net avant impôt = brut − charges salariales). Coût total employeur = brut + charges patronales après réduction RGDU.`
                 : "Aucun contrat actif : renseignez-le dans la fiche salarié, onglet Contrats."}
             </p>
           </div>
@@ -711,21 +809,43 @@ export default function PersonnelCostPage() {
                     />
                     <p className="text-xs text-muted-foreground">
                       Enregistré dans le contrat en heures par semaine (
-                      {formaterNombre(
-                        apercuHeures / HEURES_PAR_SEMAINE_EN_MOIS,
-                      )}{" "}
-                      h).
+                      {formaterNombre(heuresMensuellesVersHebdo(apercuHeures))}{" "}
+                      h). Les heures saisies sont conservées telles quelles.
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 rounded-lg border p-4 text-sm">
+                <div className="grid grid-cols-2 gap-4 rounded-lg border p-4 text-sm md:grid-cols-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Charges salariales ({formaterNombre(tauxSalarial)} %)
+                    </div>
+                    <div className="font-mono">
+                      {formaterEuros(apercu.chargesSalariales)}
+                    </div>
+                  </div>
                   <div>
                     <div className="text-xs text-muted-foreground">
                       Charges patronales ({formaterNombre(tauxPatronal)} %)
                     </div>
                     <div className="font-mono">
-                      {formaterEuros(apercuCharges)}
+                      {formaterEuros(apercu.chargesPatronales)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Réduction RGDU
+                    </div>
+                    <div className="font-mono">
+                      {formaterEuros(apercu.reductionRgdu)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Charges patronales après réduction
+                    </div>
+                    <div className="font-mono">
+                      {formaterEuros(apercu.chargesPatronalesApresReduction)}
                     </div>
                   </div>
                   <div>
@@ -733,7 +853,7 @@ export default function PersonnelCostPage() {
                       Coût total employeur
                     </div>
                     <div className="font-mono font-semibold">
-                      {formaterEuros(apercuTotal)}
+                      {formaterEuros(apercu.coutTotal)}
                     </div>
                   </div>
                   <div>
@@ -741,7 +861,7 @@ export default function PersonnelCostPage() {
                       Coût / heure
                     </div>
                     <div className="font-mono">
-                      {apercuHoraire.toFixed(2)} €/h
+                      {apercu.coutHoraire.toFixed(2)} €/h
                     </div>
                   </div>
                 </div>
@@ -757,7 +877,7 @@ export default function PersonnelCostPage() {
         onOpenChange={setIsRatesModalOpen}
         type="form"
         title="Taux de charges"
-        description="Estimation appliquée au salaire brut des contrats pour calculer charges, net et coût employeur. Ajustez-les à votre situation (réductions générales, prévoyance…)."
+        description="Estimation appliquée au salaire brut des contrats pour calculer charges, net et coût employeur. Le taux patronal par défaut est de 20 %."
         actions={{
           secondary: {
             label: "Annuler",
@@ -805,6 +925,30 @@ export default function PersonnelCostPage() {
               }
             />
           </div>
+        </div>
+
+        <div className="mt-4 flex items-start justify-between gap-4 rounded-lg border p-4">
+          <div className="space-y-1">
+            <Label htmlFor="rgdu-active">Appliquer la réduction RGDU</Label>
+            <p className="text-xs text-muted-foreground">
+              Déduit des charges patronales la réduction générale dégressive
+              (formule Urssaf 2026). Si votre taux patronal est déjà net des
+              exonérations, désactivez-la pour éviter un double comptage.
+            </p>
+          </div>
+          <Switch
+            id="rgdu-active"
+            checked={
+              (tauxSaisis[CLE_RGDU_ACTIVE] ?? (appliquerRgdu ? "1" : "0")) !==
+              "0"
+            }
+            onCheckedChange={(actif) =>
+              setTauxSaisis((prev) => ({
+                ...prev,
+                [CLE_RGDU_ACTIVE]: actif ? "1" : "0",
+              }))
+            }
+          />
         </div>
       </Modal>
     </div>

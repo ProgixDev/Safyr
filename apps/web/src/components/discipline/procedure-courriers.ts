@@ -172,10 +172,14 @@ export async function genererPdfCourrier(
   ctx: ContexteCourrier,
 ): Promise<File> {
   const { default: jsPDF } = await import("jspdf");
+  const { PDF_FOOTER_RESERVED_MM, applyPdfFooters, loadPdfBranding } =
+    await import("@/lib/pdf-branding");
+  const branding = await loadPdfBranding();
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const marge = 20;
   const largeur = 210 - marge * 2;
-  const bas = 277;
+  // Le texte s'arrête au-dessus du pied de page (société + L612-14).
+  const bas = 297 - PDF_FOOTER_RESERVED_MM;
   let y = 22;
 
   doc.setFont("helvetica", "bold");
@@ -229,6 +233,8 @@ export async function genererPdfCourrier(
     doc.text(ligne, marge, y);
     y += 5.2;
   }
+
+  applyPdfFooters(doc, branding);
 
   const blob = doc.output("blob");
   const nom = `courrier-etape-${indiceEtape + 1}-${slug(ctx.salarie) || "salarie"}.pdf`;

@@ -16,6 +16,10 @@ import {
   useCreateCertification,
   useUpdateCertification,
 } from "@/hooks/employees";
+import { Upload, X } from "lucide-react";
+import { useAttachDocument, useAttachments } from "@/hooks/contracts";
+import { pickFile } from "@/lib/document-files";
+import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,6 +75,10 @@ function toDto(c: Certification): CreateCertificationDto {
   };
 }
 
+/** Emplacement du justificatif d'une certification dans les pièces jointes. */
+export const CERTIFICATION_SCOPE = "divers" as const;
+export const CERTIFICATION_SLOT = "certificat";
+
 export function CertificationFormDialog({
   open,
   onOpenChange,
@@ -81,6 +89,16 @@ export function CertificationFormDialog({
   const createMutation = useCreateCertification(memberId);
   const updateMutation = useUpdateCertification(memberId);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  // Justificatif choisi dans le formulaire, envoyé une fois la certification
+  // enregistrée (il est rattaché à son identifiant).
+  const [fichier, setFichier] = useState<File | null>(null);
+  const { data: pieces = [] } = useAttachments(CERTIFICATION_SCOPE);
+  const attacher = useAttachDocument(CERTIFICATION_SCOPE);
+  const pieceActuelle = existing
+    ? pieces.find(
+        (p) => p.scopeId === existing.id && p.slot === CERTIFICATION_SLOT,
+      )
+    : undefined;
 
   const defaultValues = useMemo<CreateCertificationDto>(
     () => (existing ? toDto(existing) : emptyDefaults()),
@@ -93,13 +111,31 @@ export function CertificationFormDialog({
     onSubmit: async ({ value }) => {
       setGlobalError(null);
       try {
+        let certId: string;
         if (isEdit && existing) {
           await updateMutation.mutateAsync({
             certId: existing.id,
             data: value as UpdateCertificationPayload,
           });
+          certId = existing.id;
         } else {
-          await createMutation.mutateAsync(value as CreateCertificationPayload);
+          const creee = await createMutation.mutateAsync(
+            value as CreateCertificationPayload,
+          );
+          certId = creee.id;
+        }
+        if (fichier) {
+          try {
+            await attacher.mutateAsync({
+              file: fichier,
+              scopeId: certId,
+              slot: CERTIFICATION_SLOT,
+            });
+          } catch {
+            window.alert(
+              "La certification est enregistrée, mais le document n'a pas pu être téléversé. Ajoutez-le depuis le menu d'actions de la ligne.",
+            );
+          }
         }
         onOpenChange(false);
       } catch (error) {
@@ -112,14 +148,23 @@ export function CertificationFormDialog({
     },
   });
 
-  useEffect(() => {
+  // Erreur et fichier repartent de zéro à chaque ouverture (état dérivé
+  // pendant le rendu plutôt que dans un effet).
+  const [dejaOuvert, setDejaOuvert] = useState(false);
+  if (open !== dejaOuvert) {
+    setDejaOuvert(open);
     if (open) {
-      form.reset(defaultValues);
       setGlobalError(null);
+      setFichier(null);
     }
+  }
+
+  useEffect(() => {
+    if (open) form.reset(defaultValues);
   }, [open, defaultValues, form]);
 
-  const pending = createMutation.isPending || updateMutation.isPending;
+  const pending =
+    createMutation.isPending || updateMutation.isPending || attacher.isPending;
 
   return (
     <Modal
@@ -232,6 +277,47 @@ export function CertificationFormDialog({
               </div>
             )}
           </form.Field>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Document (justificatif)</Label>
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const f = await pickFile();
+                if (f) setFichier(f);
+              }}
+            >
+              <Upload className="mr-2 h-4 w-4 text-blue-500" />
+              {fichier || pieceActuelle
+                ? "Remplacer le fichier"
+                : "Choisir un fichier"}
+            </Button>
+            {fichier ? (
+              <span className="flex items-center gap-1 text-sm">
+                {fichier.name}
+                <button
+                  type="button"
+                  aria-label="Retirer le fichier choisi"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setFichier(null)}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </span>
+            ) : pieceActuelle ? (
+              <span className="text-sm text-muted-foreground">
+                Fichier actuel : {pieceActuelle.name}
+              </span>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                PDF, image ou document (facultatif)
+              </span>
+            )}
+          </div>
         </div>
 
         {globalError && (

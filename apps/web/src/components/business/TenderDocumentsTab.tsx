@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, Paperclip, Plus } from "lucide-react";
+import { useRef, useState } from "react";
+import { Download, FileText, Loader2, Paperclip, Plus } from "lucide-react";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Modal } from "@/components/ui/modal";
@@ -18,6 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  pdfEnFichier,
+  telechargerPdf,
+  type PdfGenere,
+} from "@/lib/dossier-entreprise-pdf";
+import {
+  RUBRIQUE_PAR_TYPE,
+  TYPES_AUTO_GENERES,
   TYPES_DOCUMENT_AO,
   aujourdhui,
   messageErreur,
@@ -25,6 +32,19 @@ import {
   type LigneDocumentAO,
 } from "./appel-offre-types";
 import type { useDocumentsAO } from "./use-documents-ao";
+import { useDonneesDossier } from "./use-donnees-dossier";
+
+/** Menu d'origine des données, cité dans le panneau de génération. */
+const SOURCE_PAR_TYPE: Record<string, string> = {
+  "Mon entreprise": "« Mon entreprise »",
+  "Dossier du personnel": "« Dossiers salariés »",
+};
+
+interface EtatGeneration {
+  etat: "repos" | "cours" | "pret" | "erreur";
+  pdf?: PdfGenere;
+  message?: string;
+}
 
 /** Valeur du menu déroulant pour un document sans appel d'offre. */
 const GENERAL = "general";
@@ -60,6 +80,54 @@ export function TenderDocumentsTab({ tenders, docs }: Props) {
   const [enCours, setEnCours] = useState(false);
   const [vue, setVue] = useState<LigneDocumentAO | null>(null);
   const [aSupprimer, setASupprimer] = useState<LigneDocumentAO | null>(null);
+  const [gen, setGen] = useState<EtatGeneration>({ etat: "repos" });
+  // Invalide une génération en cours quand le type change ou le formulaire se ferme.
+  const jeton = useRef(0);
+  const { generer } = useDonneesDossier();
+
+  /**
+   * Génère le PDF du type choisi, le joint au formulaire et le télécharge.
+   * Appelée depuis le choix du type ou le bouton : jamais depuis un effet.
+   */
+  const produire = async (type: string) => {
+    const rubrique = RUBRIQUE_PAR_TYPE[type];
+    if (!rubrique) return;
+    const mien = ++jeton.current;
+    setGen({ etat: "cours" });
+    try {
+      const pdf = await generer(rubrique);
+      if (mien !== jeton.current) return;
+      setForm((prev) => ({
+        ...prev,
+        fichier: pdfEnFichier(pdf),
+        // Nom proposé seulement s'il est vide : on ne remplace pas une saisie.
+        name:
+          prev.name.trim() ||
+          `${type} - ${new Date().toLocaleDateString("fr-FR")}`,
+      }));
+      telechargerPdf(pdf);
+      setGen({ etat: "pret", pdf });
+    } catch (e) {
+      if (mien !== jeton.current) return;
+      setGen({
+        etat: "erreur",
+        message: `Génération du PDF impossible : ${messageErreur(e)}`,
+      });
+    }
+  };
+
+  const changerType = (type: string) => {
+    jeton.current += 1;
+    setGen({ etat: "repos" });
+    // Le PDF généré pour l'ancien type ne doit pas rester joint au nouveau.
+    const genere = gen.pdf?.nomFichier;
+    setForm((prev) => ({
+      ...prev,
+      type,
+      fichier: genere && prev.fichier?.name === genere ? null : prev.fichier,
+    }));
+    if (!edition && TYPES_AUTO_GENERES.includes(type)) void produire(type);
+  };
 
   const appelDe = (id: string) => tenders.find((t) => t.id === id);
   const libelleAppel = (id: string) => {
@@ -118,6 +186,8 @@ export function TenderDocumentsTab({ tenders, docs }: Props) {
   ];
 
   const ouvrirCreation = () => {
+    jeton.current += 1;
+    setGen({ etat: "repos" });
     setEdition(null);
     setErreur(null);
     setForm({ ...FORMULAIRE_VIDE, date: aujourdhui() });
@@ -125,6 +195,8 @@ export function TenderDocumentsTab({ tenders, docs }: Props) {
   };
 
   const ouvrirEdition = (d: LigneDocumentAO) => {
+    jeton.current += 1;
+    setGen({ etat: "repos" });
     setEdition(d);
     setErreur(null);
     setForm({
@@ -139,6 +211,8 @@ export function TenderDocumentsTab({ tenders, docs }: Props) {
   };
 
   const fermerForm = () => {
+    jeton.current += 1;
+    setGen({ etat: "repos" });
     setFormOuvert(false);
     setEdition(null);
     setErreur(null);
@@ -252,7 +326,8 @@ export function TenderDocumentsTab({ tenders, docs }: Props) {
             label: edition ? "Enregistrer les modifications" : "Ajouter",
             onClick: () => void enregistrer(),
             loading: enCours,
-            disabled: enCours,
+            // Le PDF automatique doit être joint avant l'enregistrement.
+            disabled: enCours || gen.etat === "cours",
           },
           secondary: {
             label: "Annuler",
@@ -300,10 +375,7 @@ export function TenderDocumentsTab({ tenders, docs }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="ao-doc-type">Type</Label>
-              <Select
-                value={form.type}
-                onValueChange={(v) => setForm({ ...form, type: v })}
-              >
+              <Select value={form.type} onValueChange={changerType}>
                 <SelectTrigger id="ao-doc-type">
                   <SelectValue />
                 </SelectTrigger>
@@ -326,6 +398,51 @@ export function TenderDocumentsTab({ tenders, docs }: Props) {
               />
             </div>
           </div>
+          {RUBRIQUE_PAR_TYPE[form.type] && (
+            <div
+              className="space-y-2 rounded-md border bg-muted/40 p-3 text-sm"
+              role="status"
+            >
+              <p className="font-medium">
+                Ce document se génère automatiquement en PDF
+              </p>
+              <p className="text-muted-foreground">
+                Logo et coordonnées de l&apos;entreprise en en-tête, à partir
+                des données de {SOURCE_PAR_TYPE[form.type] ?? "l'application"}.
+                Le PDF est téléchargé puis joint à ce document.
+              </p>
+              {gen.etat === "cours" && (
+                <p className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Génération...
+                </p>
+              )}
+              {gen.etat === "pret" && gen.pdf && (
+                <p>
+                  PDF généré et joint :{" "}
+                  <span className="font-medium">{gen.pdf.nomFichier}</span>
+                  {form.fichier?.name !== gen.pdf.nomFichier &&
+                    " (remplacé par le fichier choisi ci-dessous)"}
+                </p>
+              )}
+              {gen.etat === "erreur" && (
+                <p className="text-destructive" role="alert">
+                  {gen.message}
+                </p>
+              )}
+              {gen.etat !== "cours" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void produire(form.type)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {gen.etat === "pret" ? "Régénérer le PDF" : "Générer le PDF"}
+                </Button>
+              )}
+            </div>
+          )}
           <div>
             <Label htmlFor="ao-doc-notes">Notes (optionnel)</Label>
             <Textarea

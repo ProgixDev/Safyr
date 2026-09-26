@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useEmployeesRH } from "@/hooks/employees";
+import { useEmployeeOptions } from "@/hooks/employees";
 import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import {
   Select,
   SelectContent,
@@ -17,14 +18,74 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Download, FileText, CheckCircle, Clock } from "lucide-react";
+import {
+  Plus,
+  Download,
+  FileText,
+  CheckCircle,
+  Clock,
+  ClipboardCheck,
+} from "lucide-react";
 import type { OffboardingProcess } from "@/data/hr-offboarding";
 import { useRegistre } from "@/hooks/fiscal/use-registre";
 
 const AUCUN_FICHIER = [] as const;
 
+const MOTIFS: Record<OffboardingProcess["reason"], string> = {
+  resignation: "Démission",
+  end_of_contract: "Fin de contrat",
+  dismissal: "Licenciement",
+  retirement: "Départ à la retraite",
+  other: "Autre",
+};
+
+const STATUTS: OffboardingProcess["status"][] = [
+  "En cours",
+  "Terminé",
+  "Annulé",
+];
+
+const DOCUMENTS: {
+  cle: keyof OffboardingProcess["documentsGenerated"];
+  libelle: string;
+}[] = [
+  { cle: "workCertificate", libelle: "Certificat de travail" },
+  { cle: "poleEmploiCertificate", libelle: "Attestation Pôle Emploi" },
+  { cle: "finalSettlement", libelle: "Reçu pour solde de tout compte" },
+];
+
+const VARIANTES_STATUT: Record<
+  string,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  "En cours": "default",
+  Terminé: "secondary",
+  Annulé: "destructive",
+};
+
+const dateFr = (valeur: string | undefined) =>
+  valeur ? new Date(valeur).toLocaleDateString("fr-FR") : "—";
+
+/** Durée du préavis en jours, retrouvée depuis les dates enregistrées. */
+const joursPreavis = (p: OffboardingProcess) => {
+  const jours = Math.round(
+    (new Date(p.noticePeriodEnd).getTime() -
+      new Date(p.noticePeriodStart).getTime()) /
+      86_400_000,
+  );
+  return Number.isFinite(jours) && jours >= 0 ? jours : 0;
+};
+
+const formulaireVide = () => ({
+  employeeId: "",
+  contractEndDate: "",
+  noticePeriodDays: 30,
+  reason: "resignation" as OffboardingProcess["reason"],
+  status: "En cours" as OffboardingProcess["status"],
+});
+
 export default function OffboardingPage() {
-  const mockEmployees = useEmployeesRH();
+  const employees = useEmployeeOptions();
   // Les sorties sont enregistrées en base (registre « sortie_salarie ») :
   // elles restaient dans l'état React et disparaissaient au rechargement.
   const registre = useRegistre<OffboardingProcess>(
@@ -39,20 +100,25 @@ export default function OffboardingPage() {
     [registre.lignes],
   );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedProcessId, setSelectedProcessId] = useState<string | null>(
-    null,
-  );
-  // Relue depuis la liste enregistrée pour refléter les documents générés.
-  const selectedProcess =
-    processes.find((p) => p.id === selectedProcessId) ?? null;
+  // Ligne modifiée : son id est celui du serveur (un id local serait ignoré).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  // « voir » : lecture seule ; « gerer » : documents, export paie, archivage.
+  const [ouverte, setOuverte] = useState<{
+    id: string;
+    mode: "voir" | "gerer";
+  } | null>(null);
+  const [aSupprimerId, setASupprimerId] = useState<string | null>(null);
+  const [suppression, setSuppression] = useState(false);
+  // Relues depuis la liste enregistrée pour refléter les modifications.
+  const selectedProcess = ouverte
+    ? (processes.find((p) => p.id === ouverte.id) ?? null)
+    : null;
+  const aSupprimer = aSupprimerId
+    ? (processes.find((p) => p.id === aSupprimerId) ?? null)
+    : null;
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    employeeId: "",
-    contractEndDate: "",
-    noticePeriodDays: 30,
-  });
+  const [formData, setFormData] = useState(formulaireVide);
 
   const inProgress = processes.filter((p) => p.status === "En cours").length;
   const completed = processes.filter((p) => p.status === "Terminé").length;
@@ -64,33 +130,28 @@ export default function OffboardingPage() {
       sortable: true,
     },
     {
+      key: "reason",
+      label: "Motif",
+      render: (process) => MOTIFS[process.reason] ?? "—",
+    },
+    {
       key: "contractEndDate",
       label: "Fin de contrat",
-      render: (process) =>
-        new Date(process.contractEndDate).toLocaleDateString("fr-FR"),
+      render: (process) => dateFr(process.contractEndDate),
     },
     {
       key: "noticePeriodEnd",
       label: "Fin préavis",
-      render: (process) =>
-        new Date(process.noticePeriodEnd).toLocaleDateString("fr-FR"),
+      render: (process) => dateFr(process.noticePeriodEnd),
     },
     {
       key: "status",
       label: "Statut",
-      render: (process) => {
-        const variants: Record<
-          string,
-          "default" | "secondary" | "outline" | "destructive"
-        > = {
-          "En cours": "default",
-          Terminé: "secondary",
-          Annulé: "destructive",
-        };
-        return (
-          <Badge variant={variants[process.status]}>{process.status}</Badge>
-        );
-      },
+      render: (process) => (
+        <Badge variant={VARIANTES_STATUT[process.status]}>
+          {process.status}
+        </Badge>
+      ),
     },
     {
       key: "equipmentReturned",
@@ -112,16 +173,61 @@ export default function OffboardingPage() {
         return <Badge variant="outline">{count}/3</Badge>;
       },
     },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (process) => (
+        <RowActionsMenu
+          onView={() => setOuverte({ id: process.id, mode: "voir" })}
+          onEdit={() => handleEdit(process)}
+          extraItems={[
+            {
+              label: "Documents, export paie et archivage",
+              icon: ClipboardCheck,
+              tone: "validate",
+              onClick: () => setOuverte({ id: process.id, mode: "gerer" }),
+            },
+          ]}
+          onDelete={() => setASupprimerId(process.id)}
+        />
+      ),
+    },
   ];
 
   const handleCreate = () => {
+    setEditingId(null);
+    setFormData(formulaireVide());
+    setErreur(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleEdit = (process: OffboardingProcess) => {
+    setEditingId(process.id);
     setFormData({
-      employeeId: "",
-      contractEndDate: "",
-      noticePeriodDays: 30,
+      employeeId: process.employeeId,
+      contractEndDate: (process.contractEndDate ?? "").slice(0, 10),
+      noticePeriodDays: joursPreavis(process),
+      reason: process.reason ?? "other",
+      status: process.status ?? "En cours",
     });
     setErreur(null);
     setIsCreateModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!aSupprimer) return;
+    setSuppression(true);
+    try {
+      await registre.supprimerLigne(aSupprimer.id);
+      if (ouverte?.id === aSupprimer.id) setOuverte(null);
+      setASupprimerId(null);
+    } catch (e) {
+      alert(
+        `Échec de la suppression : ${e instanceof Error ? e.message : "erreur inconnue"}`,
+      );
+    } finally {
+      setSuppression(false);
+    }
   };
 
   /** Enregistre la sortie ; l'identifiant réel est celui renvoyé par le serveur. */
@@ -133,38 +239,65 @@ export default function OffboardingPage() {
     });
 
   const handleSave = async () => {
-    const employee = mockEmployees.find((e) => e.id === formData.employeeId);
-    if (!employee || !formData.contractEndDate) return;
+    const existante = editingId
+      ? processes.find((p) => p.id === editingId)
+      : undefined;
+    const employee = employees.find((e) => e.id === formData.employeeId);
+    // Salarié absent de la liste depuis la création : on garde le nom enregistré.
+    if ((!employee && !existante) || !formData.contractEndDate) return;
 
     const endDate = new Date(formData.contractEndDate);
     const noticeStart = new Date(endDate);
     noticeStart.setDate(noticeStart.getDate() - formData.noticePeriodDays);
 
     const now = new Date().toISOString();
+    const identite = employee
+      ? {
+          employeeId: employee.id,
+          employeeName: employee.name,
+          employeeNumber: employee.employeeNumber,
+        }
+      : {
+          employeeId: existante!.employeeId,
+          employeeName: existante!.employeeName,
+          employeeNumber: existante!.employeeNumber,
+        };
+    const dates = {
+      contractEndDate: formData.contractEndDate,
+      noticePeriodStart: noticeStart.toISOString().split("T")[0],
+      noticePeriodEnd: formData.contractEndDate,
+    };
     setEnregistrement(true);
     setErreur(null);
     try {
-      await sauvegarder({
-        id: "",
-        employeeId: formData.employeeId,
-        employeeName: `${employee.firstName} ${employee.lastName}`,
-        employeeNumber: employee.employeeNumber,
-        contractEndDate: formData.contractEndDate,
-        noticePeriodStart: noticeStart.toISOString().split("T")[0],
-        noticePeriodEnd: formData.contractEndDate,
-        reason: "resignation", // Default, can be updated later
-        status: "En cours",
-        equipmentReturned: false,
-        documentsGenerated: {
-          workCertificate: false,
-          poleEmploiCertificate: false,
-          finalSettlement: false,
-        },
-        payrollExported: false,
-        fileArchived: false,
-        createdAt: now,
-        updatedAt: now,
-      });
+      await sauvegarder(
+        existante
+          ? {
+              ...existante,
+              ...identite,
+              ...dates,
+              reason: formData.reason,
+              status: formData.status,
+              updatedAt: now,
+            }
+          : {
+              id: "",
+              ...identite,
+              ...dates,
+              reason: formData.reason,
+              status: "En cours",
+              equipmentReturned: false,
+              documentsGenerated: {
+                workCertificate: false,
+                poleEmploiCertificate: false,
+                finalSettlement: false,
+              },
+              payrollExported: false,
+              fileArchived: false,
+              createdAt: now,
+              updatedAt: now,
+            },
+      );
       setIsCreateModalOpen(false);
     } catch (e) {
       setErreur(
@@ -175,10 +308,8 @@ export default function OffboardingPage() {
     }
   };
 
-  const handleRowClick = (process: OffboardingProcess) => {
-    setSelectedProcessId(process.id);
-    setIsViewModalOpen(true);
-  };
+  const handleRowClick = (process: OffboardingProcess) =>
+    setOuverte({ id: process.id, mode: "gerer" });
 
   const majProcessus = async (
     processId: string,
@@ -232,6 +363,16 @@ export default function OffboardingPage() {
     );
   };
 
+  // Employé absent de la liste (ex. sortie modifiée après suppression du
+  // salarié) : la ligne enregistrée reste modifiable, on l'ajoute au menu.
+  const salarieInconnu =
+    editingId && formData.employeeId
+      ? !employees.some((e) => e.id === formData.employeeId)
+      : false;
+  const nomEnregistre = editingId
+    ? (processes.find((p) => p.id === editingId)?.employeeName ?? "")
+    : "";
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -276,17 +417,25 @@ export default function OffboardingPage() {
         onRowClick={handleRowClick}
       />
 
-      {/* Create Modal */}
+      {/* Création / modification */}
       <Modal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         type="form"
-        title="Nouvelle sortie"
-        description="Enregistrez la fin de contrat d'un salarié et suivez les étapes de son départ."
+        title={editingId ? "Modifier la sortie" : "Nouvelle sortie"}
+        description={
+          editingId
+            ? "Modifiez les informations de la sortie. Les documents déjà générés sont conservés."
+            : "Enregistrez la fin de contrat d'un salarié et suivez les étapes de son départ."
+        }
         size="lg"
         actions={{
           primary: {
-            label: enregistrement ? "Enregistrement…" : "Créer",
+            label: enregistrement
+              ? "Enregistrement…"
+              : editingId
+                ? "Enregistrer"
+                : "Créer",
             onClick: () => void handleSave(),
             disabled:
               enregistrement ||
@@ -309,13 +458,42 @@ export default function OffboardingPage() {
                 setFormData({ ...formData, employeeId: value })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id="employeeId">
                 <SelectValue placeholder="Sélectionner un employé..." />
               </SelectTrigger>
               <SelectContent>
-                {mockEmployees.map((emp) => (
+                {salarieInconnu && (
+                  <SelectItem value={formData.employeeId}>
+                    {nomEnregistre}
+                  </SelectItem>
+                )}
+                {employees.map((emp) => (
                   <SelectItem key={emp.id} value={emp.id}>
-                    {emp.firstName} {emp.lastName}
+                    {emp.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="reason">Motif de la sortie</Label>
+            <Select
+              value={formData.reason}
+              onValueChange={(value) =>
+                setFormData({
+                  ...formData,
+                  reason: value as OffboardingProcess["reason"],
+                })
+              }
+            >
+              <SelectTrigger id="reason">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(MOTIFS).map(([valeur, libelle]) => (
+                  <SelectItem key={valeur} value={valeur}>
+                    {libelle}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -350,21 +528,191 @@ export default function OffboardingPage() {
             />
           </div>
 
+          {editingId && (
+            <div>
+              <Label htmlFor="statut">Statut</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    status: value as OffboardingProcess["status"],
+                  })
+                }
+              >
+                <SelectTrigger id="statut">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUTS.map((statut) => (
+                    <SelectItem key={statut} value={statut}>
+                      {statut}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {erreur && <p className="text-sm text-destructive">{erreur}</p>}
         </div>
       </Modal>
 
-      {/* View Modal */}
+      {/* Voir : détail en lecture seule */}
       <Modal
-        open={isViewModalOpen}
-        onOpenChange={setIsViewModalOpen}
+        open={!!selectedProcess && ouverte?.mode === "voir"}
+        onOpenChange={(open) => !open && setOuverte(null)}
+        type="details"
+        title="Détail de la sortie"
+        size="lg"
+        actions={{
+          secondary: {
+            label: "Fermer",
+            onClick: () => setOuverte(null),
+          },
+        }}
+      >
+        {selectedProcess && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Employé</Label>
+                <p className="text-sm font-medium">
+                  {selectedProcess.employeeName}
+                  {selectedProcess.employeeNumber
+                    ? ` (${selectedProcess.employeeNumber})`
+                    : ""}
+                </p>
+              </div>
+              <div>
+                <Label>Statut</Label>
+                <div>
+                  <Badge variant={VARIANTES_STATUT[selectedProcess.status]}>
+                    {selectedProcess.status}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <Label>Motif</Label>
+                <p className="text-sm font-medium">
+                  {MOTIFS[selectedProcess.reason] ?? "—"}
+                </p>
+              </div>
+              <div>
+                <Label>Durée du préavis</Label>
+                <p className="text-sm font-medium">
+                  {joursPreavis(selectedProcess)} jours
+                </p>
+              </div>
+              <div>
+                <Label>Début du préavis</Label>
+                <p className="text-sm font-medium">
+                  {dateFr(selectedProcess.noticePeriodStart)}
+                </p>
+              </div>
+              <div>
+                <Label>Fin du préavis</Label>
+                <p className="text-sm font-medium">
+                  {dateFr(selectedProcess.noticePeriodEnd)}
+                </p>
+              </div>
+              <div>
+                <Label>Date de fin de contrat</Label>
+                <p className="text-sm font-medium">
+                  {dateFr(selectedProcess.contractEndDate)}
+                </p>
+              </div>
+              <div>
+                <Label>Retour d&apos;équipement</Label>
+                <p className="text-sm font-medium">
+                  {selectedProcess.equipmentReturned
+                    ? `Retourné${selectedProcess.equipmentReturnDate ? ` le ${dateFr(selectedProcess.equipmentReturnDate)}` : ""}`
+                    : "Non retourné"}
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t space-y-2">
+              <Label className="text-base font-semibold block">
+                Documents générés
+              </Label>
+              {DOCUMENTS.map((doc) => (
+                <div
+                  key={doc.cle}
+                  className="flex items-center justify-between p-3 border rounded-lg"
+                >
+                  <div className="flex items-center space-x-2">
+                    <FileText className="h-4 w-4" />
+                    <span className="text-sm">{doc.libelle}</span>
+                  </div>
+                  <Badge
+                    variant={
+                      selectedProcess.documentsGenerated[doc.cle]
+                        ? "default"
+                        : "outline"
+                    }
+                  >
+                    {selectedProcess.documentsGenerated[doc.cle]
+                      ? "Généré"
+                      : "À générer"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t grid grid-cols-2 gap-4">
+              <div>
+                <Label>Export vers la paie</Label>
+                <div>
+                  <Badge
+                    variant={
+                      selectedProcess.payrollExported ? "default" : "outline"
+                    }
+                  >
+                    {selectedProcess.payrollExported ? "Exporté" : "À exporter"}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <Label>Archivage du dossier</Label>
+                <div>
+                  <Badge
+                    variant={
+                      selectedProcess.fileArchived ? "default" : "outline"
+                    }
+                  >
+                    {selectedProcess.fileArchived ? "Archivé" : "À archiver"}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <Label>Créée le</Label>
+                <p className="text-sm font-medium">
+                  {dateFr(selectedProcess.createdAt)}
+                </p>
+              </div>
+              <div>
+                <Label>Dernière modification</Label>
+                <p className="text-sm font-medium">
+                  {dateFr(selectedProcess.updatedAt)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Documents, export paie et archivage */}
+      <Modal
+        open={!!selectedProcess && ouverte?.mode === "gerer"}
+        onOpenChange={(open) => !open && setOuverte(null)}
         type="details"
         title="Détails du processus de fin de contrat"
         size="lg"
         actions={{
           secondary: {
             label: "Fermer",
-            onClick: () => setIsViewModalOpen(false),
+            onClick: () => setOuverte(null),
           },
         }}
       >
@@ -380,7 +728,9 @@ export default function OffboardingPage() {
               </div>
               <div>
                 <Label>Statut</Label>
-                <Badge variant="default">{selectedProcess.status}</Badge>
+                <div>
+                  <Badge variant="default">{selectedProcess.status}</Badge>
+                </div>
               </div>
             </div>
 
@@ -389,17 +739,13 @@ export default function OffboardingPage() {
               <div>
                 <Label>Date de fin de contrat</Label>
                 <p className="text-sm font-medium">
-                  {new Date(selectedProcess.contractEndDate).toLocaleDateString(
-                    "fr-FR",
-                  )}
+                  {dateFr(selectedProcess.contractEndDate)}
                 </p>
               </div>
               <div>
                 <Label>Début du préavis</Label>
                 <p className="text-sm font-medium">
-                  {new Date(
-                    selectedProcess.noticePeriodStart,
-                  ).toLocaleDateString("fr-FR")}
+                  {dateFr(selectedProcess.noticePeriodStart)}
                 </p>
               </div>
             </div>
@@ -428,88 +774,34 @@ export default function OffboardingPage() {
                 Documents obligatoires
               </Label>
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4" />
-                    <span className="text-sm">Certificat de travail</span>
+                {DOCUMENTS.map((doc) => (
+                  <div
+                    key={doc.cle}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4" />
+                      <span className="text-sm">{doc.libelle}</span>
+                    </div>
+                    {selectedProcess.documentsGenerated[doc.cle] ? (
+                      <Badge variant="default">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Généré
+                      </Badge>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          handleGenerateDocument(selectedProcess.id, doc.cle)
+                        }
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Générer
+                      </Button>
+                    )}
                   </div>
-                  {selectedProcess.documentsGenerated.workCertificate ? (
-                    <Badge variant="default">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Généré
-                    </Badge>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        handleGenerateDocument(
-                          selectedProcess.id,
-                          "workCertificate",
-                        )
-                      }
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Générer
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4" />
-                    <span className="text-sm">Attestation Pôle Emploi</span>
-                  </div>
-                  {selectedProcess.documentsGenerated.poleEmploiCertificate ? (
-                    <Badge variant="default">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Généré
-                    </Badge>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        handleGenerateDocument(
-                          selectedProcess.id,
-                          "poleEmploiCertificate",
-                        )
-                      }
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Générer
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4" />
-                    <span className="text-sm">
-                      Reçu pour solde de tout compte
-                    </span>
-                  </div>
-                  {selectedProcess.documentsGenerated.finalSettlement ? (
-                    <Badge variant="default">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Généré
-                    </Badge>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        handleGenerateDocument(
-                          selectedProcess.id,
-                          "finalSettlement",
-                        )
-                      }
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Générer
-                    </Button>
-                  )}
-                </div>
+                ))}
               </div>
             </div>
 
@@ -549,6 +841,36 @@ export default function OffboardingPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Confirmation de suppression */}
+      <Modal
+        open={!!aSupprimer}
+        onOpenChange={(open) => !open && setASupprimerId(null)}
+        type="confirmation"
+        title="Supprimer cette sortie ?"
+        description={
+          aSupprimer
+            ? `La sortie de ${aSupprimer.employeeName} sera définitivement supprimée du registre. Cette action est irréversible.`
+            : ""
+        }
+        actions={{
+          primary: {
+            label: suppression ? "Suppression…" : "Supprimer",
+            variant: "destructive",
+            onClick: () => void handleDelete(),
+            disabled: suppression,
+          },
+          secondary: {
+            label: "Annuler",
+            variant: "outline",
+            onClick: () => setASupprimerId(null),
+          },
+        }}
+      >
+        <p className="text-sm text-muted-foreground">
+          Les documents déjà remis au salarié ne sont pas concernés.
+        </p>
       </Modal>
     </div>
   );

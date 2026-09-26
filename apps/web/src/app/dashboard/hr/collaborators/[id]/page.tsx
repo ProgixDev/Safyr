@@ -17,7 +17,6 @@ import {
   Package,
   Users,
   Send,
-  Route,
   Gavel,
   DollarSign,
   Gift,
@@ -38,6 +37,43 @@ import {
   EmployeeGeolocationTab,
 } from "@/components/employees";
 import { useSendEmail } from "@/hooks/useSendEmail";
+import { THEMES_ONGLETS } from "@/components/employees/tab-themes";
+import { cn } from "@/lib/utils";
+
+// Page d'un onglet : bandeau coloré (même teinte que l'onglet) puis contenu.
+function OngletPage({
+  tab,
+  children,
+}: {
+  tab: { id: string; label: string; icon: React.ElementType };
+  children: React.ReactNode;
+}) {
+  const theme = THEMES_ONGLETS[tab.id];
+  const Icon = tab.icon;
+  return (
+    <TabsContent value={tab.id} className={theme.contenu}>
+      <div
+        className={cn(
+          "mb-4 flex items-center gap-3 rounded-xl border px-4 py-3",
+          theme.bandeau,
+        )}
+      >
+        <span
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-lg",
+            theme.pastille,
+          )}
+        >
+          <Icon className="h-5 w-5" />
+        </span>
+        <h2 className={cn("text-lg font-semibold", theme.titre)}>
+          {tab.label}
+        </h2>
+      </div>
+      {children}
+    </TabsContent>
+  );
+}
 
 export default function EmployeeDetailPage({
   params,
@@ -94,14 +130,22 @@ export default function EmployeeDetailPage({
     { id: "geolocation" as const, label: "Géolocalisation", icon: MapPin },
   ];
 
+  const tabParId = (id: string) => tabs.find((t) => t.id === id)!;
+
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
       <TabsList>
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
-            <TabsTrigger key={tab.id} value={tab.id}>
-              <Icon className="h-4 w-4 mr-2" />
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              className={THEMES_ONGLETS[tab.id].actif}
+            >
+              <Icon
+                className={cn("h-4 w-4 mr-2", THEMES_ONGLETS[tab.id].icone)}
+              />
               {tab.label}
             </TabsTrigger>
           );
@@ -124,14 +168,6 @@ export default function EmployeeDetailPage({
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" asChild>
-              <Link
-                href={`/dashboard/hr/lifecycle/onboarding?employee=${employee.id}`}
-              >
-                <Route className="mr-2 h-4 w-4" />
-                Parcours d&apos;intégration
-              </Link>
-            </Button>
             <Button
               variant="outline"
               onClick={() => openEmailModal([employee])}
@@ -156,7 +192,7 @@ export default function EmployeeDetailPage({
 
               <div className="flex-1 grid gap-4 md:grid-cols-2 lg:grid-cols-3 min-w-0">
                 <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <Mail className="h-4 w-4 text-sky-500" />
                   <div>
                     <p className="text-sm text-muted-foreground">Email</p>
                     <p className="font-medium text-sm">{employee.email}</p>
@@ -164,7 +200,7 @@ export default function EmployeeDetailPage({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <Phone className="h-4 w-4 text-emerald-500" />
                   <div>
                     <p className="text-sm text-muted-foreground">Téléphone</p>
                     <p className="font-medium">{employee.phone}</p>
@@ -172,7 +208,7 @@ export default function EmployeeDetailPage({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Calendar className="h-4 w-4 text-amber-500" />
                   <div>
                     <p className="text-sm text-muted-foreground">
                       Date d&apos;embauche
@@ -184,7 +220,7 @@ export default function EmployeeDetailPage({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <MapPin className="h-4 w-4 text-rose-500" />
                   <div>
                     <p className="text-sm text-muted-foreground">
                       Localisation
@@ -198,36 +234,36 @@ export default function EmployeeDetailPage({
             </div>
           </CardContent>
         </Card>
-        <TabsContent value="info">
+        <OngletPage tab={tabParId("info")}>
           <EmployeeInfoTab employee={employee} />
-        </TabsContent>
-        <TabsContent value="documents">
+        </OngletPage>
+        <OngletPage tab={tabParId("documents")}>
           <EmployeeDocumentsTab employee={employee} />
-        </TabsContent>
-        <TabsContent value="contracts">
+        </OngletPage>
+        <OngletPage tab={tabParId("contracts")}>
           <EmployeeContractsTab employee={employee} />
-        </TabsContent>
-        <TabsContent value="avantage">
+        </OngletPage>
+        <OngletPage tab={tabParId("avantage")}>
           <EmployeeAvantageTab employee={employee} />
-        </TabsContent>
-        <TabsContent value="equipment">
+        </OngletPage>
+        <OngletPage tab={tabParId("equipment")}>
           <EmployeeEquipmentTab employee={employee} />
-        </TabsContent>
-        <TabsContent value="badges">
+        </OngletPage>
+        <OngletPage tab={tabParId("badges")}>
           <EmployeeBadgesTab employee={employee} />
-        </TabsContent>
-        <TabsContent value="savings">
+        </OngletPage>
+        <OngletPage tab={tabParId("savings")}>
           <EmployeeSavingsTab employee={employee} />
-        </TabsContent>
-        <TabsContent value="discipline">
+        </OngletPage>
+        <OngletPage tab={tabParId("discipline")}>
           <EmployeeDisciplineTab employee={employee} />
-        </TabsContent>
-        <TabsContent value="cse">
+        </OngletPage>
+        <OngletPage tab={tabParId("cse")}>
           <EmployeeCSETab employee={employee} />
-        </TabsContent>
-        <TabsContent value="geolocation">
+        </OngletPage>
+        <OngletPage tab={tabParId("geolocation")}>
           <EmployeeGeolocationTab employee={employee} />
-        </TabsContent>
+        </OngletPage>
       </div>
     </Tabs>
   );

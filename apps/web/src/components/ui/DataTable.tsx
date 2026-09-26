@@ -45,6 +45,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface ColumnDef<T> {
   key: string;
@@ -54,6 +55,10 @@ export interface ColumnDef<T> {
   defaultVisible?: boolean;
   sortable?: boolean;
   sortValue?: (item: T) => unknown;
+  /** Classes ajoutées à l'en-tête de la colonne (couleur d'un écran). */
+  headerClassName?: string;
+  /** Classes ajoutées aux cellules de la colonne (teinte d'une colonne). */
+  cellClassName?: string;
 }
 
 export interface FilterDef {
@@ -464,9 +469,12 @@ export function DataTable<T extends object>({
               {visibleColumnDefs.map((col) => (
                 <TableHead
                   key={col.key}
-                  className={
-                    col.sortable !== false ? "cursor-pointer select-none" : ""
-                  }
+                  className={[
+                    col.sortable !== false ? "cursor-pointer select-none" : "",
+                    col.headerClassName ?? "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                   onClick={() => {
                     if (col.sortable === false) return;
                     if (sortKey === col.key) {
@@ -608,9 +616,10 @@ export function DataTable<T extends object>({
                           {visibleColumnDefs.map((col) => (
                             <TableCell
                               key={col.key}
-                              className={
-                                col.key === columns[0].key ? "font-medium" : ""
-                              }
+                              className={cn(
+                                col.key === columns[0].key && "font-medium",
+                                col.cellClassName,
+                              )}
                             >
                               {col.render
                                 ? col.render(item)
@@ -699,9 +708,10 @@ export function DataTable<T extends object>({
                       {visibleColumnDefs.map((col) => (
                         <TableCell
                           key={col.key}
-                          className={
-                            col.key === columns[0].key ? "font-medium" : ""
-                          }
+                          className={cn(
+                            col.key === columns[0].key && "font-medium",
+                            col.cellClassName,
+                          )}
                         >
                           {col.render
                             ? col.render(item)

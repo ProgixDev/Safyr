@@ -511,7 +511,7 @@ export default function TendersPage() {
         <TenderDocumentsTab tenders={tenders} docs={docs} />
       )}
 
-      {onglet === "dossier" && <DossierEntrepriseTab />}
+      {onglet === "dossier" && <DossierEntrepriseTab docs={docs} />}
 
       {/* Create / Edit Modal */}
       <Modal

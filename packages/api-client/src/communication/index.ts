@@ -21,6 +21,24 @@ export interface MailboxRequiredDetail {
   message: string;
 }
 
+/**
+ * Interception centrale : la fenêtre de connexion de la boîte mail s'ouvre
+ * (voir MailboxPromptHost) ; l'appelant reçoit toujours l'erreur.
+ */
+export function signalerBoiteMailRequise(error: unknown): void {
+  if (
+    error instanceof ApiError &&
+    (MAILBOX_ERROR_CODES as readonly string[]).includes(error.code) &&
+    typeof window !== "undefined"
+  ) {
+    window.dispatchEvent(
+      new CustomEvent<MailboxRequiredDetail>(MAILBOX_REQUIRED_EVENT, {
+        detail: { code: error.code, message: error.message },
+      }),
+    );
+  }
+}
+
 export async function sendCommunicationEmail(
   data: SendEmailPayload,
 ): Promise<SendEmailResult> {
@@ -30,19 +48,7 @@ export async function sendCommunicationEmail(
       { method: "POST", body: data },
     );
   } catch (error) {
-    // Interception centrale : la fenêtre de connexion de la boîte mail s'ouvre
-    // (voir MailboxPromptHost), l'appelant reçoit toujours l'erreur.
-    if (
-      error instanceof ApiError &&
-      (MAILBOX_ERROR_CODES as readonly string[]).includes(error.code) &&
-      typeof window !== "undefined"
-    ) {
-      window.dispatchEvent(
-        new CustomEvent<MailboxRequiredDetail>(MAILBOX_REQUIRED_EVENT, {
-          detail: { code: error.code, message: error.message },
-        }),
-      );
-    }
+    signalerBoiteMailRequise(error);
     throw error;
   }
 }

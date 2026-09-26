@@ -11,6 +11,11 @@ interface InfoCardProps {
   subtext?: string;
   color: string; // e.g., 'blue', 'green', etc.
   className?: string;
+  /**
+   * Carte resserrée (icône au-dessus de la valeur) pour tenir cinq cartes sur
+   * une seule ligne dès 1024 px.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -53,7 +58,7 @@ function teinteRGB(hex: string, alpha: number): string | undefined {
 }
 
 const InfoCard = React.forwardRef<HTMLDivElement, InfoCardProps>(
-  ({ icon: Icon, title, value, subtext, color, className }, ref) => {
+  ({ icon: Icon, title, value, subtext, color, className, compact }, ref) => {
     const teinte = COULEURS[color] ?? COULEURS.gray;
     return (
       <Card
@@ -64,26 +69,52 @@ const InfoCard = React.forwardRef<HTMLDivElement, InfoCardProps>(
           backgroundColor: teinteRGB(teinte.hex, 0.05),
         }}
       >
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <div className={cn("p-3 rounded-full", teinte.pastille)}>
-              <Icon className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">{title}</p>
+        <CardContent className={compact ? "p-3 lg:p-4" : "p-6"}>
+          {compact ? (
+            <div className="flex min-w-0 flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div
+                  className={cn("shrink-0 rounded-full p-1.5", teinte.pastille)}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                <p className="text-xs font-semibold leading-tight text-foreground">
+                  {title}
+                </p>
+              </div>
               <p
-                className="text-2xl font-bold"
+                className="truncate text-xl font-bold leading-none"
                 style={{ color: teinte.hex || undefined }}
               >
                 {value}
               </p>
               {subtext && (
-                <p className="text-xs font-medium text-muted-foreground">
+                <p className="text-[11px] font-medium leading-tight text-muted-foreground">
                   {subtext}
                 </p>
               )}
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <div className={cn("p-3 rounded-full", teinte.pastille)}>
+                <Icon className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{title}</p>
+                <p
+                  className="text-2xl font-bold"
+                  style={{ color: teinte.hex || undefined }}
+                >
+                  {value}
+                </p>
+                {subtext && (
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {subtext}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     );

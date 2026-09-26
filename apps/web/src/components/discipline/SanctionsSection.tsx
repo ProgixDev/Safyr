@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Download, FileSpreadsheet, FileText } from "lucide-react";
+import { BookOpen, Download, FileSpreadsheet, FileText } from "lucide-react";
 
 import { useEmployeeOptions } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,9 @@ import {
   type LigneSanction,
   type LigneSanctionManuelle,
 } from "./discipline-shared";
+import { BADGE_VERT, BADGE_VIOLET, TEINTES } from "./discipline-theme";
+
+const teinte = TEINTES.registre;
 
 type Origine = "sanction" | "procedure" | "saisie";
 
@@ -179,15 +182,23 @@ export function SanctionsSection() {
     });
 
   const exporterEnExcel = () =>
-    exporterCsvExcel(nomFichier(), COLONNES_EXPORT, lignes);
+    exporterCsvExcel(nomFichier(), COLONNES_EXPORT, lignes, {
+      titre: "Registre des sanctions",
+    });
 
   const exporterLignePdf = async (ligne: LigneRegistreSanction) => {
     const { default: jsPDF } = await import("jspdf");
+    const {
+      PDF_FOOTER_RESERVED_MM,
+      applyPdfFooters,
+      drawPdfHeader,
+      loadPdfBranding,
+    } = await import("@/lib/pdf-branding");
+    const branding = await loadPdfBranding();
     const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Sanction disciplinaire", 20, 20);
+    let y =
+      drawPdfHeader(doc, branding, { title: "SANCTION DISCIPLINAIRE" }) + 6;
     doc.setFontSize(11);
-    let y = 36;
     const champs: [string, string][] = [
       ["Employé", ligne.employeeName],
       ["Date", dateFr(ligne.date)],
@@ -200,9 +211,14 @@ export function SanctionsSection() {
     ];
     for (const [libelle, valeur] of champs) {
       const texte = doc.splitTextToSize(`${libelle} : ${valeur || "—"}`, 170);
+      if (y + texte.length * 6 > 297 - PDF_FOOTER_RESERVED_MM) {
+        doc.addPage();
+        y = 20;
+      }
       doc.text(texte, 20, y);
       y += texte.length * 6 + 3;
     }
+    applyPdfFooters(doc, branding);
     doc.save(`sanction-${ligne.id}.pdf`);
   };
 
@@ -230,7 +246,10 @@ export function SanctionsSection() {
       key: "origine",
       label: "Origine",
       render: (ligne) => (
-        <Badge variant={ligne.origine === "procedure" ? "default" : "outline"}>
+        <Badge
+          variant="outline"
+          className={ligne.origine === "procedure" ? BADGE_VIOLET : BADGE_VERT}
+        >
           {ORIGINES[ligne.origine]}
         </Badge>
       ),
@@ -282,18 +301,25 @@ export function SanctionsSection() {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Registre des sanctions
-          </h1>
-          <p className="text-muted-foreground">
-            Alimenté automatiquement par les sanctions et les procédures
-            disciplinaires enregistrées
-          </p>
+        <div className="flex items-center gap-4">
+          <div className={`rounded-xl p-3 ${teinte.pastille}`}>
+            <BookOpen className="h-7 w-7" />
+          </div>
+          <div>
+            <h1 className={`text-3xl font-bold tracking-tight ${teinte.titre}`}>
+              Registre des sanctions
+            </h1>
+            <p className="text-muted-foreground">
+              Alimenté automatiquement par les sanctions et les procédures
+              disciplinaires enregistrées
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
+            size="lg"
+            className={teinte.bouton}
             onClick={() => void exporterEnPdf()}
             disabled={lignes.length === 0}
           >
@@ -302,6 +328,8 @@ export function SanctionsSection() {
           </Button>
           <Button
             variant="outline"
+            size="lg"
+            className={teinte.bouton}
             onClick={exporterEnExcel}
             disabled={lignes.length === 0}
           >
@@ -311,9 +339,11 @@ export function SanctionsSection() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Registre des sanctions ({lignes.length})</CardTitle>
+      <Card className={teinte.carte}>
+        <CardHeader className={`rounded-t-xl ${teinte.entete}`}>
+          <CardTitle className={teinte.titre}>
+            Registre des sanctions ({lignes.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable

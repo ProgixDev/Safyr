@@ -797,7 +797,7 @@ function exportExcel(headers: string[], rows: string[][], filename: string) {
   triggerDownload(blob, `${filename}.xls`);
 }
 
-function exportPDF(opts: {
+async function exportPDF(opts: {
   headers: string[];
   rows: string[][];
   title: string;
@@ -806,43 +806,34 @@ function exportPDF(opts: {
   filename: string;
 }) {
   const { headers, rows, title, period, recordCount, filename } = opts;
+  const {
+    applyPdfFooters,
+    brandedPdfDefaults,
+    drawPdfHeader,
+    loadPdfBranding,
+    pdfTableMargins,
+  } = await import("@/lib/pdf-branding");
+  const branding = await loadPdfBranding();
   const doc = new jsPDF({ orientation: "portrait", format: "a4" });
 
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text(title, 14, 20);
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Période : ${period}`, 14, 28);
-  doc.text(
-    `Généré le : ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
-    14,
-    34,
-  );
-  doc.text(
-    `${recordCount} enregistrement${recordCount !== 1 ? "s" : ""}`,
-    14,
-    40,
-  );
+  const header = {
+    title,
+    subtitle: `Période : ${period} — ${recordCount} enregistrement${recordCount !== 1 ? "s" : ""} — Généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
+  };
+  const startY = drawPdfHeader(doc, branding, header);
 
   autoTable(doc, {
-    startY: 48,
+    ...brandedPdfDefaults,
+    startY,
     head: [headers],
     body: rows,
-    styles: { fontSize: 6, cellPadding: 1.5, textColor: [0, 0, 0] },
-    headStyles: {
-      fillColor: [255, 255, 255],
-      textColor: [0, 0, 0],
-      fontStyle: "bold",
-      lineWidth: 0.5,
-      lineColor: [0, 0, 0],
-    },
-    bodyStyles: { fillColor: [255, 255, 255] },
-    alternateRowStyles: { fillColor: [245, 245, 245] },
-    margin: { left: 10, right: 10 },
+    styles: { ...brandedPdfDefaults.styles, fontSize: 6, cellPadding: 1.5 },
+    margin: pdfTableMargins(branding, { header, left: 10, right: 10 }),
   });
 
+  applyPdfFooters(doc, branding, {
+    header: { ...header, skipFirstPage: true },
+  });
   doc.save(`${filename}.pdf`);
 }
 
@@ -1805,7 +1796,7 @@ export default function GeolocationReportsPage() {
         exportExcel(exportData.headers, exportData.rows, fileBase);
         break;
       case "pdf":
-        exportPDF({
+        void exportPDF({
           headers: exportData.headers,
           rows: exportData.rows,
           title,

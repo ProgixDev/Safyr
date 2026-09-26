@@ -158,9 +158,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
     name: "",
     type: "VACATION_VOUCHER" as Equipment["type"],
     description: "",
-    serialNumber: "",
     quantity: 1,
-    consumable: false,
   });
   // Montant / périodicité saisis à l'attribution (propres à ce salarié).
   const [montantAssignation, setMontantAssignation] =
@@ -172,7 +170,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
   const [editData, setEditData] = useState({
     name: "",
     description: "",
-    serialNumber: "",
     quantity: 1,
     notes: "",
   });
@@ -189,9 +186,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
       name: "",
       type: "VACATION_VOUCHER",
       description: "",
-      serialNumber: "",
       quantity: 1,
-      consumable: false,
     });
     setMontantAssignation(champsMontantVides());
   };
@@ -227,7 +222,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
       CESU: "CESU",
       FUEL_CARD: "Carte Carburant",
       MEAL_VOUCHER: "Titre Restaurant",
-      OTHER: "Autre",
+      OTHER: "Divers",
     };
     return labels[type] || type;
   };
@@ -296,11 +291,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
         name: newEquipmentData.name,
         type: newEquipmentData.type,
         description: newEquipmentData.description,
-        serialNumber: newEquipmentData.serialNumber || undefined,
-        quantity: newEquipmentData.consumable
-          ? newEquipmentData.quantity
-          : undefined,
-        consumable: newEquipmentData.consumable,
+        consumable: false,
         assignedAt: new Date(),
         assignedBy: "admin@safyr.com", // In real app, get from current user
         condition: "new",
@@ -345,7 +336,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
     setEditData({
       name: item.name,
       description: item.description ?? "",
-      serialNumber: item.serialNumber ?? "",
       quantity: item.quantity ?? 1,
       notes: item.notes ?? "",
     });
@@ -363,7 +353,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
               ...eq,
               name: editData.name.trim(),
               description: editData.description.trim() || undefined,
-              serialNumber: editData.serialNumber.trim() || undefined,
               quantity: eq.consumable ? editData.quantity : eq.quantity,
               notes: editData.notes.trim() || undefined,
               ...montantDepuisChamps(editMontant, eq.type),
@@ -469,11 +458,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                 {statusConfig.label}
               </Badge>
             </div>
-            {item.serialNumber && (
-              <p className="text-sm text-muted-foreground truncate">
-                N° série: {item.serialNumber}
-              </p>
-            )}
           </div>
         );
       },
@@ -706,13 +690,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
             <DataTable
               data={assignedEquipment}
               columns={equipmentColumns}
-              searchKeys={[
-                "name",
-                "serialNumber",
-                "description",
-                "type",
-                "quantity",
-              ]}
+              searchKeys={["name", "description", "type", "quantity"]}
               searchPlaceholder="Rechercher un équipement..."
               itemsPerPage={10}
               filters={[
@@ -788,7 +766,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
             <DataTable
               data={returnedEquipment}
               columns={returnedEquipmentColumns}
-              searchKeys={["name", "serialNumber", "type", "quantity"]}
+              searchKeys={["name", "type", "quantity"]}
               searchPlaceholder="Rechercher dans l'historique..."
               itemsPerPage={10}
               actions={(item) => (
@@ -873,11 +851,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                       <Badge variant="outline" className="text-xs">
                         {getEquipmentTypeLabel(eq.type)}
                       </Badge>
-                      {eq.serialNumber && (
-                        <span className="text-xs text-muted-foreground">
-                          ({eq.serialNumber})
-                        </span>
-                      )}
                     </div>
                   </SelectItem>
                 ))}
@@ -926,6 +899,7 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                       <SelectItem value="MEAL_VOUCHER">
                         Titre Restaurant
                       </SelectItem>
+                      <SelectItem value="OTHER">Divers</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -943,57 +917,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                     placeholder="Description de l'avantage"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="new-serial">N° série</Label>
-                  <Input
-                    id="new-serial"
-                    value={newEquipmentData.serialNumber}
-                    onChange={(e) =>
-                      setNewEquipmentData((prev) => ({
-                        ...prev,
-                        serialNumber: e.target.value,
-                      }))
-                    }
-                    placeholder="Numéro de série"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="new-consumable">Consommable</Label>
-                  <Select
-                    value={newEquipmentData.consumable ? "true" : "false"}
-                    onValueChange={(value) =>
-                      setNewEquipmentData((prev) => ({
-                        ...prev,
-                        consumable: value === "true",
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="false">Non</SelectItem>
-                      <SelectItem value="true">Oui</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {newEquipmentData.consumable && (
-                  <div>
-                    <Label htmlFor="new-quantity">Quantité</Label>
-                    <Input
-                      id="new-quantity"
-                      type="number"
-                      min="1"
-                      value={newEquipmentData.quantity}
-                      onChange={(e) =>
-                        setNewEquipmentData((prev) => ({
-                          ...prev,
-                          quantity: parseInt(e.target.value) || 1,
-                        }))
-                      }
-                    />
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -1019,11 +942,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                     {eq.description && (
                       <p>
                         <strong>Description:</strong> {eq.description}
-                      </p>
-                    )}
-                    {eq.serialNumber && (
-                      <p>
-                        <strong>N° série:</strong> {eq.serialNumber}
                       </p>
                     )}
                   </div>
@@ -1100,19 +1018,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                       setEditData((prev) => ({
                         ...prev,
                         description: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-serial">N° série</Label>
-                  <Input
-                    id="edit-serial"
-                    value={editData.serialNumber}
-                    onChange={(e) =>
-                      setEditData((prev) => ({
-                        ...prev,
-                        serialNumber: e.target.value,
                       }))
                     }
                   />
@@ -1228,11 +1133,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                     <p>
                       <strong>Type:</strong> {getEquipmentTypeLabel(eq.type)}
                     </p>
-                    {eq.serialNumber && (
-                      <p>
-                        <strong>N° série:</strong> {eq.serialNumber}
-                      </p>
-                    )}
                     <p>
                       <strong>Assigné le:</strong>{" "}
                       {eq.assignedAt.toLocaleDateString("fr-FR")}
@@ -1320,11 +1220,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                         <strong>Quantité restante:</strong> {eq.quantity}
                       </p>
                     )}
-                    {eq.serialNumber && (
-                      <p>
-                        <strong>N° série:</strong> {eq.serialNumber}
-                      </p>
-                    )}
                     <p>
                       <strong>Assigné le:</strong>{" "}
                       {eq.assignedAt.toLocaleDateString("fr-FR")}
@@ -1382,10 +1277,6 @@ export function EmployeeAvantageTab({ employee }: EmployeeAvantageTabProps) {
                       <p className="text-sm">
                         {getEquipmentTypeLabel(eq.type)}
                       </p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">N° série</Label>
-                      <p className="text-sm">{eq.serialNumber || "N/A"}</p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">État</Label>

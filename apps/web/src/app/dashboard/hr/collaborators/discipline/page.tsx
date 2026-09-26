@@ -7,12 +7,37 @@ import { AlertTriangle, FileText, BookOpen } from "lucide-react";
 import { WarningsSection } from "@/components/discipline/WarningsSection";
 import { ProceduresSection } from "@/components/discipline/ProceduresSection";
 import { SanctionsSection } from "@/components/discipline/SanctionsSection";
+import {
+  TEINTES,
+  type SectionDiscipline,
+} from "@/components/discipline/discipline-theme";
+import { cn } from "@/lib/utils";
 
-const TABS = [
-  { id: "warnings", label: "Sanctions", icon: AlertTriangle },
-  { id: "procedures", label: "Procédures disciplinaires", icon: FileText },
-  { id: "sanctions", label: "Registre des sanctions", icon: BookOpen },
-] as const;
+const TABS: {
+  id: "warnings" | "procedures" | "sanctions";
+  label: string;
+  icon: typeof AlertTriangle;
+  section: SectionDiscipline;
+}[] = [
+  {
+    id: "warnings",
+    label: "Sanctions",
+    icon: AlertTriangle,
+    section: "sanctions",
+  },
+  {
+    id: "procedures",
+    label: "Procédures disciplinaires",
+    icon: FileText,
+    section: "procedures",
+  },
+  {
+    id: "sanctions",
+    label: "Registre des sanctions",
+    icon: BookOpen,
+    section: "registre",
+  },
+];
 
 type TabId = (typeof TABS)[number]["id"];
 
@@ -35,12 +60,21 @@ function DisciplineTabs() {
 
   return (
     <Tabs value={active} onValueChange={setActive}>
-      <TabsList>
+      {/* Barre volontairement grande (client : « augmenter la taille ») ; les
+          classes sont locales, le composant Tabs partagé n'est pas modifié. */}
+      <TabsList className="h-auto gap-3 rounded-2xl p-2">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
-            <TabsTrigger key={tab.id} value={tab.id}>
-              <Icon className="h-4 w-4 mr-2" />
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              className={cn(
+                "min-h-14 gap-3 rounded-xl px-6 py-4 text-lg font-semibold [&_svg]:size-6",
+                TEINTES[tab.section].onglet,
+              )}
+            >
+              <Icon />
               {tab.label}
             </TabsTrigger>
           );

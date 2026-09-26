@@ -3,7 +3,8 @@
 import React, { useState, useMemo } from "react";
 import { useEmployeeOptions, useEmployeesRH } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { InfoCard } from "@/components/ui/info-card";
+import { GrilleKpi } from "../_components/OutilsTableau";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -455,8 +456,9 @@ export default function OvertimeTrackingPage() {
 
         <TabsContent value="suivi" className="flex flex-col gap-6">
           {/* Statistiques */}
-          <InfoCardContainer>
+          <GrilleKpi colonnes={4}>
             <InfoCard
+              compact
               icon={Clock}
               title="Total Heures Sup"
               value={`${stats.totalOvertime.toFixed(1)}h`}
@@ -464,6 +466,7 @@ export default function OvertimeTrackingPage() {
               color="blue"
             />
             <InfoCard
+              compact
               icon={AlertCircle}
               title="En Attente"
               value={`${stats.totalPending.toFixed(1)}h`}
@@ -471,6 +474,7 @@ export default function OvertimeTrackingPage() {
               color="orange"
             />
             <InfoCard
+              compact
               icon={CheckCircle}
               title="Validé"
               value={`${stats.totalValidated.toFixed(1)}h`}
@@ -478,13 +482,14 @@ export default function OvertimeTrackingPage() {
               color="green"
             />
             <InfoCard
+              compact
               icon={BadgeEuro}
               title="Payé"
               value={`${stats.totalPaid.toFixed(1)}h`}
               subtext="Déjà réglé"
               color="purple"
             />
-          </InfoCardContainer>
+          </GrilleKpi>
 
           {/* Vue Tabs */}
           <div className="flex items-center justify-between">

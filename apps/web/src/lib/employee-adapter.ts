@@ -1,8 +1,38 @@
 import type { Employee as ApiEmployee } from "@safyr/api-client";
 import type { Employee as UiEmployee } from "@/lib/types";
 
+/**
+ * Une date absente est représentée par l'époque exacte (0 ms). Ce n'est PAS
+ * « toute date jusqu'en 1970 » : les salariés nés avant 1970 (ex. 1961, 1966,
+ * 1967) ont une vraie date de naissance, longtemps masquée par erreur.
+ */
+const ABSENTE = 0;
+
 function toDate(v: string | null | undefined): Date {
-  return v ? new Date(v) : new Date(0);
+  if (!v) return new Date(ABSENTE);
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? new Date(ABSENTE) : d;
+}
+
+/** Vrai si la date est réellement renseignée (ni absente, ni invalide). */
+export function estDateRenseignee(d: Date | null | undefined): d is Date {
+  return !!d && Number.isFinite(d.getTime()) && d.getTime() !== ABSENTE;
+}
+
+/**
+ * JJ/MM/AAAA, ou « — » si absente. Lu en UTC : ces dates sont stockées à
+ * minuit UTC, un formatage en heure locale décalerait d'un jour hors d'Europe.
+ */
+export function formatDateFr(d: Date | null | undefined): string {
+  if (!estDateRenseignee(d)) return "—";
+  const jj = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${jj}/${mm}/${String(d.getUTCFullYear()).padStart(4, "0")}`;
+}
+
+/** AAAA-MM-JJ pour un champ `<input type="date">` ; chaîne vide si absente. */
+export function dateVersChamp(d: Date | null | undefined): string {
+  return estDateRenseignee(d) ? d.toISOString().slice(0, 10) : "";
 }
 
 function toOptionalDate(v: string | null | undefined): Date | undefined {

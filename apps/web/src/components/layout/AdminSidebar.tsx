@@ -263,7 +263,7 @@ const navigationSections: MenuSection[] = [
         disabled: false,
       },
       {
-        title: "Objectifs & évolution",
+        title: "Objectifs",
         url: "/dashboard/hr/lifecycle/interviews/objectives",
         icon: TrendingUp,
         disabled: false,

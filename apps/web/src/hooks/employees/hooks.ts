@@ -132,7 +132,11 @@ export function useCreateCertification(memberId: string) {
     mutationFn: (data: CreateCertificationPayload) =>
       createCertification(memberId, data),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: employeeKeys.detail(memberId) }),
+      Promise.all([
+        qc.invalidateQueries({ queryKey: employeeKeys.detail(memberId) }),
+        // Les écrans Habilitations lisent les certifications via la liste.
+        qc.invalidateQueries({ queryKey: employeeKeys.list() }),
+      ]),
   });
 }
 
@@ -147,7 +151,11 @@ export function useUpdateCertification(memberId: string) {
       data: UpdateCertificationPayload;
     }) => updateCertification(memberId, certId, data),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: employeeKeys.detail(memberId) }),
+      Promise.all([
+        qc.invalidateQueries({ queryKey: employeeKeys.detail(memberId) }),
+        // Les écrans Habilitations lisent les certifications via la liste.
+        qc.invalidateQueries({ queryKey: employeeKeys.list() }),
+      ]),
   });
 }
 
@@ -156,6 +164,10 @@ export function useDeleteCertification(memberId: string) {
   return useMutation({
     mutationFn: (certId: string) => deleteCertification(memberId, certId),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: employeeKeys.detail(memberId) }),
+      Promise.all([
+        qc.invalidateQueries({ queryKey: employeeKeys.detail(memberId) }),
+        // Les écrans Habilitations lisent les certifications via la liste.
+        qc.invalidateQueries({ queryKey: employeeKeys.list() }),
+      ]),
   });
 }

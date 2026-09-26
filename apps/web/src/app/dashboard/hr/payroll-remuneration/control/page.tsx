@@ -285,8 +285,9 @@ export default function PayrollControlPage() {
       </div>
 
       {/* Stats Cards */}
-      <InfoCardContainer>
+      <InfoCardContainer className="grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5">
         <InfoCard
+          compact
           icon={AlertTriangle}
           title="Total anomalies"
           value={stats.total}
@@ -295,6 +296,7 @@ export default function PayrollControlPage() {
         />
 
         <InfoCard
+          compact
           icon={AlertCircle}
           title="Ouvertes"
           value={stats.open}
@@ -303,6 +305,7 @@ export default function PayrollControlPage() {
         />
 
         <InfoCard
+          compact
           icon={RefreshCw}
           title="En cours"
           value={stats.investigating}
@@ -311,6 +314,7 @@ export default function PayrollControlPage() {
         />
 
         <InfoCard
+          compact
           icon={CheckCircle}
           title="Résolues"
           value={stats.resolved}
@@ -319,6 +323,7 @@ export default function PayrollControlPage() {
         />
 
         <InfoCard
+          compact
           icon={XCircle}
           title="Critiques"
           value={stats.critical}

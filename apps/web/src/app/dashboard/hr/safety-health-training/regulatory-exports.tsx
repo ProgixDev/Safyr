@@ -73,8 +73,8 @@ export default function LegalRegistersExportPage() {
     },
     {
       registerType: "trainings",
-      label: "Registre Unique de Formation",
-      description: "Historique des formations et certifications",
+      label: "Registre de formation",
+      description: "Formations réalisées et certifications du personnel",
       icon: GraduationCap,
       enabled: true,
     },

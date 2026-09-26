@@ -6,7 +6,6 @@ import {
   Calendar,
   CheckCircle,
   Clock,
-  Download,
   History,
   Plus,
   Users,
@@ -18,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { InfoCard } from "@/components/ui/info-card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
@@ -34,8 +33,21 @@ import {
 import { useEmployeeOptions } from "@/hooks/employees";
 import { useRegistre } from "@/hooks/fiscal";
 import { useSession } from "@/lib/auth-client";
-import { exporterCsvExcel } from "@/lib/export-table";
+import {
+  exporterCsvExcel,
+  exporterPdf,
+  type ColonneExport,
+} from "@/lib/export-table";
 import { EmployeePicker } from "./EmployeePicker";
+import {
+  BarreFiltres,
+  BoutonsExport,
+  CELLULE_NOMBRE,
+  ENTETES,
+  ENTETE_NOMBRE,
+  GrilleKpi,
+  LIGNE_ZEBREE,
+} from "./OutilsTableau";
 import {
   AUCUN_FICHIER,
   STATUTS,
@@ -70,6 +82,7 @@ const CONFIG = {
     tableau: "Demandes d'absence",
     formulaire: "Nouvelle demande d'absence",
     nomFichier: "absences",
+    enteteTableau: ENTETES.rose,
     enCours: "Salariés absents",
     enCoursSous: "Absents aujourd'hui",
     infos: [
@@ -87,6 +100,7 @@ const CONFIG = {
     tableau: "Demandes de congés",
     formulaire: "Nouvelle demande de congé",
     nomFichier: "conges",
+    enteteTableau: ENTETES.bleu,
     enCours: "Salariés en congé",
     enCoursSous: "En congé aujourd'hui",
     infos: [
@@ -145,6 +159,12 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
   const [commentaire, setCommentaire] = useState("");
   const [aSupprimer, setASupprimer] = useState<DemandeTemps | null>(null);
   const [historiqueId, setHistoriqueId] = useState<string | null>(null);
+
+  // Filtres gérés ici (et non par le tableau) : l'export reprend ainsi
+  // exactement les lignes affichées.
+  const [recherche, setRecherche] = useState("");
+  const [filtreStatut, setFiltreStatut] = useState("all");
+  const [filtreType, setFiltreType] = useState("all");
 
   // Toujours relues dans la liste à jour : après une validation, la fenêtre
   // ouverte reflète le nouveau statut.
@@ -313,25 +333,85 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
     }
   };
 
-  const exporter = () => {
-    exporterCsvExcel(
-      cfg.nomFichier,
-      [
-        { titre: "Salarié", valeur: (d: DemandeTemps) => d.employeeName },
-        { titre: "Matricule", valeur: (d) => d.employeeNumber },
-        { titre: "Type", valeur: (d) => libelleType(cfg.types, d.type) },
-        { titre: "Début", valeur: (d) => formaterDate(d.startDate) },
-        { titre: "Fin", valeur: (d) => formaterDate(d.endDate) },
-        { titre: "Jours", valeur: (d) => d.totalDays },
-        {
-          titre: "Statut",
-          valeur: (d) => STATUTS[d.status]?.label ?? d.status,
-        },
-        { titre: "Motif", valeur: (d) => d.reason ?? "" },
-      ],
-      demandes,
+  const demandesAffichees = useMemo(() => {
+    const q = recherche.trim().toLowerCase();
+    return (
+      demandes
+        .filter(
+          (d) =>
+            (filtreStatut === "all" || d.status === filtreStatut) &&
+            (filtreType === "all" || d.type === filtreType) &&
+            (q === "" ||
+              [d.employeeName, d.employeeNumber, d.department].some((v) =>
+                (v ?? "").toLowerCase().includes(q),
+              )),
+        )
+        // Plus récentes d'abord ; l'export suit le même ordre.
+        .sort((a, b) => b.startDate.localeCompare(a.startDate))
     );
+  }, [demandes, recherche, filtreStatut, filtreType]);
+
+  const reinitialiserFiltres = () => {
+    setRecherche("");
+    setFiltreStatut("all");
+    setFiltreType("all");
   };
+
+  // Date vide plutôt que « — » : Excel reconnaît alors une vraie colonne de dates.
+  const colonnesExport: ColonneExport<DemandeTemps>[] = [
+    { titre: "Salarié", valeur: (d) => d.employeeName },
+    { titre: "Matricule", valeur: (d) => d.employeeNumber },
+    { titre: "Poste", valeur: (d) => d.department },
+    { titre: "Type", valeur: (d) => libelleType(cfg.types, d.type) },
+    {
+      titre: "Date de début",
+      valeur: (d) => (d.startDate ? formaterDate(d.startDate) : ""),
+    },
+    {
+      titre: "Date de fin",
+      valeur: (d) => (d.endDate ? formaterDate(d.endDate) : ""),
+    },
+    { titre: "Nombre de jours", valeur: (d) => d.totalDays, format: "number" },
+    { titre: "Statut", valeur: (d) => STATUTS[d.status]?.label ?? d.status },
+    { titre: "Motif", valeur: (d) => d.reason ?? "" },
+  ];
+
+  const descriptionFiltres = () => {
+    const parts: string[] = [];
+    if (filtreStatut !== "all")
+      parts.push(`Statut : ${STATUTS[filtreStatut as StatutDemande]?.label}`);
+    if (filtreType !== "all")
+      parts.push(`Type : ${libelleType(cfg.types, filtreType)}`);
+    if (recherche.trim()) parts.push(`Recherche : « ${recherche.trim()} »`);
+    return parts.length ? parts.join(" — ") : "Toutes les demandes";
+  };
+
+  const piedExport = () =>
+    colonnesExport.map((c, i) =>
+      i === 0
+        ? "Total"
+        : c.titre === "Nombre de jours"
+          ? demandesAffichees.reduce((s, d) => s + (d.totalDays || 0), 0)
+          : "",
+    );
+
+  const nomExport = `${cfg.nomFichier}-${aujourdhuiIso()}`;
+
+  const exporterEnExcel = () =>
+    exporterCsvExcel(nomExport, colonnesExport, demandesAffichees, {
+      titre: cfg.tableau.toUpperCase(),
+      sousTitre: descriptionFiltres(),
+      pied: piedExport(),
+      nomFeuille: cfg.tableau,
+    });
+
+  const exporterEnPdf = () =>
+    exporterPdf(nomExport, colonnesExport, demandesAffichees, {
+      titre: cfg.tableau,
+      sousTitre: descriptionFiltres(),
+      orientation: "landscape",
+      pied: piedExport(),
+    });
 
   const badgeStatut = (statut: StatutDemande, grand?: boolean) => {
     const s = STATUTS[statut] ?? STATUTS.pending;
@@ -344,7 +424,7 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
     return (
       <Badge
         variant="outline"
-        className={`w-fit ${s.classe} ${grand ? "px-3 py-1" : ""}`}
+        className={`w-fit font-semibold ${s.classe} ${grand ? "px-3 py-1" : ""}`}
       >
         <Icone className={grand ? "h-4 w-4" : "h-3 w-3"} />
         {s.label}
@@ -358,7 +438,7 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
       label: "Salarié",
       sortable: true,
       render: (d) => (
-        <div className="min-w-0">
+        <div className="min-w-48">
           <p className="truncate font-semibold">{d.employeeName}</p>
           <p className="truncate text-sm text-muted-foreground">
             {d.employeeNumber || "—"}
@@ -372,7 +452,9 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
       sortable: true,
       sortValue: (d) => libelleType(cfg.types, d.type),
       render: (d) => (
-        <span className="text-sm">{libelleType(cfg.types, d.type)}</span>
+        <span className="whitespace-nowrap text-sm font-medium">
+          {libelleType(cfg.types, d.type)}
+        </span>
       ),
     },
     {
@@ -388,14 +470,20 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
       label: "Période",
       sortable: true,
       render: (d) => (
-        <div className="space-y-1">
-          <div className="text-sm">
-            {formaterDate(d.startDate)} - {formaterDate(d.endDate)}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {d.totalDays} jour{d.totalDays > 1 ? "s" : ""}
-          </div>
-        </div>
+        <span className="whitespace-nowrap text-sm tabular-nums">
+          {formaterDate(d.startDate)} → {formaterDate(d.endDate)}
+        </span>
+      ),
+    },
+    {
+      key: "totalDays",
+      label: "Jours",
+      sortable: true,
+      headerClassName: ENTETE_NOMBRE,
+      // Tri numérique : le tableau compare des chaînes.
+      sortValue: (d) => String(d.totalDays).padStart(8, "0"),
+      render: (d) => (
+        <span className={`${CELLULE_NOMBRE} font-semibold`}>{d.totalDays}</span>
       ),
     },
     {
@@ -491,15 +579,12 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
             <p className="text-muted-foreground">{cfg.description}</p>
           </div>
         )}
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={exporter}
-            disabled={demandes.length === 0}
-          >
-            <Download className="mr-2 h-4 w-4 text-violet-500" />
-            Exporter
-          </Button>
+        <div className="flex flex-wrap items-start gap-2">
+          <BoutonsExport
+            onExcel={exporterEnExcel}
+            onPdf={exporterEnPdf}
+            disabled={demandesAffichees.length === 0}
+          />
           <Button onClick={ouvrirCreation}>
             <Plus className="mr-2 h-4 w-4" />
             Nouvelle demande
@@ -516,8 +601,9 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
         </div>
       )}
 
-      <InfoCardContainer>
+      <GrilleKpi colonnes={4}>
         <InfoCard
+          compact
           icon={Calendar}
           title="Total demandes"
           value={demandes.length}
@@ -525,6 +611,7 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
           color="gray"
         />
         <InfoCard
+          compact
           icon={Clock}
           title="En attente"
           value={enAttente}
@@ -532,6 +619,7 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
           color="orange"
         />
         <InfoCard
+          compact
           icon={CheckCircle}
           title="Approuvées"
           value={approuvees}
@@ -543,52 +631,68 @@ export function TimeOffScreen({ mode, sansTitre }: TimeOffScreenProps) {
           color="green"
         />
         <InfoCard
+          compact
           icon={Users}
           title={cfg.enCours}
           value={enCongeAujourdhui}
           subtext={cfg.enCoursSous}
           color="blue"
         />
-      </InfoCardContainer>
+      </GrilleKpi>
 
       <Card>
         <CardHeader>
           <CardTitle>{cfg.tableau}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <DataTable
-            data={demandes}
-            isLoading={registre.isLoading}
-            columns={colonnes}
-            onRowClick={(d) => {
-              setCommentaire("");
-              setDetailId(d.id);
-            }}
-            searchKeys={["employeeName", "employeeNumber", "department"]}
-            searchPlaceholder="Rechercher par nom, matricule ou poste..."
-            itemsPerPage={10}
-            filters={[
+        <CardContent className="space-y-4">
+          <BarreFiltres
+            recherche={recherche}
+            onRecherche={setRecherche}
+            placeholder="Rechercher par nom, matricule ou poste..."
+            onReinitialiser={reinitialiserFiltres}
+            resume={`${demandesAffichees.length} sur ${demandes.length} demande${demandes.length > 1 ? "s" : ""}`}
+            filtres={[
               {
-                key: "status",
-                label: "Statut",
+                cle: "statut",
+                libelle: "Statut",
+                valeur: filtreStatut,
+                onChange: setFiltreStatut,
                 options: [
                   { value: "all", label: "Tous les statuts" },
                   { value: "pending", label: "En attente" },
                   { value: "approved", label: "Approuvé" },
                   { value: "rejected", label: "Refusé" },
+                  { value: "cancelled", label: "Annulé" },
                 ],
               },
               {
-                key: "type",
-                label: "Type",
+                cle: "type",
+                libelle: "Type",
+                valeur: filtreType,
+                onChange: setFiltreType,
                 options: [
                   { value: "all", label: "Tous les types" },
                   ...cfg.types.map((t) => ({ value: t.value, label: t.label })),
                 ],
               },
             ]}
-            actions={actions}
           />
+          <div className={cfg.enteteTableau}>
+            {/* key : le tableau revient à la page 1 quand un filtre change. */}
+            <DataTable
+              key={`${recherche}|${filtreStatut}|${filtreType}`}
+              data={demandesAffichees}
+              isLoading={registre.isLoading}
+              columns={colonnes}
+              onRowClick={(d) => {
+                setCommentaire("");
+                setDetailId(d.id);
+              }}
+              itemsPerPage={10}
+              rowClassName={() => LIGNE_ZEBREE}
+              actions={actions}
+            />
+          </div>
           {!registre.isLoading && demandes.length === 0 && (
             <p className="pt-2 text-center text-sm text-muted-foreground">
               Aucune demande enregistrée. Utilisez « Nouvelle demande » pour en

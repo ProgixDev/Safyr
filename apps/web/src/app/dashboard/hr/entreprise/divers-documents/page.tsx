@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PhoneField } from "@/components/ui/phone-field";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
@@ -88,6 +89,12 @@ const DOC_STATUTS = [
   { value: "traite", label: "Traité" },
 ];
 
+/** Un numéro ou une adresse, avec l'interlocuteur concerné (ex. « Mme Martin »). */
+interface Contact {
+  label?: string;
+  value: string;
+}
+
 interface Organisme {
   id: string;
   nom: string;
@@ -95,7 +102,57 @@ interface Organisme {
   description: string;
   icon: string;
   couleur: string;
+  code?: string;
+  telephones?: Contact[];
+  emails?: Contact[];
+  /** Anciens champs à valeur unique, conservés pour la compatibilité. */
+  telephone?: string;
+  email?: string;
 }
+
+/** Coordonnées d'un organisme, en reprenant les anciens champs à valeur unique. */
+function contactsDe(organisme: Organisme): {
+  telephones: Contact[];
+  emails: Contact[];
+} {
+  const propres = (
+    liste: Contact[] | undefined,
+    ancien: string | undefined,
+  ) => {
+    const lignes = (liste ?? []).filter((c) => c?.value?.trim());
+    if (lignes.length > 0) return lignes;
+    return ancien?.trim() ? [{ value: ancien.trim() }] : [];
+  };
+  return {
+    telephones: propres(organisme.telephones, organisme.telephone),
+    emails: propres(organisme.emails, organisme.email),
+  };
+}
+
+/** « 0666666666 » → « 06 66 66 66 66 » ; toute autre saisie reste telle quelle. */
+function formaterTelephone(valeur: string): string {
+  return /^\d{10}$/.test(valeur)
+    ? valeur.replace(/(\d{2})(?=\d)/g, "$1 ")
+    : valeur;
+}
+
+interface FormulaireOrganisme {
+  nom: string;
+  type: string;
+  description: string;
+  code: string;
+  telephones: Contact[];
+  emails: Contact[];
+}
+
+const FORMULAIRE_ORGANISME_VIDE: FormulaireOrganisme = {
+  nom: "",
+  type: "",
+  description: "",
+  code: "",
+  telephones: [{ label: "", value: "" }],
+  emails: [{ label: "", value: "" }],
+};
 
 interface Document {
   id: string;
@@ -301,11 +358,22 @@ export default function DiversDocumentsPage() {
     emailDestinataire: "",
     message: "",
   });
-  const [newOrganisme, setNewOrganisme] = useState({
-    nom: "",
-    type: "",
-    description: "",
-  });
+  // Formulaire d'organisme : sert à l'ajout comme à la modification
+  // (`organismeEditeId` renseigné = modification de cet organisme).
+  const [newOrganisme, setNewOrganisme] = useState<FormulaireOrganisme>(
+    FORMULAIRE_ORGANISME_VIDE,
+  );
+  const [organismeEditeId, setOrganismeEditeId] = useState<string | null>(null);
+  const [erreurOrganisme, setErreurOrganisme] = useState<string | null>(null);
+  const [organismeVuId, setOrganismeVuId] = useState<string | null>(null);
+  // Document / courrier en cours de modification ou de consultation.
+  const [documentEdite, setDocumentEdite] = useState<DocumentEnregistre | null>(
+    null,
+  );
+  const [courrierEdite, setCourrierEdite] = useState<CourrierEnregistre | null>(
+    null,
+  );
+  const [courrierVu, setCourrierVu] = useState<CourrierEnregistre | null>(null);
 
   const getIconComponent = (iconName: string) => {
     const icons = {
@@ -470,24 +538,144 @@ export default function DiversDocumentsPage() {
     if (selectedOrganisme === organisme.id) setSelectedOrganisme("");
   };
 
-  const handleAddOrganisme = () => {
-    if (newOrganisme.nom && newOrganisme.type) {
-      const { icon, couleur } = styleOrganisme(newOrganisme.nom);
-      const organisme: Organisme = {
-        id: Date.now().toString(),
-        nom: newOrganisme.nom,
-        type: newOrganisme.type,
-        description: newOrganisme.description,
-        icon,
-        couleur,
-      };
-      void registreOrganismes.enregistrer(organisme, {
+  const ouvrirAjoutOrganisme = () => {
+    setOrganismeEditeId(null);
+    setNewOrganisme(FORMULAIRE_ORGANISME_VIDE);
+    setErreurOrganisme(null);
+    setIsAddingOrganisme(true);
+  };
+
+  /** Même formulaire que l'ajout, pré-rempli avec les coordonnées connues. */
+  const ouvrirModifOrganisme = (organisme: Organisme) => {
+    const { telephones, emails } = contactsDe(organisme);
+    setOrganismeEditeId(organisme.id);
+    setNewOrganisme({
+      nom: organisme.nom,
+      type: organisme.type,
+      description: organisme.description ?? "",
+      code: organisme.code ?? "",
+      telephones: telephones.length
+        ? telephones.map((t) => ({ label: t.label ?? "", value: t.value }))
+        : [{ label: "", value: "" }],
+      emails: emails.length
+        ? emails.map((m) => ({ label: m.label ?? "", value: m.value }))
+        : [{ label: "", value: "" }],
+    });
+    setErreurOrganisme(null);
+    setIsAddingOrganisme(true);
+  };
+
+  const majContact = (
+    champ: "telephones" | "emails",
+    index: number,
+    changes: Partial<Contact>,
+  ) =>
+    setNewOrganisme((f) => ({
+      ...f,
+      [champ]: f[champ].map((c, i) => (i === index ? { ...c, ...changes } : c)),
+    }));
+
+  const ajouterContact = (champ: "telephones" | "emails") =>
+    setNewOrganisme((f) => ({
+      ...f,
+      [champ]: [...f[champ], { label: "", value: "" }],
+    }));
+
+  const retirerContact = (champ: "telephones" | "emails", index: number) =>
+    setNewOrganisme((f) => ({
+      ...f,
+      [champ]: f[champ].filter((_, i) => i !== index),
+    }));
+
+  const handleSaveOrganisme = async () => {
+    if (!newOrganisme.nom.trim() || !newOrganisme.type) {
+      setErreurOrganisme("Le nom et le type de l'organisme sont obligatoires.");
+      return;
+    }
+    // On écarte les lignes vides ; le libellé d'interlocuteur reste facultatif.
+    const nettoyer = (liste: Contact[]): Contact[] =>
+      liste
+        .map((c) => ({ label: c.label?.trim() ?? "", value: c.value.trim() }))
+        .filter((c) => c.value)
+        .map((c) => (c.label ? c : { value: c.value }));
+    const telephones = nettoyer(newOrganisme.telephones);
+    const emails = nettoyer(newOrganisme.emails);
+    const invalide = emails.find((m) => !EMAIL_VALIDE.test(m.value));
+    if (invalide) {
+      setErreurOrganisme(
+        `L'adresse e-mail « ${invalide.value} » n'est pas valide (exemple : contact@organisme.fr).`,
+      );
+      return;
+    }
+    const existant = organismeEditeId
+      ? organismes.find((o) => o.id === organismeEditeId)
+      : undefined;
+    const nom = newOrganisme.nom.trim();
+    // Le style (logo, couleur) suit le nom ; on ne le recalcule que s'il change.
+    const style =
+      existant && existant.nom === nom
+        ? { icon: existant.icon, couleur: existant.couleur }
+        : styleOrganisme(nom);
+    const organisme: Organisme = {
+      id: existant?.id ?? Date.now().toString(),
+      nom,
+      type: newOrganisme.type,
+      description: newOrganisme.description,
+      ...style,
+      code: newOrganisme.code.trim(),
+      telephones,
+      emails,
+      // Anciens champs : premier numéro / première adresse, pour les lecteurs
+      // qui ne connaissent pas encore les listes.
+      telephone: telephones[0]?.value ?? "",
+      email: emails[0]?.value ?? "",
+    };
+    setErreurOrganisme(null);
+    try {
+      await registreOrganismes.enregistrer(organisme, {
         period: String(new Date().getFullYear()),
         label: organisme.nom,
       });
-      setNewOrganisme({ nom: "", type: "", description: "" });
-      setIsAddingOrganisme(false);
+    } catch (e) {
+      setErreurOrganisme(
+        e instanceof Error ? e.message : "L'enregistrement a échoué.",
+      );
+      return;
     }
+    setNewOrganisme(FORMULAIRE_ORGANISME_VIDE);
+    setOrganismeEditeId(null);
+    setIsAddingOrganisme(false);
+  };
+
+  /** Enregistre les modifications d'un document (le fichier déposé est conservé). */
+  const handleSaveDocument = async () => {
+    if (!documentEdite) return;
+    const organisme = organismes.find(
+      (o) => o.id === documentEdite.organismeId,
+    );
+    const nom = documentEdite.nom.trim() || "Document";
+    await registreDocuments.enregistrer(
+      {
+        ...documentEdite,
+        nom,
+        dateModification: new Date().toISOString().split("T")[0],
+      },
+      {
+        period: (documentEdite.dateAjout ?? "").slice(0, 4),
+        label: organisme?.nom ?? nom,
+      },
+    );
+    setDocumentEdite(null);
+  };
+
+  const handleSaveCourrierEdite = async () => {
+    if (!courrierEdite || !courrierEdite.objet.trim()) return;
+    await registreCourriers.enregistrer(courrierEdite, {
+      period: (courrierEdite.date ?? "").slice(0, 4),
+      label: courrierEdite.objet,
+      status: courrierEdite.statut,
+    });
+    setCourrierEdite(null);
   };
 
   /**
@@ -585,6 +773,24 @@ export default function DiversDocumentsPage() {
     "organisme_officiel",
   ];
 
+  const organismeVu = organismeVuId
+    ? (organismes.find((o) => o.id === organismeVuId) ?? null)
+    : null;
+  const contactsVu = organismeVu
+    ? contactsDe(organismeVu)
+    : { telephones: [], emails: [] };
+  const documentsVus = organismeVu
+    ? documents.filter((d) => d.organismeId === organismeVu.id)
+    : [];
+  const courriersVus = organismeVu
+    ? courriers.filter((c) => c.organismeId === organismeVu.id)
+    : [];
+  // Adresses de l'organisme sélectionné, proposées à l'envoi d'un courrier.
+  const emailsOrganismeChoisi = (() => {
+    const o = organismes.find((org) => org.id === selectedOrganisme);
+    return o ? contactsDe(o).emails : [];
+  })();
+
   return (
     <div className="space-y-6">
       {erreurDepot && (
@@ -605,7 +811,7 @@ export default function DiversDocumentsPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => setIsAddingOrganisme(true)}
+            onClick={ouvrirAjoutOrganisme}
             className="flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -670,20 +876,16 @@ export default function DiversDocumentsPage() {
                       className="cursor-pointer hover:shadow-md transition-shadow relative"
                       onClick={() => setSelectedOrganisme(organisme.id)}
                     >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-2 top-2 h-7 w-7 text-red-500 hover:text-red-500"
-                        title="Supprimer l'organisme"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleDeleteOrganisme(organisme);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="absolute right-2 top-2">
+                        <RowActionsMenu
+                          triggerLabel={`Actions pour ${organisme.nom}`}
+                          onView={() => setOrganismeVuId(organisme.id)}
+                          onEdit={() => ouvrirModifOrganisme(organisme)}
+                          onDelete={() => void handleDeleteOrganisme(organisme)}
+                        />
+                      </div>
                       <CardContent className="p-6">
-                        <div className="flex items-center gap-3 mb-4">
+                        <div className="flex items-center gap-3 mb-4 pr-8">
                           <div
                             className={cn(
                               "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
@@ -896,6 +1098,7 @@ export default function DiversDocumentsPage() {
                           onView={() =>
                             ouvrirPiece(document.fichier, document.nom)
                           }
+                          onEdit={() => setDocumentEdite({ ...document })}
                           onDownload={() =>
                             ouvrirPiece(document.fichier, document.nom)
                           }
@@ -995,12 +1198,8 @@ export default function DiversDocumentsPage() {
                           </Button>
                         )}
                         <RowActionsMenu
-                          onView={
-                            courrier.piece
-                              ? () =>
-                                  ouvrirPiece(courrier.piece, courrier.objet)
-                              : undefined
-                          }
+                          onView={() => setCourrierVu(courrier)}
+                          onEdit={() => setCourrierEdite({ ...courrier })}
                           onDelete={() =>
                             void registreCourriers.supprimerLigne(courrier.id)
                           }
@@ -1093,18 +1292,29 @@ export default function DiversDocumentsPage() {
         </div>
       )}
 
-      {/* Dialog pour ajouter un organisme */}
+      {/* Ajout / modification d'un organisme (même formulaire) */}
       <Modal
         open={isAddingOrganisme}
-        onOpenChange={setIsAddingOrganisme}
+        onOpenChange={(o) => {
+          setIsAddingOrganisme(o);
+          if (!o) setErreurOrganisme(null);
+        }}
         type="form"
-        title="Ajouter un nouvel organisme"
-        description="Créez un nouvel organisme pour organiser vos documents"
+        title={
+          organismeEditeId
+            ? "Modifier l'organisme"
+            : "Ajouter un nouvel organisme"
+        }
+        description={
+          organismeEditeId
+            ? "Mettez à jour les coordonnées et les interlocuteurs de l'organisme"
+            : "Créez un nouvel organisme pour organiser vos documents"
+        }
         size="md"
         actions={{
           primary: {
-            label: "Ajouter",
-            onClick: handleAddOrganisme,
+            label: organismeEditeId ? "Enregistrer" : "Ajouter",
+            onClick: () => void handleSaveOrganisme(),
           },
           secondary: {
             label: "Annuler",
@@ -1113,7 +1323,7 @@ export default function DiversDocumentsPage() {
           },
         }}
       >
-        <div className="space-y-4">
+        <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
           <div className="space-y-2">
             <Label htmlFor="nom">Nom de l&apos;organisme</Label>
             <Input
@@ -1126,26 +1336,130 @@ export default function DiversDocumentsPage() {
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="type">Type d&apos;organisme</Label>
+              <Select
+                value={newOrganisme.type}
+                onValueChange={(value) =>
+                  setNewOrganisme({ ...newOrganisme, type: value })
+                }
+              >
+                <SelectTrigger id="type">
+                  <SelectValue placeholder="Sélectionnez un type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {typesOrganismes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type.replace("_", " ").charAt(0).toUpperCase() +
+                        type.replace("_", " ").slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="organisme-code">Code organisme</Label>
+              <Input
+                id="organisme-code"
+                value={newOrganisme.code}
+                onChange={(e) =>
+                  setNewOrganisme({ ...newOrganisme, code: e.target.value })
+                }
+                placeholder="Ex : 117"
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="type">Type d&apos;organisme</Label>
-            <Select
-              value={newOrganisme.type}
-              onValueChange={(value) =>
-                setNewOrganisme({ ...newOrganisme, type: value })
-              }
+            <Label>Téléphone (TPH)</Label>
+            {newOrganisme.telephones.map((tel, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <Input
+                  aria-label="Interlocuteur (optionnel)"
+                  className="w-2/5"
+                  value={tel.label ?? ""}
+                  onChange={(e) =>
+                    majContact("telephones", index, { label: e.target.value })
+                  }
+                  placeholder="Contact : Mme Martin"
+                />
+                <PhoneField
+                  aria-label="Numéro de téléphone"
+                  value={tel.value}
+                  onChange={(e) =>
+                    majContact("telephones", index, { value: e.target.value })
+                  }
+                  placeholder="06 66 66 66 66"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-red-500 hover:text-red-500"
+                  title="Retirer ce numéro"
+                  disabled={newOrganisme.telephones.length <= 1}
+                  onClick={() => retirerContact("telephones", index)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => ajouterContact("telephones")}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionnez un type" />
-              </SelectTrigger>
-              <SelectContent>
-                {typesOrganismes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type.replace("_", " ").charAt(0).toUpperCase() +
-                      type.replace("_", " ").slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Plus className="mr-1 h-4 w-4" />
+              Ajouter un téléphone
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Label>E-mail</Label>
+            {newOrganisme.emails.map((mail, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <Input
+                  aria-label="Interlocuteur (optionnel)"
+                  className="w-2/5"
+                  value={mail.label ?? ""}
+                  onChange={(e) =>
+                    majContact("emails", index, { label: e.target.value })
+                  }
+                  placeholder="Contact : Mme Martin"
+                />
+                <Input
+                  aria-label="Adresse e-mail"
+                  type="email"
+                  value={mail.value}
+                  onChange={(e) =>
+                    majContact("emails", index, { value: e.target.value })
+                  }
+                  placeholder="contact@organisme.fr"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-red-500 hover:text-red-500"
+                  title="Retirer cette adresse"
+                  disabled={newOrganisme.emails.length <= 1}
+                  onClick={() => retirerContact("emails", index)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => ajouterContact("emails")}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Ajouter une adresse e-mail
+            </Button>
           </div>
 
           <div className="space-y-2">
@@ -1162,7 +1476,390 @@ export default function DiversDocumentsPage() {
               placeholder="Description de l'organisme..."
             />
           </div>
+
+          {erreurOrganisme && (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {erreurOrganisme}
+            </p>
+          )}
         </div>
+      </Modal>
+
+      {/* Organisme — consultation en lecture seule */}
+      <Modal
+        open={!!organismeVu}
+        onOpenChange={(o) => !o && setOrganismeVuId(null)}
+        type="details"
+        size="md"
+        title={organismeVu ? organismeVu.nom : "Organisme"}
+        description={organismeVu?.description || undefined}
+        actions={{
+          primary: { label: "Fermer", onClick: () => setOrganismeVuId(null) },
+          secondary: {
+            label: "Modifier",
+            variant: "outline" as const,
+            onClick: () => {
+              if (!organismeVu) return;
+              setOrganismeVuId(null);
+              ouvrirModifOrganisme(organismeVu);
+            },
+          },
+        }}
+      >
+        {organismeVu && (
+          <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Type</Label>
+                <p className="text-muted-foreground">
+                  {organismeVu.type.replace("_", " ")}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Code organisme</Label>
+                <p className="text-muted-foreground">
+                  {organismeVu.code || "—"}
+                </p>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Téléphones</Label>
+              {contactsVu.telephones.length === 0 ? (
+                <p className="text-muted-foreground">Non renseigné</p>
+              ) : (
+                <ul className="space-y-1">
+                  {contactsVu.telephones.map((t, i) => (
+                    <li key={i} className="text-muted-foreground">
+                      {t.label ? `${t.label} : ` : ""}
+                      <a
+                        href={`tel:${t.value}`}
+                        className="text-foreground underline-offset-2 hover:underline"
+                      >
+                        {formaterTelephone(t.value)}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Adresses e-mail</Label>
+              {contactsVu.emails.length === 0 ? (
+                <p className="text-muted-foreground">Non renseigné</p>
+              ) : (
+                <ul className="space-y-1">
+                  {contactsVu.emails.map((m, i) => (
+                    <li key={i} className="text-muted-foreground">
+                      {m.label ? `${m.label} : ` : ""}
+                      <a
+                        href={`mailto:${m.value}`}
+                        className="text-foreground underline-offset-2 hover:underline"
+                      >
+                        {m.value}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <Label className="text-sm font-medium">
+                Documents liés ({documentsVus.length})
+              </Label>
+              {documentsVus.length === 0 ? (
+                <p className="text-muted-foreground">Aucun document</p>
+              ) : (
+                <ul className="space-y-1">
+                  {documentsVus.map((d) => (
+                    <li key={d.id} className="text-muted-foreground">
+                      {d.nom} <span className="text-xs">({d.type})</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <Label className="text-sm font-medium">
+                Courriers liés ({courriersVus.length})
+              </Label>
+              {courriersVus.length === 0 ? (
+                <p className="text-muted-foreground">Aucun courrier</p>
+              ) : (
+                <ul className="space-y-1">
+                  {courriersVus.map((c) => (
+                    <li key={c.id} className="text-muted-foreground">
+                      {c.objet}{" "}
+                      <span className="text-xs">
+                        ({c.type === "recu" ? "reçu" : "envoyé"} le{" "}
+                        {new Date(c.date).toLocaleDateString("fr-FR")})
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Document — modification */}
+      <Modal
+        open={!!documentEdite}
+        onOpenChange={(o) => !o && setDocumentEdite(null)}
+        type="form"
+        size="md"
+        title="Modifier le document"
+        actions={{
+          primary: {
+            label: "Enregistrer",
+            onClick: () => void handleSaveDocument(),
+          },
+          secondary: {
+            label: "Annuler",
+            variant: "outline" as const,
+            onClick: () => setDocumentEdite(null),
+          },
+        }}
+      >
+        {documentEdite && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="doc-edit-nom">Nom</Label>
+              <Input
+                id="doc-edit-nom"
+                value={documentEdite.nom}
+                onChange={(e) =>
+                  setDocumentEdite({ ...documentEdite, nom: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="doc-edit-type">Type de document</Label>
+              <Select
+                value={documentEdite.type}
+                onValueChange={(v) =>
+                  setDocumentEdite({ ...documentEdite, type: v })
+                }
+              >
+                <SelectTrigger id="doc-edit-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from(
+                    new Set([
+                      documentEdite.type,
+                      ...typesDocuments.filter((t) => t !== "all"),
+                    ]),
+                  ).map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="doc-edit-description">Description</Label>
+              <Textarea
+                id="doc-edit-description"
+                value={documentEdite.description ?? ""}
+                onChange={(e) =>
+                  setDocumentEdite({
+                    ...documentEdite,
+                    description: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={documentEdite.urgent}
+                onChange={(e) =>
+                  setDocumentEdite({
+                    ...documentEdite,
+                    urgent: e.target.checked,
+                  })
+                }
+              />
+              Document urgent
+            </label>
+          </div>
+        )}
+      </Modal>
+
+      {/* Courrier — consultation en lecture seule */}
+      <Modal
+        open={!!courrierVu}
+        onOpenChange={(o) => !o && setCourrierVu(null)}
+        type="details"
+        size="md"
+        title={courrierVu ? courrierVu.objet : "Courrier"}
+        actions={{
+          primary: { label: "Fermer", onClick: () => setCourrierVu(null) },
+          secondary: courrierVu?.piece
+            ? {
+                label: "Ouvrir la pièce jointe",
+                variant: "outline" as const,
+                onClick: () => ouvrirPiece(courrierVu.piece, courrierVu.objet),
+              }
+            : undefined,
+        }}
+      >
+        {courrierVu && (
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Type</Label>
+                <p className="text-muted-foreground">
+                  {courrierVu.type === "recu" ? "Reçu" : "Envoyé"}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Date</Label>
+                <p className="text-muted-foreground">
+                  {new Date(courrierVu.date).toLocaleDateString("fr-FR")}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Expéditeur</Label>
+                <p className="text-muted-foreground">
+                  {courrierVu.expediteur || "—"}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Destinataire</Label>
+                <p className="text-muted-foreground">
+                  {courrierVu.destinataire || "—"}
+                  {courrierVu.emailDestinataire
+                    ? ` (${courrierVu.emailDestinataire})`
+                    : ""}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Statut</Label>
+                <p className="text-muted-foreground">
+                  {getStatutText(courrierVu.statut)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Pièce jointe</Label>
+                <p className="text-muted-foreground">
+                  {courrierVu.piece?.name ?? "Aucune"}
+                </p>
+              </div>
+            </div>
+            {courrierVu.message && (
+              <div>
+                <Label className="text-sm font-medium">Message</Label>
+                <p className="whitespace-pre-wrap text-muted-foreground">
+                  {courrierVu.message}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Courrier — modification */}
+      <Modal
+        open={!!courrierEdite}
+        onOpenChange={(o) => !o && setCourrierEdite(null)}
+        type="form"
+        size="md"
+        title="Modifier le courrier"
+        actions={{
+          primary: {
+            label: "Enregistrer",
+            disabled: !courrierEdite?.objet.trim(),
+            onClick: () => void handleSaveCourrierEdite(),
+          },
+          secondary: {
+            label: "Annuler",
+            variant: "outline" as const,
+            onClick: () => setCourrierEdite(null),
+          },
+        }}
+      >
+        {courrierEdite && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="courrier-edit-objet">Objet</Label>
+              <Input
+                id="courrier-edit-objet"
+                value={courrierEdite.objet}
+                onChange={(e) =>
+                  setCourrierEdite({ ...courrierEdite, objet: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="courrier-edit-date">Date</Label>
+                <Input
+                  id="courrier-edit-date"
+                  type="date"
+                  value={courrierEdite.date}
+                  onChange={(e) =>
+                    setCourrierEdite({ ...courrierEdite, date: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="courrier-edit-statut">Statut</Label>
+                <Select
+                  value={courrierEdite.statut}
+                  onValueChange={(v) =>
+                    setCourrierEdite({
+                      ...courrierEdite,
+                      statut: v as CourrierEnregistre["statut"],
+                    })
+                  }
+                >
+                  <SelectTrigger id="courrier-edit-statut">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="non_lu">Non lu</SelectItem>
+                    <SelectItem value="lu">Lu</SelectItem>
+                    <SelectItem value="en_cours">En cours</SelectItem>
+                    <SelectItem value="traite">Traité</SelectItem>
+                    <SelectItem value="archive">Archivé</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="courrier-edit-expediteur">Expéditeur</Label>
+                <Input
+                  id="courrier-edit-expediteur"
+                  value={courrierEdite.expediteur}
+                  onChange={(e) =>
+                    setCourrierEdite({
+                      ...courrierEdite,
+                      expediteur: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="courrier-edit-destinataire">Destinataire</Label>
+                <Input
+                  id="courrier-edit-destinataire"
+                  value={courrierEdite.destinataire}
+                  onChange={(e) =>
+                    setCourrierEdite({
+                      ...courrierEdite,
+                      destinataire: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Choix du type avant dépôt : tout partait auparavant en "attestation". */}
@@ -1340,6 +2037,40 @@ export default function DiversDocumentsPage() {
                   Email du destinataire (optionnel — envoie réellement le
                   courrier)
                 </Label>
+                {emailsOrganismeChoisi.length > 0 && (
+                  <Select
+                    value={
+                      emailsOrganismeChoisi.some(
+                        (m) => m.value === newCourrier.emailDestinataire,
+                      )
+                        ? newCourrier.emailDestinataire
+                        : ""
+                    }
+                    onValueChange={(v) => {
+                      const choisie = emailsOrganismeChoisi.find(
+                        (m) => m.value === v,
+                      );
+                      setNewCourrier({
+                        ...newCourrier,
+                        emailDestinataire: v,
+                        // L'interlocuteur renseigné devient le destinataire s'il est vide.
+                        destinataire:
+                          newCourrier.destinataire || (choisie?.label ?? ""),
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="mb-2">
+                      <SelectValue placeholder="Choisir une adresse de l'organisme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {emailsOrganismeChoisi.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label ? `${m.label} — ${m.value}` : m.value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Input
                   id="courrier-email"
                   type="email"

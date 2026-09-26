@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEmployeesRH } from "@/hooks/employees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { InfoCard } from "@/components/ui/info-card";
+import { GrilleKpi } from "../_components/OutilsTableau";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { HoursInput } from "@/components/ui/hours-input";
@@ -355,8 +356,9 @@ function WorkedHoursContent() {
       </div>
 
       {/* Statistics Cards */}
-      <InfoCardContainer>
+      <GrilleKpi colonnes={5}>
         <InfoCard
+          compact
           icon={Sun}
           title="Heures Normales"
           value={`${totalRegularHours}h`}
@@ -365,6 +367,7 @@ function WorkedHoursContent() {
         />
 
         <InfoCard
+          compact
           icon={Clock}
           title="Heures Supplémentaires"
           value={`${totalSupplementaryHours25 + totalSupplementaryHours50 + totalComplementaryHours10}h`}
@@ -373,6 +376,7 @@ function WorkedHoursContent() {
         />
 
         <InfoCard
+          compact
           icon={Clock}
           title="Heures de Nuit"
           value={`${mockWorkedHours.reduce(
@@ -384,6 +388,7 @@ function WorkedHoursContent() {
         />
 
         <InfoCard
+          compact
           icon={Clock}
           title="Dimanche"
           value={`${mockWorkedHours.reduce(
@@ -395,6 +400,7 @@ function WorkedHoursContent() {
         />
 
         <InfoCard
+          compact
           icon={Clock}
           title="Jours Fériés"
           value={`${mockWorkedHours.reduce(
@@ -404,7 +410,7 @@ function WorkedHoursContent() {
           subtext="Base"
           color="red"
         />
-      </InfoCardContainer>
+      </GrilleKpi>
 
       {/* Worked Hours Table */}
       <Card>

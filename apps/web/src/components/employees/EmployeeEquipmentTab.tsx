@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { sendCommunicationEmail } from "@safyr/api-client";
-import { useRegistre } from "@/hooks/fiscal";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  MAILBOX_ERROR_CODES,
+  ApiError,
+  sendEquipmentConfirmationEmail,
+} from "@safyr/api-client";
+import { fiscalKeys, useRegistre } from "@/hooks/fiscal";
 import { CATALOGUE_EQUIPEMENTS, versDotation } from "@/lib/equipment-catalog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +42,7 @@ import {
   Utensils,
   Calendar,
   Archive,
+  Mail,
 } from "lucide-react";
 import type { Employee, Equipment } from "@/lib/types";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
@@ -73,6 +79,33 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
       (l) => (l as unknown as Record<string, unknown>).memberId === employee.id,
     )
     .map((l) => raviverDates(l as unknown as Record<string, unknown>));
+
+  // Le salarié confirme depuis un lien hors de Safyr : on relit les
+  // équipements au retour sur l'onglet (focus / visibilité) et, tant qu'une
+  // confirmation est attendue, toutes les 20 s, pour afficher « Signé » sans
+  // avoir à recharger la page.
+  const queryClient = useQueryClient();
+  const enAttenteDeSignature = equipment.some(
+    (e) => e.status === "assigned" && e.emailEnvoye && !e.issuanceSignature,
+  );
+  useEffect(() => {
+    const relire = () => {
+      if (document.visibilityState !== "visible") return;
+      void queryClient.invalidateQueries({
+        queryKey: fiscalKeys.list("equipement"),
+      });
+    };
+    window.addEventListener("focus", relire);
+    document.addEventListener("visibilitychange", relire);
+    const minuteur = enAttenteDeSignature
+      ? window.setInterval(relire, 20_000)
+      : undefined;
+    return () => {
+      window.removeEventListener("focus", relire);
+      document.removeEventListener("visibilitychange", relire);
+      if (minuteur !== undefined) window.clearInterval(minuteur);
+    };
+  }, [queryClient, enAttenteDeSignature]);
 
   // Une écriture qui échoue ne doit pas passer inaperçue : sans cela le bouton
   // semblait « ne rien faire ».
@@ -276,32 +309,34 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
       };
     }
 
-    // Envoie un email de remise au salarié, à signer/confirmer de son côté.
-    // La signature elle-même n'est plus simulée automatiquement : elle
-    // n'est enregistrée qu'une fois confirmée via "Confirmer la signature"
-    // dans le menu de la ligne, une fois le salarié réellement revenu vers
-    // l'entreprise (par retour d'email, oralement, etc.).
-    if (employee.email) {
-      setEnvoiSignatureEnCours(true);
-      try {
-        await sendCommunicationEmail({
-          recipients: [employee.email],
-          subject: `Remise de matériel — ${equipmentToAssign.name}`,
-          body:
-            `Bonjour ${employee.firstName},\n\n` +
-            `Le matériel suivant vous a été remis : ${equipmentToAssign.name}` +
-            `${equipmentToAssign.serialNumber ? ` (n° ${equipmentToAssign.serialNumber})` : ""}.\n\n` +
-            `Merci de confirmer réception en répondant à cet email.\n\nCordialement.`,
-        });
-        equipmentToAssign.emailEnvoye = true;
-      } catch {
-        equipmentToAssign.emailEnvoye = false;
-      } finally {
-        setEnvoiSignatureEnCours(false);
+    // La ligne est enregistrée AVANT l'envoi : le lien de confirmation du mail
+    // désigne l'identifiant attribué par le serveur. Le salarié confirme sur
+    // une page de Safyr (lien personnel) ; « Confirmer la signature » dans le
+    // menu de la ligne reste disponible en secours.
+    setEnvoiSignatureEnCours(true);
+    try {
+      const recordId = await registre.enregistrer(
+        {
+          ...equipmentToAssign,
+          memberId: employee.id,
+        } as unknown as Equipment & {
+          id: string;
+        },
+        {
+          period: String(new Date().getFullYear()),
+          label: equipmentToAssign.name,
+          status: equipmentToAssign.status,
+        },
+      );
+      if (employee.email) {
+        await envoyerLienConfirmation(recordId, equipmentToAssign.name);
       }
+    } catch (erreur) {
+      signalerEchec(erreur);
+    } finally {
+      setEnvoiSignatureEnCours(false);
     }
 
-    setEquipment((prev) => [...prev, equipmentToAssign]);
     setShowAssignModal(false);
     setSelectedEquipmentId("");
     setNewEquipmentData({
@@ -312,6 +347,38 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
       quantity: 1,
       consumable: false,
     });
+  };
+
+  /** Envoie (ou renvoie) le mail de remise contenant le lien de confirmation. */
+  const envoyerLienConfirmation = async (
+    recordId: string,
+    nomEquipement: string,
+  ) => {
+    if (!employee.email) return;
+    try {
+      await sendEquipmentConfirmationEmail({
+        recordId,
+        recipient: employee.email,
+        origin: window.location.origin,
+      });
+    } catch (erreur) {
+      // Une boîte mail à connecter ouvre déjà sa propre fenêtre.
+      const boiteMail =
+        erreur instanceof ApiError &&
+        (MAILBOX_ERROR_CODES as readonly string[]).includes(erreur.code);
+      if (!boiteMail) {
+        alert(
+          `« ${nomEquipement} » est bien attribué, mais l'e-mail de confirmation n'a pas pu être envoyé : ${
+            erreur instanceof Error ? erreur.message : "erreur inconnue"
+          }. Utilisez « Renvoyer l'e-mail de confirmation » dans le menu de la ligne.`,
+        );
+      }
+    } finally {
+      // Le serveur a marqué la ligne « e-mail envoyé » : on la relit.
+      await queryClient.invalidateQueries({
+        queryKey: fiscalKeys.list("equipement"),
+      });
+    }
   };
 
   const ouvrirModification = (item: Equipment) => {
@@ -713,6 +780,17 @@ export function EmployeeEquipmentTab({ employee }: EmployeeEquipmentTabProps) {
                   onEdit={() => ouvrirModification(item)}
                   onDelete={() => setDeleteEquipmentId(item.id)}
                   extraItems={[
+                    ...(!item.issuanceSignature && employee.email
+                      ? [
+                          {
+                            label: "Renvoyer l'e-mail de confirmation",
+                            icon: Mail,
+                            tone: "neutral" as const,
+                            onClick: () =>
+                              void envoyerLienConfirmation(item.id, item.name),
+                          },
+                        ]
+                      : []),
                     ...(!item.issuanceSignature
                       ? [
                           {

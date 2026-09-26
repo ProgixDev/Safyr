@@ -1,9 +1,14 @@
 "use client";
 
 import { formaterTelephone, telephoneBrut } from "@/lib/phone-format";
-import { telechargerDossierSousTraitant } from "@/lib/subcontractor-dossier-pdf";
+import type { DossierSousTraitant } from "@/lib/subcontractor-dossier-pdf";
+import {
+  LIBELLE_MOTIF,
+  telechargerDossierComplet,
+  telechargerSommairePdfSeul,
+} from "@/lib/subcontractor-dossier-zip";
 
-import { useState, use } from "react";
+import { useRef, useState, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -241,6 +246,8 @@ export default function SousTraitantDetailPage({
   const [dossierEnCours, setDossierEnCours] = useState(false);
   const [dossierErreur, setDossierErreur] = useState<string | null>(null);
   const [dossierInfo, setDossierInfo] = useState<string | null>(null);
+  const [dossierEtape, setDossierEtape] = useState("");
+  const dossierAbort = useRef<AbortController | null>(null);
 
   if (isLoading) {
     return (
@@ -368,8 +375,12 @@ export default function SousTraitantDetailPage({
     void downloadStoredFile({ name: doc.name, key: doc.storageKey });
   };
 
-  /** Un seul PDF « dossier de contrôle » regroupant les pièces du sous-traitant. */
-  const telechargerDossier = async () => {
+  /**
+   * « Télécharger le dossier » : archive ZIP avec TOUTES les pièces d'origine
+   * + sommaire PDF. « Sommaire PDF seul » : PDF léger, sans les pièces
+   * PDF/Word/Excel (fusion en un seul PDF impossible sans bibliothèque).
+   */
+  const lancerDossier = async (mode: "complet" | "sommaire") => {
     if (!sousTraitant) return;
     setDossierErreur(null);
     setDossierInfo(null);
@@ -379,47 +390,85 @@ export default function SousTraitantDetailPage({
       );
       return;
     }
-    setDossierEnCours(true);
-    try {
-      const exigences = [...requiredDocuments, ...optionalDocuments];
-      const resultat = await telechargerDossierSousTraitant({
-        nom: sousTraitant.name,
-        siret: sousTraitant.siret,
-        numeroAutorisation: sousTraitant.numeroAutorisation,
-        adresse: sousTraitant.address,
-        pieces: documents.map((d) => ({
-          type: exigences.find((e) => e.type === d.type)?.name ?? d.type,
-          name: d.name,
-          uploadDate: d.uploadDate,
-          expiryDate: d.expiryDate,
-          storageKey: d.storageKey,
+    const dossier: DossierSousTraitant = {
+      nom: sousTraitant.name,
+      siret: sousTraitant.siret,
+      numeroAutorisation: sousTraitant.numeroAutorisation,
+      adresse: sousTraitant.address,
+      exigences: [
+        ...requiredDocuments.map((d) => ({
+          type: d.type,
+          libelle: d.name,
+          categorie: d.category,
+          obligatoire: true,
         })),
-        piecesManquantes: requiredDocuments
-          .filter((r) => !documents.some((d) => d.type === r.type))
-          .map((r) => r.name),
-      });
-      const notes: string[] = [
-        `Dossier téléchargé : ${resultat.integrees} pièce(s) image intégrée(s) au PDF.`,
-      ];
-      if (resultat.jointsSeparement > 0) {
-        notes.push(
-          `${resultat.jointsSeparement} pièce(s) PDF ou autre format sont listées au récapitulatif mais ne peuvent pas être fusionnées : à joindre séparément (menu Actions > Télécharger).`,
+        ...optionalDocuments.map((d) => ({
+          type: d.type,
+          libelle: d.name,
+          categorie: d.category,
+          obligatoire: false,
+        })),
+      ],
+      pieces: documents.map((d) => ({
+        slot: d.type,
+        name: d.name,
+        uploadDate: d.uploadDate,
+        expiryDate: d.expiryDate,
+        storageKey: d.storageKey,
+      })),
+    };
+    const controleur = new AbortController();
+    dossierAbort.current = controleur;
+    setDossierEnCours(true);
+    setDossierEtape("Préparation…");
+    const options = {
+      onProgress: setDossierEtape,
+      signal: controleur.signal,
+    };
+    try {
+      const detail = (
+        liste: {
+          libelle: string;
+          fichier: string;
+          motif: keyof typeof LIBELLE_MOTIF;
+        }[],
+      ) =>
+        liste.map((n) => `${n.libelle} (${LIBELLE_MOTIF[n.motif]})`).join(", ");
+      if (mode === "complet") {
+        const r = await telechargerDossierComplet(dossier, options);
+        setDossierInfo(
+          `Dossier téléchargé (${r.nomArchive}) : ${r.incluses} pièce(s) incluse(s), ${r.nonIncluses.length} non incluse(s). Le sommaire PDF (00-Sommaire.pdf) est à la racine de l'archive.`,
         );
-      }
-      setDossierInfo(notes.join(" "));
-      if (resultat.illisibles.length > 0) {
-        setDossierErreur(
-          `Pièce(s) non récupérable(s), non intégrée(s) : ${resultat.illisibles.join(", ")}.`,
+        if (r.nonIncluses.length > 0) {
+          setDossierErreur(
+            `Non incluses dans l'archive : ${detail(r.nonIncluses)}. Les pièces trop volumineuses sont à télécharger séparément (menu Actions > Télécharger).`,
+          );
+        }
+      } else {
+        const r = await telechargerSommairePdfSeul(dossier, options);
+        setDossierInfo(
+          `Sommaire PDF téléchargé : ${r.integrees} pièce(s) image en annexe. Ce n'est pas le dossier complet${
+            r.jointsSeparement > 0
+              ? ` : ${r.jointsSeparement} pièce(s) PDF ou autre format n'y figurent pas`
+              : ""
+          } ; utilisez « Télécharger le dossier » pour obtenir toutes les pièces.`,
         );
+        if (r.nonIncluses.length > 0) {
+          setDossierErreur(`Non intégrées au PDF : ${detail(r.nonIncluses)}.`);
+        }
       }
     } catch (e) {
       setDossierErreur(
-        `Échec de la génération du dossier : ${
-          e instanceof Error ? e.message : "erreur inconnue"
-        }`,
+        e instanceof DOMException && e.name === "AbortError"
+          ? "Génération du dossier annulée."
+          : `Échec de la génération du dossier : ${
+              e instanceof Error ? e.message : "erreur inconnue"
+            }`,
       );
     } finally {
+      dossierAbort.current = null;
       setDossierEnCours(false);
+      setDossierEtape("");
     }
   };
 
@@ -1035,11 +1084,12 @@ export default function SousTraitantDetailPage({
                   <FileText className="h-5 w-5" />
                   Documents
                 </CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <Button
                     variant="primary"
-                    onClick={() => void telechargerDossier()}
+                    onClick={() => void lancerDossier("complet")}
                     disabled={dossierEnCours}
+                    title="Archive ZIP : toutes les pièces d'origine (PDF, images, Word, Excel) classées par catégorie + sommaire PDF"
                   >
                     {dossierEnCours ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1047,9 +1097,27 @@ export default function SousTraitantDetailPage({
                       <Download className="h-4 w-4" />
                     )}
                     {dossierEnCours
-                      ? "Génération du dossier…"
+                      ? dossierEtape || "Génération du dossier…"
                       : "Télécharger le dossier"}
                   </Button>
+                  {dossierEnCours ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => dossierAbort.current?.abort()}
+                    >
+                      <X className="h-4 w-4" />
+                      Annuler
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => void lancerDossier("sommaire")}
+                      title="PDF léger : sommaire + pièces image. Ce n'est pas le dossier complet."
+                    >
+                      <FileText className="h-4 w-4" />
+                      Sommaire PDF seul
+                    </Button>
+                  )}
                 </div>
               </div>
               {dossierInfo && (

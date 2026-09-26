@@ -9,22 +9,47 @@ import type {
   Site,
 } from "@safyr/api-client";
 
+import {
+  PDF_BRAND_RGB,
+  PDF_FOOTER_RESERVED_MM,
+  applyPdfFooters,
+  brandedPdfDefaults,
+  drawPdfHeader,
+  loadPdfBranding,
+  pdfTableMargins,
+  type PdfBranding,
+  type PdfHeaderOptions,
+} from "@/lib/pdf-branding";
+
 /**
- * Dossier de candidature de l'entreprise (appels d'offre) : quatre rubriques
+ * Dossier de candidature de l'entreprise (appels d'offre) : cinq rubriques
  * compilées automatiquement à partir des données de l'application.
  *
  * Règle commune : une rubrique sans donnée n'est jamais omise ni source
  * d'erreur, elle affiche « Non renseigné » (ou la liste des pièces attendues)
  * pour que l'utilisateur sache exactement ce qu'il reste à compléter.
+ * Chaque page porte l'en-tête de marque (logo + coordonnées) et le pied de
+ * page de marque (société + article L612-14).
  */
 
-export type Rubrique = "memoire" | "financier" | "references" | "personnel";
+export type Rubrique =
+  | "entreprise"
+  | "memoire"
+  | "financier"
+  | "references"
+  | "personnel";
 
 export const RUBRIQUES: {
   id: Rubrique;
   titre: string;
   description: string;
 }[] = [
+  {
+    id: "entreprise",
+    titre: "Mon entreprise",
+    description:
+      "Identité, coordonnées, représentant légal, autorisation CNAPS et pièces administratives déposées avec leur validité.",
+  },
   {
     id: "memoire",
     titre: "Mémoire technique",
@@ -46,7 +71,7 @@ export const RUBRIQUES: {
     id: "personnel",
     titre: "Dossier du personnel",
     description:
-      "Effectifs et qualifications (SSIAP, CQP APS, cartes professionnelles), données agrégées.",
+      "Liste nominative des salariés actifs : emploi, contrat, embauche, qualifications et cartes professionnelles avec validité.",
   },
 ];
 
@@ -62,13 +87,21 @@ export interface QualificationSalarie {
 }
 
 export interface SalarieDossier {
+  /** « NOM Prénom » : ni date de naissance, ni adresse, ni n° de sécurité sociale. */
   nom: string;
   fonction: string;
   contrat: string;
+  embauche?: string;
   qualifications: QualificationSalarie[];
   cartePro: {
     expiration?: string;
     etat: "valide" | "expiree" | "inconnue";
+  } | null;
+  /** Documents obligatoires ; null quand le dossier du salarié n'a pu être lu. */
+  pieces: {
+    requises: number;
+    presentes: number;
+    manquantes: string[];
   } | null;
 }
 
@@ -79,20 +112,36 @@ export interface PieceFinanciere {
   detail?: string;
 }
 
+/** Pièce administrative de « Mon entreprise » avec son état de dépôt. */
+export interface PieceEntreprise {
+  libelle: string;
+  obligatoire: boolean;
+  statut: "Valide" | "Expire bientôt" | "Expiré" | "Manquant" | "Non déposé";
+  depot?: string;
+  echeance?: string;
+  /** Faux quand la pièce n'a pas de date de validité. */
+  aEcheance: boolean;
+}
+
 export interface DonneesDossier {
   entreprise: {
     nom: string;
+    formeJuridique: string;
     siret: string;
+    siren: string;
     ape: string;
     tva: string;
     capital: string;
     adresse: string;
     email: string;
     telephone: string;
+    telephone2: string;
     agrementCnaps: string;
     dirigeant: string;
     fonctionDirigeant: string;
+    nominationDirigeant?: string;
   } | null;
+  piecesEntreprise: PieceEntreprise[];
   salaries: SalarieDossier[];
   sites: {
     nom: string;
@@ -139,6 +188,8 @@ export interface SourcesDossier {
   tva?: FiscalRecord[];
   cfe?: FiscalRecord[];
   divers?: FiscalRecord[];
+  /** Dossier de conformité de chaque salarié, par identifiant de membre. */
+  piecesSalaries?: Record<string, ComplianceItem[] | undefined>;
 }
 
 const LIBELLES_QUALIFICATIONS: Record<string, string> = {
@@ -160,7 +211,9 @@ const LIBELLES_CONTRATS: Record<string, string> = {
   INTERNSHIP: "Stage",
 };
 
-const texte = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+/** Espaces insécables et fines : absents de la police standard du PDF. */
+const texte = (v: unknown): string =>
+  typeof v === "string" ? v.split(/\s+/).join(" ").trim() : "";
 
 function estPasse(iso?: string | null): boolean {
   if (!iso) return false;
@@ -168,11 +221,29 @@ function estPasse(iso?: string | null): boolean {
   return !Number.isNaN(t) && t < Date.now();
 }
 
-function salarieDossier(e: Employee): SalarieDossier {
-  const nom =
-    `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() ||
-    e.employeeNumber ||
-    "Salarié";
+/** Documents obligatoires présents ; un document expiré compte comme manquant. */
+function piecesSalarie(
+  items: ComplianceItem[] | undefined,
+): SalarieDossier["pieces"] {
+  if (!items) return null;
+  const requises = items.filter((i) => i.requirement.isRequired);
+  const manquantes = requises
+    .filter((i) => !i.document || i.status === "expired")
+    .map((i) => i.requirement.name);
+  return {
+    requises: requises.length,
+    presentes: requises.length - manquantes.length,
+    manquantes,
+  };
+}
+
+function salarieDossier(
+  e: Employee,
+  items: ComplianceItem[] | undefined,
+): SalarieDossier {
+  const prenom = texte(e.firstName);
+  const patronyme = texte(e.lastName).toUpperCase();
+  const nom = `${patronyme} ${prenom}`.trim() || e.employeeNumber || "Salarié";
 
   // La visite médicale relève de la santé du salarié : elle n'a aucune
   // utilité dans un dossier de candidature et n'est donc jamais reprise.
@@ -202,8 +273,10 @@ function salarieDossier(e: Employee): SalarieDossier {
     nom,
     fonction: texte(e.position),
     contrat: LIBELLES_CONTRATS[e.contractType ?? ""] ?? texte(e.contractType),
+    embauche: e.hireDate || undefined,
     qualifications,
     cartePro,
+    pieces: piecesSalarie(items),
   };
 }
 
@@ -222,6 +295,43 @@ function statutPiece(item: ComplianceItem | undefined): PieceFinanciere {
   return { libelle, statut: "Fournie", echeance };
 }
 
+/**
+ * La fiche « Mon entreprise » n'a pas de champ forme juridique : on la déduit
+ * de la raison sociale (« ... SARL », « ... SAS »), sinon on ne devine rien.
+ */
+function formeJuridique(nom: string): string {
+  const m = /\b(SASU|SAS|SARL|EURL|SCOP|SNC|SCI|SELARL|SA)\b/i.exec(nom);
+  return m ? m[1].toUpperCase() : "";
+}
+
+/** Capital saisi à la main (« 5000 », « 5 000 € ») : on n'affiche que des euros. */
+function capitalLisible(brut: string): string {
+  if (!brut) return "";
+  if (/^[\d\s.,]+$/.test(brut)) {
+    const n = Number(brut.replace(/\s/g, "").replace(",", "."));
+    if (Number.isFinite(n)) return `${nombre(n)} EUR`;
+  }
+  return brut.replace("€", "EUR");
+}
+
+function pieceEntreprise(item: ComplianceItem): PieceEntreprise {
+  const doc = item.document;
+  const aEcheance = item.requirement.hasExpiry;
+  let statut: PieceEntreprise["statut"];
+  if (!doc) statut = item.requirement.isRequired ? "Manquant" : "Non déposé";
+  else if (item.status === "expired") statut = "Expiré";
+  else if (item.status === "expiring") statut = "Expire bientôt";
+  else statut = "Valide";
+  return {
+    libelle: item.requirement.name,
+    obligatoire: item.requirement.isRequired,
+    statut,
+    depot: doc?.createdAt?.slice(0, 10),
+    echeance: aEcheance ? doc?.expiryDate?.slice(0, 10) : undefined,
+    aEcheance,
+  };
+}
+
 /** Dernière période (AAAA-MM ou AAAA) d'un registre, pour l'affichage. */
 function dernierePeriode(lignes: FiscalRecord[]): string | undefined {
   return lignes.map((l) => l.period).sort((a, b) => b.localeCompare(a))[0];
@@ -233,7 +343,8 @@ export function construireDonnees(src: SourcesDossier): DonneesDossier {
 
   const salaries = (src.salaries ?? [])
     .filter((e) => e.status === "active")
-    .map(salarieDossier);
+    .map((e) => salarieDossier(e, src.piecesSalaries?.[e.id]))
+    .sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
 
   const clientsParId = new Map((src.clients ?? []).map((c) => [c.id, c]));
 
@@ -326,20 +437,25 @@ export function construireDonnees(src: SourcesDossier): DonneesDossier {
     entreprise: org
       ? {
           nom: texte(org.name),
+          formeJuridique: formeJuridique(texte(org.name)),
           siret: texte(org.siret),
+          siren: texte(org.siret).replace(/\D/g, "").slice(0, 9),
           ape: texte(org.ape),
           tva: texte(org.numTVA),
-          capital: texte(org.shareCapital),
+          capital: capitalLisible(texte(org.shareCapital)),
           adresse: texte(org.address),
           email: texte(org.email),
           telephone: texte(org.phone),
+          telephone2: texte(org.phone2),
           agrementCnaps: texte(org.authorizationNumber),
           dirigeant: dirigeant
             ? `${texte(dirigeant.firstName)} ${texte(dirigeant.lastName)}`.trim()
             : "",
           fonctionDirigeant: texte(dirigeant?.position),
+          nominationDirigeant: dirigeant?.appointmentDate || undefined,
         }
       : null,
+    piecesEntreprise: conformite.map(pieceEntreprise),
     salaries,
     sites: (src.sites ?? []).map((s) => ({
       nom: s.name,
@@ -449,7 +565,21 @@ export function agregerPersonnel(d: DonneesDossier): AgregatPersonnel {
 export function manquesRubrique(d: DonneesDossier, r: Rubrique): string[] {
   const manques: string[] = [];
   const e = d.entreprise;
-  if (r === "memoire") {
+  if (r === "entreprise") {
+    if (!e) return ["Informations de l'entreprise"];
+    if (!e.siret) manques.push("SIRET");
+    if (!e.adresse) manques.push("Adresse");
+    if (!e.agrementCnaps) manques.push("Autorisation CNAPS");
+    if (!e.dirigeant) manques.push("Représentant légal");
+    for (const p of d.piecesEntreprise) {
+      if (
+        p.obligatoire &&
+        p.statut !== "Valide" &&
+        p.statut !== "Expire bientôt"
+      )
+        manques.push(`${p.libelle} (${p.statut.toLowerCase()})`);
+    }
+  } else if (r === "memoire") {
     if (!e) return ["Informations de l'entreprise"];
     if (!e.siret) manques.push("SIRET");
     if (!e.adresse) manques.push("Adresse");
@@ -471,6 +601,10 @@ export function manquesRubrique(d: DonneesDossier, r: Rubrique): string[] {
       const ag = agregerPersonnel(d);
       if (ag.parQualification.length === 0) manques.push("Qualifications");
       if (ag.cartes.total === 0) manques.push("Cartes professionnelles");
+      if (ag.cartes.expirees > 0)
+        manques.push(
+          `${ag.cartes.expirees} carte(s) professionnelle(s) expirée(s)`,
+        );
     }
   }
   return manques;
@@ -500,41 +634,61 @@ const valeur = (s?: string | null) =>
 interface Ctx {
   doc: jsPDF;
   autoTable: typeof import("jspdf-autotable").default;
+  branding: PdfBranding;
+  /** En-tête répété sur chaque page (posé par `applyPdfFooters`). */
+  header: PdfHeaderOptions;
   y: number;
   marge: number;
   largeur: number;
   hauteur: number;
+  /** Y où commence le contenu sur une page qui n'est pas la première. */
+  debutPage: number;
 }
 
-const BAS_DE_PAGE = 18;
+function limiteBas(ctx: Ctx): number {
+  return ctx.hauteur - PDF_FOOTER_RESERVED_MM;
+}
 
 function nouvellePage(ctx: Ctx) {
   ctx.doc.addPage();
-  ctx.y = 20;
+  ctx.y = ctx.debutPage;
 }
 
 function assurerPlace(ctx: Ctx, hauteurNecessaire: number) {
-  if (ctx.y + hauteurNecessaire > ctx.hauteur - BAS_DE_PAGE) nouvellePage(ctx);
+  if (ctx.y + hauteurNecessaire > limiteBas(ctx)) nouvellePage(ctx);
 }
 
+function marges(ctx: Ctx) {
+  return pdfTableMargins(ctx.branding, { header: ctx.header });
+}
+
+/** Bandeau de rubrique (dossier complet) : une rubrique par page. */
 function titreRubrique(ctx: Ctx, titre: string) {
-  ctx.doc.setFillColor(15, 23, 42);
-  ctx.doc.rect(0, ctx.y - 8, ctx.largeur, 16, "F");
+  ctx.doc.setFillColor(...PDF_BRAND_RGB);
+  ctx.doc.roundedRect(
+    ctx.marge,
+    ctx.y - 6.5,
+    ctx.largeur - 2 * ctx.marge,
+    10,
+    1.5,
+    1.5,
+    "F",
+  );
   ctx.doc.setTextColor(255, 255, 255);
   ctx.doc.setFont("helvetica", "bold");
-  ctx.doc.setFontSize(16);
-  ctx.doc.text(titre, ctx.marge, ctx.y + 2);
+  ctx.doc.setFontSize(13);
+  ctx.doc.text(titre, ctx.marge + 4, ctx.y + 0.2);
   ctx.doc.setTextColor(15, 23, 42);
-  ctx.y += 18;
+  ctx.y += 12;
 }
 
 function sousTitre(ctx: Ctx, titre: string) {
   assurerPlace(ctx, 22);
   ctx.doc.setTextColor(15, 23, 42);
   ctx.doc.setFont("helvetica", "bold");
-  ctx.doc.setFontSize(12);
+  ctx.doc.setFontSize(11.5);
   ctx.doc.text(titre, ctx.marge, ctx.y);
-  ctx.doc.setDrawColor(34, 211, 238);
+  ctx.doc.setDrawColor(...PDF_BRAND_RGB);
   ctx.doc.setLineWidth(0.6);
   ctx.doc.line(ctx.marge, ctx.y + 1.5, ctx.marge + 30, ctx.y + 1.5);
   ctx.y += 7;
@@ -542,15 +696,15 @@ function sousTitre(ctx: Ctx, titre: string) {
 
 function paragraphe(ctx: Ctx, contenu: string, italique = false) {
   ctx.doc.setFont("helvetica", italique ? "italic" : "normal");
-  ctx.doc.setFontSize(10);
+  ctx.doc.setFontSize(9.5);
   ctx.doc.setTextColor(51, 65, 85);
   const lignes = ctx.doc.splitTextToSize(
     contenu,
     ctx.largeur - 2 * ctx.marge,
   ) as string[];
-  assurerPlace(ctx, lignes.length * 5 + 2);
+  assurerPlace(ctx, lignes.length * 4.8 + 2);
   ctx.doc.text(lignes, ctx.marge, ctx.y);
-  ctx.y += lignes.length * 5 + 2;
+  ctx.y += lignes.length * 4.8 + 2;
 }
 
 function finTableau(ctx: Ctx) {
@@ -559,24 +713,31 @@ function finTableau(ctx: Ctx) {
       .finalY + 8;
 }
 
+type Cellule = string | { content: string; styles: Record<string, unknown> };
+
 function tableau(
   ctx: Ctx,
   entetes: string[],
-  corps: string[][],
+  corps: Cellule[][],
   largeurs?: Record<number, number>,
+  options: { petit?: boolean } = {},
 ) {
   ctx.autoTable(ctx.doc, {
+    ...brandedPdfDefaults,
+    styles: {
+      ...brandedPdfDefaults.styles,
+      fontSize: options.petit ? 7.5 : 8.5,
+      cellPadding: options.petit ? 1.6 : 2,
+      valign: "middle",
+    },
     startY: ctx.y,
     head: [entetes],
+    rowPageBreak: "avoid",
     body: corps,
-    theme: "striped",
-    headStyles: { fillColor: [30, 41, 59], textColor: 255, fontSize: 9 },
-    styles: { fontSize: 9, cellPadding: 2, textColor: [30, 41, 59] },
-    alternateRowStyles: { fillColor: [241, 245, 249] },
     columnStyles: Object.fromEntries(
       Object.entries(largeurs ?? {}).map(([i, w]) => [i, { cellWidth: w }]),
     ),
-    margin: { left: ctx.marge, right: ctx.marge, bottom: BAS_DE_PAGE },
+    margin: marges(ctx),
   });
   finTableau(ctx);
 }
@@ -586,76 +747,101 @@ function cleValeur(ctx: Ctx, lignes: [string, string][]) {
     startY: ctx.y,
     body: lignes,
     theme: "plain",
-    styles: { fontSize: 10, cellPadding: 1.8, textColor: [30, 41, 59] },
+    styles: { fontSize: 9.5, cellPadding: 1.8, textColor: [30, 41, 59] },
     columnStyles: {
       0: { fontStyle: "bold", cellWidth: 55, textColor: [71, 85, 105] },
     },
-    margin: { left: ctx.marge, right: ctx.marge, bottom: BAS_DE_PAGE },
+    margin: marges(ctx),
   });
   finTableau(ctx);
+}
+
+/** Rangée de pastilles chiffrées (effectif, cartes valides...). */
+function indicateurs(ctx: Ctx, items: [string, string][]) {
+  const gouttiere = 3;
+  const utile = ctx.largeur - 2 * ctx.marge;
+  const largeur = (utile - gouttiere * (items.length - 1)) / items.length;
+  const hauteur = 17;
+  assurerPlace(ctx, hauteur + 6);
+  items.forEach(([libelle, valeurTexte], i) => {
+    const x = ctx.marge + i * (largeur + gouttiere);
+    ctx.doc.setFillColor(240, 249, 251);
+    ctx.doc.setDrawColor(186, 230, 240);
+    ctx.doc.setLineWidth(0.25);
+    ctx.doc.roundedRect(x, ctx.y, largeur, hauteur, 1.5, 1.5, "FD");
+    ctx.doc.setFont("helvetica", "bold");
+    ctx.doc.setFontSize(15);
+    ctx.doc.setTextColor(...PDF_BRAND_RGB);
+    ctx.doc.text(valeurTexte, x + largeur / 2, ctx.y + 8, { align: "center" });
+    ctx.doc.setFont("helvetica", "normal");
+    ctx.doc.setFontSize(7.5);
+    ctx.doc.setTextColor(71, 85, 105);
+    const lignes = ctx.doc.splitTextToSize(libelle, largeur - 4) as string[];
+    ctx.doc.text(lignes.slice(0, 2), x + largeur / 2, ctx.y + 12.2, {
+      align: "center",
+    });
+  });
+  ctx.doc.setTextColor(15, 23, 42);
+  ctx.y += hauteur + 6;
 }
 
 function absent(ctx: Ctx, message: string) {
   paragraphe(ctx, `${NON_RENSEIGNE} : ${message}`, true);
 }
 
-async function creerContexte(): Promise<Ctx> {
+const VERT: [number, number, number] = [21, 128, 61];
+const ROUGE: [number, number, number] = [185, 28, 28];
+const AMBRE: [number, number, number] = [180, 83, 9];
+const GRIS: [number, number, number] = [100, 116, 139];
+
+/** Cellule colorée (statut) : le texte reste lisible en noir et blanc. */
+function statut(contenu: string, couleur: [number, number, number]): Cellule {
+  return {
+    content: contenu,
+    styles: { textColor: couleur, fontStyle: "bold" },
+  };
+}
+
+const HAUT_CONTEXTE = 4;
+
+async function creerContexte(
+  titre: string,
+  branding?: PdfBranding,
+): Promise<Ctx> {
   const [{ default: JsPDF }, { default: autoTable }] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
   ]);
+  // loadPdfBranding ne rejette jamais : sans société, l'en-tête reste valable.
+  const marque = branding ?? (await loadPdfBranding());
   const doc = new JsPDF({ unit: "mm", format: "a4", compress: true });
+  const header: PdfHeaderOptions = {
+    title: titre.toUpperCase(),
+    subtitle: `Document généré le ${new Date().toLocaleDateString("fr-FR")} à partir des données de l'application - à relire avant transmission`,
+  };
+  const debut = drawPdfHeader(doc, marque, header);
   return {
     doc,
     autoTable,
-    y: 20,
-    marge: 15,
+    branding: marque,
+    header,
+    y: debut + HAUT_CONTEXTE,
+    marge: 14,
     largeur: doc.internal.pageSize.getWidth(),
     hauteur: doc.internal.pageSize.getHeight(),
+    debutPage: pdfTableMargins(marque, { header }).top + HAUT_CONTEXTE,
   };
 }
 
-function enTete(ctx: Ctx, titre: string, d: DonneesDossier) {
-  const { doc } = ctx;
-  doc.setFillColor(15, 23, 42);
-  doc.rect(0, 0, ctx.largeur, 46, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.text(titre, ctx.marge, 22);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(12);
-  doc.setTextColor(34, 211, 238);
-  doc.text(valeur(d.entreprise?.nom), ctx.marge, 32);
-  doc.setFontSize(9);
-  doc.setTextColor(203, 213, 225);
-  doc.text(
-    `Généré le ${new Date().toLocaleDateString("fr-FR")} à partir des données de l'application - à relire avant transmission`,
-    ctx.marge,
-    40,
-  );
-  ctx.y = 58;
-}
-
-function piedsDePage(ctx: Ctx, d: DonneesDossier) {
-  const total = ctx.doc.getNumberOfPages();
-  for (let i = 1; i <= total; i++) {
-    ctx.doc.setPage(i);
-    ctx.doc.setFont("helvetica", "normal");
-    ctx.doc.setFontSize(8);
-    ctx.doc.setTextColor(100, 116, 139);
-    ctx.doc.text(
-      `${valeur(d.entreprise?.nom)} - Dossier de candidature`,
-      ctx.marge,
-      ctx.hauteur - 8,
-    );
-    ctx.doc.text(
-      `Page ${i} / ${total}`,
-      ctx.largeur - ctx.marge,
-      ctx.hauteur - 8,
-      { align: "right" },
-    );
-  }
+/** À appeler une seule fois, après tout le contenu. */
+function finaliser(ctx: Ctx, prefixe: string, d: DonneesDossier): PdfGenere {
+  applyPdfFooters(ctx.doc, ctx.branding, {
+    header: { ...ctx.header, skipFirstPage: true },
+  });
+  return {
+    blob: ctx.doc.output("blob"),
+    nomFichier: nomFichier(prefixe, d),
+  };
 }
 
 // ── Rubriques ───────────────────────────────────────────────────────────
@@ -925,29 +1111,38 @@ function rubriqueReferences(ctx: Ctx, d: DonneesDossier) {
 function rubriquePersonnel(ctx: Ctx, d: DonneesDossier) {
   const ag = agregerPersonnel(d);
 
-  sousTitre(ctx, "1. Effectifs");
+  sousTitre(ctx, "1. Synthèse des effectifs");
   if (ag.effectif === 0) {
     absent(ctx, "aucun salarié actif enregistré.");
     return;
   }
+  const avecPieces = d.salaries.filter((s) => s.pieces);
+  indicateurs(ctx, [
+    ["Salariés actifs", String(ag.effectif)],
+    [
+      "Cartes professionnelles valides",
+      `${ag.cartes.valides} / ${ag.effectif}`,
+    ],
+    [
+      "Salariés qualifiés (SSIAP, SST, H0B0...)",
+      String(d.salaries.filter((s) => s.qualifications.length > 0).length),
+    ],
+    [
+      "Dossiers administratifs complets",
+      avecPieces.length > 0
+        ? `${avecPieces.filter((s) => s.pieces!.manquantes.length === 0).length} / ${avecPieces.length}`
+        : "n.c.",
+    ],
+  ]);
   cleValeur(ctx, [
-    ["Effectif actif", String(ag.effectif)],
     [
       "Par type de contrat",
       ag.parContrat.map(([c, n]) => `${c} : ${n}`).join(" - "),
     ],
+    ["Par emploi", ag.parFonction.map(([f, n]) => `${f} : ${n}`).join(" - ")],
   ]);
-  tableau(
-    ctx,
-    ["Fonction", "Effectif"],
-    ag.parFonction.map(([f, n]) => [f, String(n)]),
-    { 1: 30 },
-  );
 
-  sousTitre(ctx, "2. Qualifications (données agrégées)");
-  if (ag.parQualification.length === 0) {
-    absent(ctx, "aucune qualification (SSIAP, CQP APS, SST...) enregistrée.");
-  } else {
+  if (ag.parQualification.length > 0) {
     tableau(
       ctx,
       ["Qualification", "Salariés", "Valides", "Expirées"],
@@ -955,71 +1150,172 @@ function rubriquePersonnel(ctx: Ctx, d: DonneesDossier) {
         q.libelle,
         String(q.total),
         String(q.valides),
-        String(q.expirees),
+        q.expirees > 0 ? statut(String(q.expirees), ROUGE) : "0",
       ]),
       { 1: 26, 2: 26, 3: 26 },
     );
   }
 
-  sousTitre(ctx, "3. Cartes professionnelles CNAPS");
-  if (ag.cartes.total === 0) {
-    absent(ctx, "aucune carte professionnelle enregistrée.");
-  } else {
-    cleValeur(ctx, [
-      ["Salariés titulaires", `${ag.cartes.total} sur ${ag.effectif}`],
-      ["En cours de validité", String(ag.cartes.valides)],
-      ["Expirées", String(ag.cartes.expirees)],
-      ["Échéance non renseignée", String(ag.cartes.inconnues)],
-    ]);
-  }
-
-  sousTitre(ctx, "4. Personnel qualifié");
-  const utiles = d.salaries
-    .filter((s) => s.qualifications.length > 0 || s.cartePro)
-    .sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
-  if (utiles.length === 0) {
-    absent(ctx, "aucun salarié avec qualification ou carte professionnelle.");
-  } else {
-    tableau(
-      ctx,
-      ["Nom", "Fonction", "Qualifications", "Carte professionnelle"],
-      utiles.map((s) => [
-        s.nom,
-        s.fonction || NON_RENSEIGNE,
-        s.qualifications.length > 0
-          ? s.qualifications
+  sousTitre(ctx, "2. Liste nominative du personnel");
+  tableau(
+    ctx,
+    [
+      "Salarié",
+      "Emploi",
+      "Contrat",
+      "Embauche",
+      "Qualifications",
+      "Carte pro. CNAPS",
+      "Pièces obligatoires",
+    ],
+    d.salaries.map((s) => [
+      s.nom,
+      s.fonction || NON_RENSEIGNE,
+      s.contrat || NON_RENSEIGNE,
+      s.embauche ? dateFr(s.embauche) : NON_RENSEIGNE,
+      s.qualifications.length > 0
+        ? {
+            content: s.qualifications
               .map(
                 (q) =>
                   `${q.libelle}${q.expiration ? ` (${q.valide ? "jusqu'au" : "expirée le"} ${dateFr(q.expiration)})` : ""}`,
               )
-              .join("\n")
-          : NON_RENSEIGNE,
-        !s.cartePro
-          ? NON_RENSEIGNE
-          : s.cartePro.etat === "inconnue"
-            ? "Validité non renseignée"
-            : `${s.cartePro.etat === "valide" ? "Valide jusqu'au" : "Expirée le"} ${dateFr(s.cartePro.expiration)}`,
-      ]),
-      { 3: 42 },
-    );
-    paragraphe(
-      ctx,
-      "Aucune donnée personnelle sensible (adresse, état civil, numéro de sécurité sociale, aptitude médicale) n'est reprise dans ce document.",
-      true,
-    );
+              .join("\n"),
+            styles: s.qualifications.some((q) => !q.valide)
+              ? { textColor: AMBRE }
+              : {},
+          }
+        : "Aucune",
+      !s.cartePro
+        ? statut("Aucune", GRIS)
+        : s.cartePro.etat === "inconnue"
+          ? statut("Validité non renseignée", AMBRE)
+          : s.cartePro.etat === "valide"
+            ? statut(`Valide jusqu'au ${dateFr(s.cartePro.expiration)}`, VERT)
+            : statut(`Expirée le ${dateFr(s.cartePro.expiration)}`, ROUGE),
+      !s.pieces
+        ? statut("Non disponible", GRIS)
+        : s.pieces.manquantes.length === 0
+          ? statut(
+              s.pieces.requises > 0
+                ? `Complet (${s.pieces.presentes} / ${s.pieces.requises})`
+                : "Aucune exigée",
+              VERT,
+            )
+          : statut(
+              `${s.pieces.presentes} / ${s.pieces.requises}\nManque : ${s.pieces.manquantes.slice(0, 2).join(", ")}${s.pieces.manquantes.length > 2 ? ` (+${s.pieces.manquantes.length - 2})` : ""}`,
+              AMBRE,
+            ),
+    ]),
+    { 0: 28, 1: 24, 2: 14, 3: 18, 4: 42, 5: 24, 6: 32 },
+    { petit: true },
+  );
+  paragraphe(
+    ctx,
+    "Seuls les salariés actifs figurent dans ce dossier. Aucune donnée personnelle sensible (adresse, date de naissance, numéro de sécurité sociale, aptitude médicale) n'y est reprise.",
+    true,
+  );
+}
+
+function rubriqueEntreprise(ctx: Ctx, d: DonneesDossier) {
+  const e = d.entreprise;
+
+  sousTitre(ctx, "1. Identité de l'entreprise");
+  if (!e) {
+    absent(ctx, "les informations de l'entreprise ne sont pas disponibles.");
+  } else {
+    cleValeur(ctx, [
+      ["Raison sociale", valeur(e.nom)],
+      ["Forme juridique", valeur(e.formeJuridique)],
+      ["Capital social", valeur(e.capital)],
+      ["SIRET", valeur(e.siret)],
+      ["SIREN", valeur(e.siren)],
+      ["Code APE / NAF", valeur(e.ape)],
+      ["N° TVA intracommunautaire", valeur(e.tva)],
+      ["N° d'autorisation CNAPS", valeur(e.agrementCnaps)],
+    ]);
+
+    sousTitre(ctx, "2. Coordonnées");
+    cleValeur(ctx, [
+      ["Adresse du siège", valeur(e.adresse)],
+      ["E-mail", valeur(e.email)],
+      ["Téléphone", valeur(e.telephone)],
+      ...(e.telephone2
+        ? ([["Téléphone (2e numéro)", e.telephone2]] as [string, string][])
+        : []),
+    ]);
+
+    sousTitre(ctx, "3. Représentant légal");
+    cleValeur(ctx, [
+      ["Nom et prénom", valeur(e.dirigeant)],
+      ["Fonction", valeur(e.fonctionDirigeant)],
+      [
+        "Date de nomination",
+        e.nominationDirigeant ? dateFr(e.nominationDirigeant) : NON_RENSEIGNE,
+      ],
+    ]);
   }
+
+  sousTitre(ctx, "4. Documents administratifs déposés");
+  const pieces = d.piecesEntreprise;
+  if (pieces.length === 0) {
+    absent(ctx, "aucune pièce administrative n'est paramétrée.");
+    return;
+  }
+  const deposees = pieces.filter((p) => p.depot !== undefined).length;
+  const requisManquants = pieces.filter(
+    (p) =>
+      p.obligatoire && p.statut !== "Valide" && p.statut !== "Expire bientôt",
+  ).length;
+  indicateurs(ctx, [
+    ["Pièces déposées", `${deposees} / ${pieces.length}`],
+    ["Pièces obligatoires à fournir", String(requisManquants)],
+    [
+      "Pièces expirées ou à renouveler",
+      String(
+        pieces.filter(
+          (p) => p.statut === "Expiré" || p.statut === "Expire bientôt",
+        ).length,
+      ),
+    ],
+  ]);
+  const couleurs = {
+    Valide: VERT,
+    "Expire bientôt": AMBRE,
+    Expiré: ROUGE,
+    Manquant: ROUGE,
+    "Non déposé": GRIS,
+  } as const;
+  tableau(
+    ctx,
+    ["Document", "Exigence", "Statut", "Déposé le", "Valable jusqu'au"],
+    pieces.map((p) => [
+      p.libelle,
+      p.obligatoire ? "Obligatoire" : "Facultatif",
+      statut(p.statut, couleurs[p.statut]),
+      p.depot ? dateFr(p.depot) : "-",
+      !p.aEcheance ? "Sans échéance" : p.echeance ? dateFr(p.echeance) : "-",
+    ]),
+    { 1: 26, 2: 28, 3: 24, 4: 30 },
+  );
 }
 
 const RENDU: Record<Rubrique, (ctx: Ctx, d: DonneesDossier) => void> = {
+  entreprise: rubriqueEntreprise,
   memoire: rubriqueMemoire,
   financier: rubriqueFinancier,
   references: rubriqueReferences,
   personnel: rubriquePersonnel,
 };
 
-function titreDe(r: Rubrique): string {
-  return RUBRIQUES.find((x) => x.id === r)!.titre;
-}
+/** Titre du PDF de chaque rubrique (le plus proche du libellé du client). */
+const TITRES_PDF: Record<Rubrique, string> = {
+  entreprise: "Dossier de mon entreprise",
+  memoire: "Mémoire technique",
+  financier: "Documents financiers",
+  references: "Références professionnelles",
+  personnel: "Dossier du personnel",
+};
 
 function nomFichier(prefixe: string, d: DonneesDossier): string {
   const societe = (d.entreprise?.nom || "entreprise")
@@ -1033,24 +1329,29 @@ function nomFichier(prefixe: string, d: DonneesDossier): string {
 
 // ── Points d'entrée ────────────────────────────────────────────────────
 
-/** Génère et télécharge le PDF d'une rubrique. */
-export async function genererRubriquePdf(
-  rubrique: Rubrique,
-  d: DonneesDossier,
-): Promise<void> {
-  const ctx = await creerContexte();
-  enTete(ctx, titreDe(rubrique), d);
-  RENDU[rubrique](ctx, d);
-  piedsDePage(ctx, d);
-  ctx.doc.save(nomFichier(rubrique, d));
+/** PDF prêt à être téléchargé ou déposé dans le stockage. */
+export interface PdfGenere {
+  blob: Blob;
+  nomFichier: string;
 }
 
-/** Génère un PDF unique réunissant les quatre rubriques. */
-export async function genererDossierCompletPdf(
+/** Génère le PDF d'une rubrique (sans le télécharger). */
+export async function construireRubriquePdf(
+  rubrique: Rubrique,
   d: DonneesDossier,
-): Promise<void> {
-  const ctx = await creerContexte();
-  enTete(ctx, "Dossier de candidature", d);
+  branding?: PdfBranding,
+): Promise<PdfGenere> {
+  const ctx = await creerContexte(TITRES_PDF[rubrique], branding);
+  RENDU[rubrique](ctx, d);
+  return finaliser(ctx, rubrique, d);
+}
+
+/** Génère un PDF unique réunissant toutes les rubriques. */
+export async function construireDossierCompletPdf(
+  d: DonneesDossier,
+  branding?: PdfBranding,
+): Promise<PdfGenere> {
+  const ctx = await creerContexte("Dossier de candidature", branding);
   sousTitre(ctx, "Sommaire");
   RUBRIQUES.forEach((r, i) => {
     const manques = manquesRubrique(d, r.id);
@@ -1064,6 +1365,29 @@ export async function genererDossierCompletPdf(
     titreRubrique(ctx, r.titre);
     RENDU[r.id](ctx, d);
   }
-  piedsDePage(ctx, d);
-  ctx.doc.save(nomFichier("dossier-candidature", d));
+  return finaliser(ctx, "dossier-candidature", d);
+}
+
+/** Transforme le PDF en fichier, pour le rattacher à un document. */
+export function pdfEnFichier(pdf: PdfGenere): File {
+  return new File([pdf.blob], pdf.nomFichier, { type: "application/pdf" });
+}
+
+/**
+ * Télécharge le PDF : Blob + lien <a download> cliqué directement, sans
+ * window.open (Safari bloque toute ouverture qui suit un await).
+ */
+export function telechargerPdf(pdf: PdfGenere): void {
+  const url = URL.createObjectURL(pdf.blob);
+  const lien = document.createElement("a");
+  lien.href = url;
+  lien.download = pdf.nomFichier;
+  lien.rel = "noopener";
+  lien.style.display = "none";
+  // Rattaché au document : Safari ignore le clic d'un lien orphelin.
+  document.body.appendChild(lien);
+  lien.click();
+  lien.remove();
+  // Libération différée : Safari lit le Blob après le retour du clic.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

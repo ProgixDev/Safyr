@@ -40,9 +40,9 @@ import {
   useUpdateAnyPayrollVariable,
   useParametresPaie,
   useHeuresPaie,
-  cleMontantPrime,
 } from "@/hooks/payroll";
 import { PrimeLinesEditor } from "@/components/payroll/PrimeLinesEditor";
+import { ParametresPrimesDialog } from "@/components/payroll/ParametresPrimesDialog";
 import {
   PRIMES,
   arrondi2,
@@ -52,11 +52,9 @@ import {
   ligneDepuisVariable,
   ligneVide,
   libelleVariable,
-  lireNombre,
   montantEuros,
   primeParId,
   totalLigne,
-  versSaisie,
   type LignePrime,
   type PrimeId,
 } from "@/lib/payroll-primes";
@@ -251,9 +249,6 @@ export default function PayrollVariablesPage() {
   const parametres = useParametresPaie(anneeForm);
   const parametresCourants = useParametresPaie(Number(depart.annee));
   const [paramModalOpen, setParamModalOpen] = useState(false);
-  const [paramAnneeEdition, setParamAnneeEdition] = useState(depart.annee);
-  const [paramSaisies, setParamSaisies] = useState<Record<string, string>>({});
-  const parametresEdition = useParametresPaie(Number(paramAnneeEdition));
 
   const salarieForm = trouverSalarie(form.employeeId);
   const heuresPaie = useHeuresPaie({
@@ -264,6 +259,8 @@ export default function PayrollVariablesPage() {
   });
   const droitHabillage = salarieForm ? salarieForm.droitHabillage : null;
   const heuresAutoEffectives = droitHabillage === false ? 0 : heuresPaie.heures;
+  // Majoration dimanche / fériés : uniquement les heures du Relevé des heures.
+  const heuresMajoration = heuresPaie.heuresDimancheFerie;
 
   // Ferme la liste des salariés au clic à l'extérieur.
   useEffect(() => {
@@ -319,6 +316,7 @@ export default function PayrollVariablesPage() {
       ligneVide(
         "nbre_paniers",
         parametresCourants.montantPrime("nbre_paniers"),
+        parametresCourants.montantPrime,
       ),
     ]);
     setIsVariableModalOpen(true);
@@ -337,7 +335,11 @@ export default function PayrollVariablesPage() {
     });
     setLignes(
       aModifier.map((v) =>
-        ligneDepuisVariable(v, parametresCourants.montantPrime(v.type)),
+        ligneDepuisVariable(
+          v,
+          parametresCourants.montantPrime(v.type),
+          parametresCourants.montantPrime,
+        ),
       ),
     );
     setCibles(aModifier);
@@ -364,8 +366,12 @@ export default function PayrollVariablesPage() {
       const conservees = new Set<string>();
       const operations: Promise<unknown>[] = [];
       for (const ligne of lignes) {
-        const total = totalLigne(ligne, heuresAutoEffectives);
-        const description = encoderDescription(ligne, heuresAutoEffectives);
+        const total = totalLigne(ligne, heuresAutoEffectives, heuresMajoration);
+        const description = encoderDescription(
+          ligne,
+          heuresAutoEffectives,
+          heuresMajoration,
+        );
         if (ligne.recordId) {
           conservees.add(ligne.recordId);
           operations.push(
@@ -412,29 +418,6 @@ export default function PayrollVariablesPage() {
     }
     setEnregistrement(false);
     fermerFormulaire();
-  };
-
-  const ouvrirParametres = () => {
-    setParamAnneeEdition(depart.annee);
-    setParamSaisies({});
-    setParamModalOpen(true);
-  };
-
-  const enregistrerParametres = async () => {
-    const valeurs: Record<string, number> = {};
-    for (const [id, saisie] of Object.entries(paramSaisies)) {
-      valeurs[cleMontantPrime(id)] = arrondi2(lireNombre(saisie));
-    }
-    try {
-      if (Object.keys(valeurs).length > 0) {
-        await parametresEdition.enregistrer(valeurs);
-      }
-      setParamModalOpen(false);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Erreur inconnue";
-      alert(`Échec de l'enregistrement des paramètres : ${message}`);
-    }
   };
 
   const filteredEmployees = salariesProposes.filter((s) =>
@@ -706,8 +689,6 @@ export default function PayrollVariablesPage() {
     },
   ];
 
-  const anneeParam = paramAnneeEdition;
-
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
@@ -723,7 +704,7 @@ export default function PayrollVariablesPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={ouvrirParametres}
+            onClick={() => setParamModalOpen(true)}
             className="gap-2"
           >
             <Settings className="h-4 w-4" />
@@ -737,8 +718,9 @@ export default function PayrollVariablesPage() {
       </div>
 
       {/* Stats Cards */}
-      <InfoCardContainer>
+      <InfoCardContainer className="grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5">
         <InfoCard
+          compact
           icon={Euro}
           title="Total déclarations"
           value={filteredVariables.length}
@@ -747,6 +729,7 @@ export default function PayrollVariablesPage() {
         />
 
         <InfoCard
+          compact
           icon={Clock}
           title="En attente de validation"
           value={filteredVariables.filter((v) => v.status === "pending").length}
@@ -755,6 +738,7 @@ export default function PayrollVariablesPage() {
         />
 
         <InfoCard
+          compact
           icon={Euro}
           title="Montant total"
           value={formaterEuros(totalMontant)}
@@ -763,6 +747,7 @@ export default function PayrollVariablesPage() {
         />
 
         <InfoCard
+          compact
           icon={Shirt}
           title="Indemnités habillage"
           value={formaterEuros(totalHabillage)}
@@ -771,6 +756,7 @@ export default function PayrollVariablesPage() {
         />
 
         <InfoCard
+          compact
           icon={CheckCircle}
           title="Taux de validation"
           value={`${
@@ -1149,7 +1135,9 @@ export default function PayrollVariablesPage() {
               enregistrement ||
               !(salarieForm || cibles.length > 0) ||
               !lignes.some(
-                (l) => l.recordId || totalLigne(l, heuresAutoEffectives) > 0,
+                (l) =>
+                  l.recordId ||
+                  totalLigne(l, heuresAutoEffectives, heuresMajoration) > 0,
               ),
           },
         }}
@@ -1289,6 +1277,7 @@ export default function PayrollVariablesPage() {
             montantPrime={parametres.montantPrime}
             heuresAuto={heuresPaie.heures}
             sourceHeures={heuresPaie.source}
+            heuresMajoration={heuresMajoration}
             droitHabillage={droitHabillage}
             multiLignes={!isEditMode || cibles.length !== 1}
           />
@@ -1296,89 +1285,12 @@ export default function PayrollVariablesPage() {
       </Modal>
 
       {/* Paramètres annuels des primes */}
-      <Modal
-        open={paramModalOpen}
-        onOpenChange={setParamModalOpen}
-        type="form"
-        title="Paramètres des primes"
-        description="Montants unitaires proposés à la saisie. Ils changent chaque année : à défaut de réglage pour une année, le dernier montant connu est repris."
-        size="lg"
-        actions={{
-          secondary: {
-            label: "Annuler",
-            onClick: () => setParamModalOpen(false),
-            variant: "outline",
-          },
-          primary: {
-            label: "Enregistrer",
-            onClick: enregistrerParametres,
-            loading: parametresEdition.enCours,
-            disabled: Object.keys(paramSaisies).length === 0,
-          },
-        }}
-      >
-        <div className="space-y-4">
-          <div className="max-w-xs space-y-2">
-            <Label>Année</Label>
-            <Select
-              value={anneeParam}
-              onValueChange={(v) => {
-                setParamAnneeEdition(v);
-                setParamSaisies({});
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 5 }, (_, i) =>
-                  (Number(depart.annee) - 2 + i).toString(),
-                ).map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {parametresEdition.isError && (
-            <p className="text-sm text-amber-700 dark:text-amber-400">
-              Les paramètres enregistrés n&apos;ont pas pu être lus : les
-              montants par défaut sont affichés.
-            </p>
-          )}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {PRIMES.filter((p) => p.montantDefaut > 0 || p.annuel).map((p) => (
-              <div key={p.id} className="space-y-2">
-                <Label>
-                  {p.label} — {p.montantLabel}
-                </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={
-                    paramSaisies[p.id] ??
-                    versSaisie(parametresEdition.montantPrime(p.id))
-                  }
-                  onChange={(e) =>
-                    setParamSaisies((prev) => ({
-                      ...prev,
-                      [p.id]: e.target.value,
-                    }))
-                  }
-                />
-                {p.aide && (
-                  <p className="text-xs text-muted-foreground">{p.aide}</p>
-                )}
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {primeParId("indemnite_habillage")?.aide}
-          </p>
-        </div>
-      </Modal>
+      {paramModalOpen && (
+        <ParametresPrimesDialog
+          anneeDepart={Number(depart.annee)}
+          onClose={() => setParamModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

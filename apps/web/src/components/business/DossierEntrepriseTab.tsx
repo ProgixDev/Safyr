@@ -1,22 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  FilePlus2,
   FileText,
   Loader2,
 } from "lucide-react";
-import {
-  useOrganization,
-  useOrganizationCompliance,
-} from "@/hooks/organization";
-import { useEmployees } from "@/hooks/employees";
-import { useSites } from "@/hooks/sites";
-import { useClients } from "@/hooks/clients";
-import { useInvoices } from "@/hooks/billing";
-import { useFiscalRecords } from "@/hooks/fiscal";
 import {
   Card,
   CardContent,
@@ -29,18 +21,38 @@ import { Badge } from "@/components/ui/badge";
 import {
   RUBRIQUES,
   agregerPersonnel,
-  construireDonnees,
-  genererDossierCompletPdf,
-  genererRubriquePdf,
   manquesRubrique,
+  pdfEnFichier,
+  telechargerPdf,
   type DonneesDossier,
+  type PdfGenere,
   type Rubrique,
 } from "@/lib/dossier-entreprise-pdf";
-import { messageErreur } from "./appel-offre-types";
+import {
+  TYPE_DOCUMENT_PAR_DEFAUT,
+  TYPE_PAR_RUBRIQUE,
+  aujourdhui,
+  messageErreur,
+} from "./appel-offre-types";
+import type { useDocumentsAO } from "./use-documents-ao";
+import { useDonneesDossier } from "./use-donnees-dossier";
 
 /** Résumé chiffré des données réellement utilisées par chaque rubrique. */
 function resume(rubrique: Rubrique, d: DonneesDossier): string[] {
   const ag = agregerPersonnel(d);
+  if (rubrique === "entreprise") {
+    const pieces = d.piecesEntreprise;
+    const deposees = pieces.filter((p) => p.depot !== undefined).length;
+    return [
+      d.entreprise?.nom
+        ? `Entreprise : ${d.entreprise.nom}`
+        : "Entreprise : non renseignée",
+      d.entreprise?.siret
+        ? `SIRET : ${d.entreprise.siret}`
+        : "SIRET : non renseigné",
+      `${deposees} pièce(s) administrative(s) déposée(s) sur ${pieces.length}`,
+    ];
+  }
   if (rubrique === "memoire") {
     return [
       d.entreprise?.nom
@@ -71,89 +83,77 @@ function resume(rubrique: Rubrique, d: DonneesDossier): string[] {
   ];
 }
 
-export function DossierEntrepriseTab() {
-  const organisation = useOrganization();
-  const conformite = useOrganizationCompliance();
-  const salaries = useEmployees();
-  const sites = useSites();
-  const clients = useClients();
-  const factures = useInvoices();
-  const contrats = useFiscalRecords("client_contrat");
-  const equipements = useFiscalRecords("equipement");
-  const tva = useFiscalRecords("tva");
-  const cfe = useFiscalRecords("cfe");
-  const divers = useFiscalRecords("divers");
+interface Props {
+  docs: ReturnType<typeof useDocumentsAO>;
+}
+
+interface Resultat {
+  cible: Rubrique | "tout";
+  pdf: PdfGenere;
+  ajoute: boolean;
+}
+
+export function DossierEntrepriseTab({ docs }: Props) {
+  const {
+    apercu: donnees,
+    chargement,
+    sourcesEnErreur,
+    generer,
+  } = useDonneesDossier();
 
   const [enCours, setEnCours] = useState<Rubrique | "tout" | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [resultat, setResultat] = useState<Resultat | null>(null);
+  const [ajoutEnCours, setAjoutEnCours] = useState(false);
 
-  const chargement = [
-    organisation,
-    conformite,
-    salaries,
-    sites,
-    clients,
-    factures,
-    contrats,
-    equipements,
-    tva,
-    cfe,
-    divers,
-  ].some((q) => q.isLoading);
-
-  // Une source en erreur ne bloque pas le dossier : ses données sont simplement
-  // absentes et la rubrique concernée affiche « Non renseigné ».
-  const sources: [string, { isError: boolean }][] = [
-    ["informations de l'entreprise", organisation],
-    ["documents de l'entreprise", conformite],
-    ["salariés", salaries],
-    ["sites", sites],
-    ["clients", clients],
-    ["factures", factures],
-    ["contrats clients", contrats],
-  ];
-  const sourcesEnErreur = sources.filter(([, q]) => q.isError).map(([n]) => n);
-
-  const donnees = useMemo(
-    () =>
-      construireDonnees({
-        organisation: organisation.data,
-        conformite: conformite.data,
-        salaries: salaries.data,
-        sites: sites.data,
-        clients: clients.data,
-        factures: factures.data,
-        contrats: contrats.data,
-        equipements: equipements.data,
-        tva: tva.data,
-        cfe: cfe.data,
-        divers: divers.data,
-      }),
-    [
-      organisation.data,
-      conformite.data,
-      salaries.data,
-      sites.data,
-      clients.data,
-      factures.data,
-      contrats.data,
-      equipements.data,
-      tva.data,
-      cfe.data,
-      divers.data,
-    ],
-  );
-
+  // Un clic = un téléchargement : les données sont chargées au clic (et non
+  // pendant le rendu), le PDF part en Blob + lien, et toute erreur s'affiche
+  // ici au lieu de disparaître en silence.
   const lancer = async (cible: Rubrique | "tout") => {
     setEnCours(cible);
     setErreur(null);
+    setResultat(null);
     try {
-      if (cible === "tout") await genererDossierCompletPdf(donnees);
-      else await genererRubriquePdf(cible, donnees);
+      const pdf = await generer(cible);
+      telechargerPdf(pdf);
+      setResultat({ cible, pdf, ajoute: false });
     } catch (e) {
       setErreur(`Génération du PDF impossible : ${messageErreur(e)}`);
     } finally {
       setEnCours(null);
+    }
+  };
+
+  const ajouterAuxDocuments = async () => {
+    if (!resultat) return;
+    setAjoutEnCours(true);
+    setErreur(null);
+    try {
+      const { cible, pdf } = resultat;
+      const titre =
+        cible === "tout"
+          ? "Dossier de candidature"
+          : cible === "entreprise"
+            ? "Dossier de mon entreprise"
+            : RUBRIQUES.find((r) => r.id === cible)!.titre;
+      await docs.enregistrerDocument(
+        {
+          id: "",
+          name: `${titre} - ${new Date().toLocaleDateString("fr-FR")}`,
+          tenderId: "",
+          type:
+            cible === "tout"
+              ? TYPE_DOCUMENT_PAR_DEFAUT
+              : TYPE_PAR_RUBRIQUE[cible],
+          date: aujourdhui(),
+        },
+        pdfEnFichier(pdf),
+      );
+      setResultat({ ...resultat, ajoute: true });
+    } catch (e) {
+      setErreur(`Ajout aux documents impossible : ${messageErreur(e)}`);
+    } finally {
+      setAjoutEnCours(false);
     }
   };
 
@@ -164,27 +164,26 @@ export function DossierEntrepriseTab() {
           <h2 className="text-xl font-semibold">Dossier de mon entreprise</h2>
           <p className="text-sm text-muted-foreground">
             Les pièces de candidature sont compilées automatiquement à partir
-            des données de l&apos;application. Ce qui n&apos;est pas renseigné
-            apparaît « Non renseigné » dans le PDF.
+            des données de l&apos;application, avec le logo et les coordonnées
+            de l&apos;entreprise. Ce qui n&apos;est pas renseigné apparaît « Non
+            renseigné » dans le PDF.
           </p>
         </div>
-        <Button
-          onClick={() => void lancer("tout")}
-          disabled={chargement || enCours !== null}
-        >
+        <Button onClick={() => void lancer("tout")} disabled={enCours !== null}>
           {enCours === "tout" ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : (
             <Download className="h-4 w-4 mr-2" />
           )}
-          Tout télécharger
+          {enCours === "tout" ? "Génération..." : "Tout télécharger"}
         </Button>
       </div>
 
       {chargement && (
         <p className="text-sm text-muted-foreground flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des données de l&apos;entreprise...
+          Chargement des données de l&apos;entreprise... Vous pouvez déjà
+          générer les PDF : les données en cours de chargement seront attendues.
         </p>
       )}
       {sourcesEnErreur.length > 0 && (
@@ -198,6 +197,43 @@ export function DossierEntrepriseTab() {
         <p className="text-sm text-destructive" role="alert">
           {erreur}
         </p>
+      )}
+      {resultat && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/40 px-4 py-3"
+          role="status"
+        >
+          <p className="text-sm">
+            <CheckCircle2 className="inline h-4 w-4 mr-1 text-green-600" />
+            PDF généré :{" "}
+            <span className="font-medium">{resultat.pdf.nomFichier}</span>
+            {resultat.ajoute && " - ajouté à vos documents (onglet Documents)."}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => telechargerPdf(resultat.pdf)}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Télécharger à nouveau
+            </Button>
+            {!resultat.ajoute && (
+              <Button
+                size="sm"
+                onClick={() => void ajouterAuxDocuments()}
+                disabled={ajoutEnCours}
+              >
+                {ajoutEnCours ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FilePlus2 className="h-4 w-4 mr-2" />
+                )}
+                Ajouter à mes documents
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -241,14 +277,14 @@ export function DossierEntrepriseTab() {
                   variant="outline"
                   className="w-full"
                   onClick={() => void lancer(r.id)}
-                  disabled={chargement || enCours !== null}
+                  disabled={enCours !== null}
                 >
                   {enCours === r.id ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Download className="h-4 w-4 mr-2" />
                   )}
-                  Générer le PDF
+                  {enCours === r.id ? "Génération..." : "Générer le PDF"}
                 </Button>
               </CardContent>
             </Card>

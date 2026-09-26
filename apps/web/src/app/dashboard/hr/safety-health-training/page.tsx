@@ -90,7 +90,7 @@ function ExpiringSoonWidget() {
         </p>
         <div className="mt-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/hr/safety-health-training/training-register/alerts">
+            <Link href="/dashboard/hr/entreprise/alertes">
               Voir les alertes
             </Link>
           </Button>
@@ -152,7 +152,7 @@ function ExpiringCertificationsWidget() {
         </div>
         <div className="mt-4">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/hr/safety-health-training/training-register/alerts">
+            <Link href="/dashboard/hr/entreprise/alertes">
               Voir toutes les alertes
             </Link>
           </Button>
@@ -200,7 +200,7 @@ function QuickActionsWidget() {
           className="w-full justify-start gap-2"
           asChild
         >
-          <Link href="/dashboard/hr/safety-health-training/training-register/alerts">
+          <Link href="/dashboard/hr/entreprise/alertes">
             <AlertTriangle className="h-4 w-4" />
             Voir les alertes
           </Link>
@@ -228,7 +228,7 @@ function ExpiredCertificationsWidget() {
         </p>
         <div className="mt-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/hr/safety-health-training/training-register/alerts">
+            <Link href="/dashboard/hr/entreprise/alertes">
               Voir les expirées
             </Link>
           </Button>

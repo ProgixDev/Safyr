@@ -8,8 +8,8 @@ export default function PayrollVariablesLoading() {
       </div>
 
       {/* Info cards skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
           <div
             key={i}
             className="h-24 bg-muted animate-pulse rounded-lg border border-border/40"

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
@@ -26,6 +25,7 @@ import {
   XCircle,
   MoreVertical,
   Award,
+  Zap,
   Clock,
   Calendar,
   Users,
@@ -36,25 +36,28 @@ import {
   Trash2,
 } from "lucide-react";
 import type { TrainingCertification } from "@/lib/types";
-import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
-import { useEmployeeOptions } from "@/hooks/employees";
+import {
+  StatutHabilitation,
+  THEMES,
+  TitreHabilitation,
+} from "../_components/habilitation-ui";
+import { useEmployeeOptions, useHabilitations } from "@/hooks/employees";
 import { Combobox } from "@/components/ui/combobox";
 
-// Données de démonstration : habilitations électriques H0B0.
-// Recyclage recommandé tous les 3 ans (NF C 18-510).
-const mockH0B0Certifications: TrainingCertification[] = [];
+const theme = THEMES.h0b0;
 
 export default function H0B0Page() {
   // Le salarié se choisit dans la liste : ce champ était une simple
   // saisie libre, l'habilitation n'était donc rattachée à personne.
   const salaries = useEmployeeOptions();
   const optionsSalaries = salaries.map((salarie) => ({
-    value: salarie.employeeNumber,
+    value: salarie.employeeNumber || salarie.id,
     label: salarie.name,
   }));
-  // Enregistré en base : la liste ne vivait que dans le navigateur.
-  const [certifications, setCertifications] =
-    useListePersistante<TrainingCertification>("h0b0");
+  // Source : les certifications des dossiers salariés (onglet « Diplômes et
+  // certifications »), fusionnées avec les anciennes lignes de ce registre.
+  const [certifications, setCertifications, chargement, erreur] =
+    useHabilitations("H0B0", "h0b0");
   const [isRecycleModalOpen, setIsRecycleModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isCertificationModalOpen, setIsCertificationModalOpen] =
@@ -240,6 +243,7 @@ export default function H0B0Page() {
       label: "Employé",
       icon: Users,
       sortable: true,
+      headerClassName: theme.entete,
       sortValue: (certification) => certification.employeeName,
       render: (certification) => (
         <div>
@@ -255,6 +259,7 @@ export default function H0B0Page() {
       label: "Certification initiale",
       icon: Calendar,
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
         <span className="text-sm">
           {certification.issueDate.toLocaleDateString("fr-FR")}
@@ -266,6 +271,7 @@ export default function H0B0Page() {
       label: "Dernier recyclage",
       icon: RotateCcw,
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
         <span className="text-sm">
           {certification.lastRenewalDate?.toLocaleDateString("fr-FR") || "-"}
@@ -277,6 +283,7 @@ export default function H0B0Page() {
       label: "Prochain recyclage",
       icon: Clock,
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
         <span className="text-sm">
           {certification.nextRenewalDate?.toLocaleDateString("fr-FR") || "-"}
@@ -287,22 +294,9 @@ export default function H0B0Page() {
       key: "status",
       label: "Statut",
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
-        <Badge
-          variant={
-            certification.status === "valid"
-              ? "default"
-              : certification.status === "expiring-soon"
-                ? "secondary"
-                : "destructive"
-          }
-        >
-          {certification.status === "valid"
-            ? "Valide"
-            : certification.status === "expiring-soon"
-              ? "Expire bientôt"
-              : "Expiré"}
-        </Badge>
+        <StatutHabilitation statut={certification.status} />
       ),
     },
   ];
@@ -320,9 +314,9 @@ export default function H0B0Page() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-light tracking-tight">
+          <TitreHabilitation famille="h0b0" icone={Zap}>
             Habilitations H0B0 & Recyclages
-          </h1>
+          </TitreHabilitation>
           <p className="mt-2 text-sm font-light text-muted-foreground">
             Habilitations électriques H0B0 : délivrance, recyclage et alertes
             d&apos;expiration
@@ -334,6 +328,12 @@ export default function H0B0Page() {
         </Button>
       </div>
 
+      {erreur && (
+        <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          {erreur}
+        </p>
+      )}
+
       {/* Stats Cards */}
       <InfoCardContainer>
         <InfoCard
@@ -341,7 +341,7 @@ export default function H0B0Page() {
           title="Total H0B0"
           value={certifications.length}
           subtext="Habilitations actives"
-          color="blue"
+          color={theme.carteTotal}
         />
         <InfoCard
           icon={CheckCircle}
@@ -370,6 +370,7 @@ export default function H0B0Page() {
       <DataTable
         onRowClick={handleViewCertification}
         data={certifications}
+        isLoading={chargement}
         columns={columns}
         searchKeys={["employeeName", "number"]}
         getSearchValue={(certification) =>
@@ -457,21 +458,7 @@ export default function H0B0Page() {
               <div>
                 <Label className="text-sm font-medium">Statut</Label>
                 <div className="mt-1">
-                  <Badge
-                    variant={
-                      selectedCertification.status === "valid"
-                        ? "default"
-                        : selectedCertification.status === "expiring-soon"
-                          ? "secondary"
-                          : "destructive"
-                    }
-                  >
-                    {selectedCertification.status === "valid"
-                      ? "Valide"
-                      : selectedCertification.status === "expiring-soon"
-                        ? "Expire bientôt"
-                        : "Expiré"}
-                  </Badge>
+                  <StatutHabilitation statut={selectedCertification.status} />
                 </div>
               </div>
             </div>
@@ -650,7 +637,10 @@ export default function H0B0Page() {
             label: isEditMode ? "Mettre à jour" : "Créer",
             onClick: handleCreateOrUpdateCertification,
             disabled:
-              !certificationForm.employeeId || !certificationForm.number,
+              !certificationForm.employeeId ||
+              !certificationForm.number ||
+              !certificationForm.issueDate ||
+              !certificationForm.expiryDate,
           },
         }}
       >
@@ -664,7 +654,7 @@ export default function H0B0Page() {
               value={certificationForm.employeeId}
               onValueChange={(valeur) => {
                 const salarie = salaries.find(
-                  (s) => s.employeeNumber === valeur,
+                  (s) => (s.employeeNumber || s.id) === valeur,
                 );
                 setCertificationForm((prev) => ({
                   ...prev,
@@ -717,6 +707,17 @@ export default function H0B0Page() {
                   <SelectItem value="SOCOTEC">SOCOTEC</SelectItem>
                   <SelectItem value="Qualifelec">Qualifelec</SelectItem>
                   <SelectItem value="Autre">Autre</SelectItem>
+                  {![
+                    "APAVE",
+                    "Bureau Veritas",
+                    "SOCOTEC",
+                    "Qualifelec",
+                    "Autre",
+                  ].includes(certificationForm.issuer) && (
+                    <SelectItem value={certificationForm.issuer}>
+                      {certificationForm.issuer}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -724,7 +725,9 @@ export default function H0B0Page() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="issueDate">Date d&apos;émission</Label>
+              <Label htmlFor="issueDate">
+                Date d&apos;émission <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="issueDate"
                 type="date"
@@ -738,7 +741,10 @@ export default function H0B0Page() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="expiryDate">Date d&apos;expiration</Label>
+              <Label htmlFor="expiryDate">
+                Date d&apos;expiration{" "}
+                <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="expiryDate"
                 type="date"

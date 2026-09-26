@@ -52,9 +52,16 @@ import {
   Gift,
   User,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { useClient, useUpdateClient, useDeleteClient } from "@/hooks/clients";
 import { extractReceiptFile } from "@safyr/api-client";
+import {
+  ChampFichierTeleverse,
+  useEnregistrerLigne,
+  useRattacherFichier,
+  useTeleversementImmediat,
+} from "./fichier-televerse";
 import type {
   Client as ApiClient,
   UpdateClientPayload,
@@ -183,7 +190,13 @@ function appliquerMontant<
 }
 
 const MESSAGE_PDF =
-  "Lecture automatique disponible pour les photos (JPG/PNG) — saisissez les montants pour un PDF.";
+  "Lecture automatique indisponible pour les PDF : saisissez les montants. Astuce : une photo/capture d'écran du reçu (JPG/PNG) est lue automatiquement.";
+
+/** Champs du formulaire cadeau que la lecture automatique sait remplir. */
+type ChampLu = "date" | "valueHT" | "tva" | "valueTTC" | "giftDescription";
+
+/** Contour vert des champs remplis par la lecture automatique. */
+const SURLIGNE = "ring-2 ring-green-500/60 border-green-500";
 
 const slug = (texte: string) =>
   texte
@@ -406,10 +419,14 @@ export default function ClientDetailPage({
     ton: "info" | "erreur";
   } | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const afficherNotice = (texte: string, ton: "info" | "erreur" = "info") => {
+  const afficherNotice = (
+    texte: string,
+    ton: "info" | "erreur" = "info",
+    dureeMs = 5000,
+  ) => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
     setNotice({ texte, ton });
-    noticeTimer.current = setTimeout(() => setNotice(null), 5000);
+    noticeTimer.current = setTimeout(() => setNotice(null), dureeMs);
   };
   useEffect(
     () => () => {
@@ -427,8 +444,12 @@ export default function ClientDetailPage({
     description: "",
     status: "active" as ClientContract["status"],
   });
-  const [contractFile, setContractFile] = useState<File | null>(null);
-  const contractFileInputRef = useRef<HTMLInputElement>(null);
+  // Le fichier part vers le stockage dès qu'il est choisi (voir fichier-televerse).
+  const televersementContrat = useTeleversementImmediat();
+  const [enregistrementContrat, setEnregistrementContrat] = useState(false);
+  const [erreurContrat, setErreurContrat] = useState<string | null>(null);
+  const enregistrerContrat = useEnregistrerLigne("client_contrat");
+  const rattacherFichier = useRattacherFichier(id);
   const [isGiftFormOpen, setIsGiftFormOpen] = useState(false);
   const [editingGift, setEditingGift] = useState<ClientGift | null>(null);
   const [giftForm, setGiftForm] = useState({
@@ -439,13 +460,29 @@ export default function ClientDetailPage({
     valueTTC: "",
     notes: "",
   });
-  const [giftFile, setGiftFile] = useState<File | null>(null);
-  const giftFileInputRef = useRef<HTMLInputElement>(null);
+  // Dernière valeur du formulaire, lisible depuis l'analyse asynchrone.
+  const giftFormRef = useRef(giftForm);
+  useEffect(() => {
+    giftFormRef.current = giftForm;
+  });
+  const televersementRecu = useTeleversementImmediat();
+  const [enregistrementCadeau, setEnregistrementCadeau] = useState(false);
+  const [erreurCadeau, setErreurCadeau] = useState<string | null>(null);
+  const enregistrerCadeau = useEnregistrerLigne("client_cadeau");
+  // Champs remplis par la lecture automatique (surlignés jusqu'à modification).
+  const [champsLus, setChampsLus] = useState<ChampLu[]>([]);
+  // Description lue mais non appliquée car une description est déjà saisie.
+  const [descriptionProposee, setDescriptionProposee] = useState("");
   // Lecture automatique du reçu : état de l'analyse et retour affiché au client.
   const [analyseEnCours, setAnalyseEnCours] = useState(false);
   const [analyseRetour, setAnalyseRetour] = useState<{
     texte: string;
     ton: "succes" | "info";
+    /** Ce qui a été lu, ce qui reste à saisir. */
+    lus?: { champ: ChampLu; label: string; valeur: string }[];
+    manquants?: string[];
+    /** Message discret : HT/TVA déduits du TTC. */
+    estimation?: string;
   } | null>(null);
   // Dernière description remplie automatiquement : permet de la remplacer par
   // celle d'un autre reçu sans jamais écraser un texte saisi à la main.
@@ -647,7 +684,8 @@ export default function ClientDetailPage({
       description: "",
       status: "active",
     });
-    setContractFile(null);
+    televersementContrat.retirer();
+    setErreurContrat(null);
     setIsContractFormOpen(true);
   };
 
@@ -659,11 +697,27 @@ export default function ClientDetailPage({
       description: c.description,
       status: c.status,
     });
-    setContractFile(null);
+    televersementContrat.retirer();
+    setErreurContrat(null);
     setIsContractFormOpen(true);
   };
 
+  const fermerFormContrat = () => {
+    setIsContractFormOpen(false);
+    televersementContrat.retirer();
+  };
+
+  /**
+   * La fenêtre se ferme dès que la ligne est enregistrée (id serveur connu) :
+   * le rattachement du fichier déjà téléversé et les rechargements se font
+   * ensuite en arrière-plan, avec un message d'état.
+   */
   const handleSaveContract = async () => {
+    if (enregistrementContrat) return;
+    const fichier =
+      televersementContrat.etat.statut === "pret"
+        ? televersementContrat.etat
+        : null;
     const ligne: LigneContrat = {
       id: editingContract?.id ?? "",
       clientId: id,
@@ -672,19 +726,44 @@ export default function ClientDetailPage({
       description: contractForm.description,
       status: contractForm.status,
     };
-    const recordId = await registreContrats.enregistrer(ligne, {
-      period: contractForm.startDate.slice(0, 7),
-      label: contractForm.description || `Contrat — ${client.name}`,
-      status: contractForm.status,
-    });
-    if (contractFile) {
-      await attacherPiece.mutateAsync({
-        file: contractFile,
-        scopeId: id,
-        slot: `contrat-${recordId}`,
+    setErreurContrat(null);
+    setEnregistrementContrat(true);
+    let recordId: string;
+    try {
+      recordId = await enregistrerContrat(ligne, !!editingContract, {
+        period: contractForm.startDate.slice(0, 7),
+        label: contractForm.description || `Contrat — ${client.name}`,
+        status: contractForm.status,
       });
+    } catch (erreur) {
+      setErreurContrat(
+        erreur instanceof Error
+          ? `Échec de l'enregistrement : ${erreur.message}`
+          : "Échec de l'enregistrement.",
+      );
+      return;
+    } finally {
+      setEnregistrementContrat(false);
     }
-    setIsContractFormOpen(false);
+    fermerFormContrat();
+    if (!fichier) {
+      afficherNotice("Contrat enregistré.");
+      return;
+    }
+    afficherNotice("Contrat enregistré. Rattachement du fichier…");
+    rattacherFichier(fichier, `contrat-${recordId}`).then(
+      () => afficherNotice("Contrat enregistré, fichier rattaché."),
+      (erreur: unknown) =>
+        afficherNotice(
+          `Contrat enregistré, mais le fichier n'a pas pu être rattaché${
+            erreur instanceof Error && erreur.message
+              ? ` (${erreur.message})`
+              : ""
+          }. Ouvrez « Modifier » sur ce contrat pour le joindre à nouveau.`,
+          "erreur",
+          12000,
+        ),
+    );
   };
 
   // Le fichier suit la ligne : sans cela, il resterait orphelin dans le stockage.
@@ -719,6 +798,9 @@ export default function ClientDetailPage({
     setAnalyseEnCours(false);
     setAnalyseRetour(null);
     setDescriptionAuto("");
+    setDescriptionProposee("");
+    setChampsLus([]);
+    setErreurCadeau(null);
   };
 
   const handleCreateGift = () => {
@@ -732,7 +814,7 @@ export default function ClientDetailPage({
       valueTTC: "",
       notes: "",
     });
-    setGiftFile(null);
+    televersementRecu.retirer();
     setIsGiftFormOpen(true);
   };
 
@@ -747,11 +829,21 @@ export default function ClientDetailPage({
       valueTTC: g.valueTTC?.toString() ?? "",
       notes: g.notes ?? "",
     });
-    setGiftFile(null);
+    televersementRecu.retirer();
     setIsGiftFormOpen(true);
   };
 
+  const fermerFormCadeau = () => {
+    analyseId.current += 1; // ignore une analyse encore en cours
+    setIsGiftFormOpen(false);
+    televersementRecu.retirer();
+  };
+
+  // Même principe que pour le contrat : fermeture dès l'id serveur connu.
   const handleSaveGift = async () => {
+    if (enregistrementCadeau) return;
+    const fichier =
+      televersementRecu.etat.statut === "pret" ? televersementRecu.etat : null;
     const ligne: LigneCadeau = {
       id: editingGift?.id ?? "",
       clientId: id,
@@ -762,18 +854,43 @@ export default function ClientDetailPage({
       valueTTC: giftForm.valueTTC ? Number(giftForm.valueTTC) : undefined,
       notes: giftForm.notes || undefined,
     };
-    const recordId = await registreCadeaux.enregistrer(ligne, {
-      period: giftForm.date.slice(0, 7),
-      label: giftForm.giftDescription || `Cadeau — ${client.name}`,
-    });
-    if (giftFile) {
-      await attacherPiece.mutateAsync({
-        file: giftFile,
-        scopeId: id,
-        slot: `recu-${recordId}`,
+    setErreurCadeau(null);
+    setEnregistrementCadeau(true);
+    let recordId: string;
+    try {
+      recordId = await enregistrerCadeau(ligne, !!editingGift, {
+        period: giftForm.date.slice(0, 7),
+        label: giftForm.giftDescription || `Cadeau — ${client.name}`,
       });
+    } catch (erreur) {
+      setErreurCadeau(
+        erreur instanceof Error
+          ? `Échec de l'enregistrement : ${erreur.message}`
+          : "Échec de l'enregistrement.",
+      );
+      return;
+    } finally {
+      setEnregistrementCadeau(false);
     }
-    setIsGiftFormOpen(false);
+    fermerFormCadeau();
+    if (!fichier) {
+      afficherNotice("Cadeau enregistré.");
+      return;
+    }
+    afficherNotice("Cadeau enregistré. Rattachement du reçu…");
+    rattacherFichier(fichier, `recu-${recordId}`).then(
+      () => afficherNotice("Cadeau enregistré, reçu rattaché."),
+      (erreur: unknown) =>
+        afficherNotice(
+          `Cadeau enregistré, mais le reçu n'a pas pu être rattaché${
+            erreur instanceof Error && erreur.message
+              ? ` (${erreur.message})`
+              : ""
+          }. Ouvrez « Modifier » sur ce cadeau pour le joindre à nouveau.`,
+          "erreur",
+          12000,
+        ),
+    );
   };
 
   const handleDeleteGift = async (g: ClientGift) => {
@@ -783,15 +900,18 @@ export default function ClientDetailPage({
   };
 
   /**
-   * Après le choix du reçu : lit la photo et pré-remplit date, HT, TVA, TTC et
-   * description. Un échec n'empêche jamais la saisie manuelle.
+   * Après le choix du reçu : il part au stockage immédiatement, puis (photos
+   * seulement) est lu pour pré-remplir date, HT, TVA, TTC et description. Un
+   * échec n'empêche jamais la saisie manuelle.
    */
   const handleGiftFileChange = async (fichier: File | null) => {
-    setGiftFile(fichier);
+    if (!fichier) return;
+    televersementRecu.choisir(fichier);
     const courant = ++analyseId.current;
     setAnalyseRetour(null);
     setAnalyseEnCours(false);
-    if (!fichier) return;
+    setChampsLus([]);
+    setDescriptionProposee("");
 
     // Les PDF (et Word/Excel) ne sont pas lus : évite un aller-retour serveur
     // dont le résultat est connu d'avance.
@@ -822,29 +942,104 @@ export default function ClientDetailPage({
         return;
       }
 
-      setGiftForm((prev) => {
-        // Le serveur complète déjà le troisième montant s'il en lit deux.
-        const suivant = { ...prev };
-        if (extrait.date) suivant.date = extrait.date;
-        if (extrait.montantHT !== null)
-          suivant.valueHT = String(extrait.montantHT);
-        if (extrait.tva !== null) suivant.tva = String(extrait.tva);
-        if (extrait.montantTTC !== null)
-          suivant.valueTTC = String(extrait.montantTTC);
+      // Valeur courante du formulaire (l'utilisateur a pu saisir pendant l'analyse).
+      const prev = giftFormRef.current;
+      let suivant = { ...prev };
+      const lus: ChampLu[] = [];
+      if (extrait.date) {
+        suivant.date = extrait.date;
+        lus.push("date");
+      }
+      if (extrait.montantHT !== null) {
+        suivant.valueHT = String(extrait.montantHT);
+        lus.push("valueHT");
+      }
+      if (extrait.tva !== null) {
+        suivant.tva = String(extrait.tva);
+        lus.push("tva");
+      }
+      if (extrait.montantTTC !== null) {
+        suivant.valueTTC = String(extrait.montantTTC);
+        lus.push("valueTTC");
+      }
+      // Complète le troisième montant si le serveur n'a pu le faire.
+      if (suivant.valueHT && suivant.tva && !suivant.valueTTC) {
+        suivant = appliquerMontant(suivant, "tva", suivant.tva);
+        lus.push("valueTTC");
+      } else if (suivant.valueHT && suivant.valueTTC && !suivant.tva) {
+        suivant = appliquerMontant(suivant, "valueHT", suivant.valueHT);
+        lus.push("tva");
+      } else if (suivant.tva && suivant.valueTTC && !suivant.valueHT) {
+        suivant = appliquerMontant(suivant, "tva", suivant.tva);
+        lus.push("valueHT");
+      }
+      // Une description saisie à la main n'est jamais écrasée : elle est
+      // conservée et la description lue est proposée à côté.
+      let descriptionGardee = false;
+      if (extrait.description) {
         if (
-          extrait.description &&
-          (prev.giftDescription.trim() === "" ||
-            prev.giftDescription === descriptionAuto)
+          prev.giftDescription.trim() === "" ||
+          prev.giftDescription === descriptionAuto
         ) {
           suivant.giftDescription = extrait.description;
+          lus.push("giftDescription");
+          setDescriptionAuto(extrait.description);
+        } else if (prev.giftDescription !== extrait.description) {
+          descriptionGardee = true;
+          setDescriptionProposee(extrait.description);
         }
-        return suivant;
-      });
-      if (extrait.description) setDescriptionAuto(extrait.description);
+      }
+      setGiftForm(suivant);
+      setChampsLus(lus);
+
+      const euros = (n: string) =>
+        `${Number(n).toFixed(2).replace(".", ",")} €`;
+      const definitions: { champ: ChampLu; label: string; valeur: string }[] = [
+        {
+          champ: "date",
+          label: "Date",
+          valeur: extrait.date
+            ? new Date(`${extrait.date}T00:00:00Z`).toLocaleDateString(
+                "fr-FR",
+                { timeZone: "UTC" },
+              )
+            : "",
+        },
+        { champ: "valueHT", label: "Valeur HT", valeur: suivant.valueHT },
+        { champ: "tva", label: "TVA", valeur: suivant.tva },
+        { champ: "valueTTC", label: "Valeur TTC", valeur: suivant.valueTTC },
+        {
+          champ: "giftDescription",
+          label: "Description",
+          valeur: suivant.giftDescription,
+        },
+      ];
+      const lusRecap = definitions
+        .filter((d) => lus.includes(d.champ))
+        .map((d) =>
+          d.champ === "valueHT" || d.champ === "tva" || d.champ === "valueTTC"
+            ? { ...d, valeur: euros(d.valeur) }
+            : d,
+        );
+      const manquants = definitions
+        .filter(
+          (d) =>
+            !lus.includes(d.champ) &&
+            !(d.champ === "giftDescription" && descriptionGardee) &&
+            d.valeur.trim() === "",
+        )
+        .map((d) => d.label);
       setAnalyseRetour({
         texte:
-          "Champs pré-remplis à partir du document : vérifiez-les avant d'enregistrer.",
-        ton: "succes",
+          manquants.length === 0
+            ? "Tous les champs ont été lus : vérifiez-les avant d'enregistrer."
+            : "Lecture partielle : complétez les champs restants avant d'enregistrer.",
+        ton: manquants.length === 0 ? "succes" : "info",
+        lus: lusRecap,
+        manquants,
+        estimation: extrait.estime
+          ? `HT/TVA estimés (${String(extrait.tauxEstime ?? 20).replace(".", ",")} %) à partir du TTC : vérifiez-les.`
+          : undefined,
       });
     } catch (erreur) {
       if (courant !== analyseId.current) return;
@@ -858,6 +1053,12 @@ export default function ClientDetailPage({
     } finally {
       if (courant === analyseId.current) setAnalyseEnCours(false);
     }
+  };
+
+  /** Saisie manuelle : le champ n'est plus « lu automatiquement ». */
+  const saisirCadeau = (champ: ChampLu, form: typeof giftForm) => {
+    setChampsLus((lus) => lus.filter((c) => c !== champ));
+    setGiftForm(form);
   };
 
   const handleUploadReceipt = async (g: ClientGift) => {
@@ -1723,18 +1924,36 @@ export default function ClientDetailPage({
 
       <Modal
         open={isContractFormOpen}
-        onOpenChange={setIsContractFormOpen}
+        onOpenChange={(ouvert) =>
+          ouvert ? setIsContractFormOpen(true) : fermerFormContrat()
+        }
         type="form"
         title={editingContract ? "Modifier le contrat" : "Nouveau contrat"}
         actions={{
           primary: {
-            label: editingContract ? "Enregistrer" : "Créer",
+            label: enregistrementContrat
+              ? "Enregistrement…"
+              : televersementContrat.etat.statut === "envoi"
+                ? "Téléversement en cours…"
+                : editingContract
+                  ? "Enregistrer"
+                  : "Créer",
+            icon:
+              enregistrementContrat ||
+              televersementContrat.etat.statut === "envoi" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : undefined,
             onClick: () => void handleSaveContract(),
-            disabled: !contractForm.description || !contractForm.startDate,
+            disabled:
+              !contractForm.description ||
+              !contractForm.startDate ||
+              enregistrementContrat ||
+              televersementContrat.etat.statut === "envoi" ||
+              televersementContrat.etat.statut === "erreur",
           },
           secondary: {
             label: "Annuler",
-            onClick: () => setIsContractFormOpen(false),
+            onClick: fermerFormContrat,
             variant: "outline" as const,
           },
         }}
@@ -1800,46 +2019,62 @@ export default function ClientDetailPage({
             </Select>
           </div>
           <div>
-            <Label htmlFor="contract-file">Fichier du contrat</Label>
-            <input
-              ref={contractFileInputRef}
+            <Label htmlFor="contract-file" className="mb-1.5 block">
+              Fichier du contrat
+            </Label>
+            <ChampFichierTeleverse
               id="contract-file"
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx"
-              className="hidden"
-              onChange={(e) => setContractFile(e.target.files?.[0] ?? null)}
+              etat={televersementContrat.etat}
+              fichierExistant={
+                editingContract
+                  ? fichierContratDe(editingContract.id)?.name
+                  : undefined
+              }
+              onChoisir={televersementContrat.choisir}
+              onRetirer={televersementContrat.retirer}
+              onReessayer={televersementContrat.reessayer}
             />
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-start gap-2 font-normal"
-              onClick={() => contractFileInputRef.current?.click()}
-            >
-              <Upload className="h-4 w-4" />
-              {contractFile
-                ? contractFile.name
-                : editingContract && fichierContratDe(editingContract.id)
-                  ? fichierContratDe(editingContract.id)!.name
-                  : "Choisir un fichier"}
-            </Button>
           </div>
+          {erreurContrat && (
+            <p role="alert" className="text-sm text-destructive">
+              {erreurContrat}
+            </p>
+          )}
         </div>
       </Modal>
 
       <Modal
         open={isGiftFormOpen}
-        onOpenChange={setIsGiftFormOpen}
+        onOpenChange={(ouvert) =>
+          ouvert ? setIsGiftFormOpen(true) : fermerFormCadeau()
+        }
         type="form"
         title={editingGift ? "Modifier le cadeau" : "Nouveau cadeau"}
         actions={{
           primary: {
-            label: editingGift ? "Enregistrer" : "Créer",
+            label: enregistrementCadeau
+              ? "Enregistrement…"
+              : televersementRecu.etat.statut === "envoi"
+                ? "Téléversement en cours…"
+                : editingGift
+                  ? "Enregistrer"
+                  : "Créer",
+            icon:
+              enregistrementCadeau ||
+              televersementRecu.etat.statut === "envoi" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : undefined,
             onClick: () => void handleSaveGift(),
-            disabled: !giftForm.giftDescription || !giftForm.date,
+            disabled:
+              !giftForm.giftDescription ||
+              !giftForm.date ||
+              enregistrementCadeau ||
+              televersementRecu.etat.statut === "envoi" ||
+              televersementRecu.etat.statut === "erreur",
           },
           secondary: {
             label: "Annuler",
-            onClick: () => setIsGiftFormOpen(false),
+            onClick: fermerFormCadeau,
             variant: "outline" as const,
           },
         }}
@@ -1850,11 +2085,34 @@ export default function ClientDetailPage({
             <Input
               id="gift-description"
               value={giftForm.giftDescription}
+              className={cn(champsLus.includes("giftDescription") && SURLIGNE)}
               onChange={(e) =>
-                setGiftForm({ ...giftForm, giftDescription: e.target.value })
+                saisirCadeau("giftDescription", {
+                  ...giftForm,
+                  giftDescription: e.target.value,
+                })
               }
               placeholder="Ex : Coffret gastronomique"
             />
+            {descriptionProposee && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Description lue sur le document : « {descriptionProposee} ».{" "}
+                <button
+                  type="button"
+                  className="font-medium text-primary underline underline-offset-2"
+                  onClick={() => {
+                    saisirCadeau("giftDescription", {
+                      ...giftForm,
+                      giftDescription: descriptionProposee,
+                    });
+                    setDescriptionAuto(descriptionProposee);
+                    setDescriptionProposee("");
+                  }}
+                >
+                  Utiliser cette description
+                </button>
+              </p>
+            )}
           </div>
           <div>
             <Label htmlFor="gift-date">Date</Label>
@@ -1862,8 +2120,9 @@ export default function ClientDetailPage({
               id="gift-date"
               type="date"
               value={giftForm.date}
+              className={cn(champsLus.includes("date") && SURLIGNE)}
               onChange={(e) =>
-                setGiftForm({ ...giftForm, date: e.target.value })
+                saisirCadeau("date", { ...giftForm, date: e.target.value })
               }
             />
           </div>
@@ -1876,8 +2135,10 @@ export default function ClientDetailPage({
                 step="0.01"
                 min="0"
                 value={giftForm.valueHT}
+                className={cn(champsLus.includes("valueHT") && SURLIGNE)}
                 onChange={(e) =>
-                  setGiftForm(
+                  saisirCadeau(
+                    "valueHT",
                     appliquerMontant(giftForm, "valueHT", e.target.value),
                   )
                 }
@@ -1891,8 +2152,12 @@ export default function ClientDetailPage({
                 step="0.01"
                 min="0"
                 value={giftForm.tva}
+                className={cn(champsLus.includes("tva") && SURLIGNE)}
                 onChange={(e) =>
-                  setGiftForm(appliquerMontant(giftForm, "tva", e.target.value))
+                  saisirCadeau(
+                    "tva",
+                    appliquerMontant(giftForm, "tva", e.target.value),
+                  )
                 }
               />
             </div>
@@ -1904,8 +2169,10 @@ export default function ClientDetailPage({
                 step="0.01"
                 min="0"
                 value={giftForm.valueTTC}
+                className={cn(champsLus.includes("valueTTC") && SURLIGNE)}
                 onChange={(e) =>
-                  setGiftForm(
+                  saisirCadeau(
+                    "valueTTC",
                     appliquerMontant(giftForm, "valueTTC", e.target.value),
                   )
                 }
@@ -1924,33 +2191,22 @@ export default function ClientDetailPage({
             />
           </div>
           <div>
-            <Label htmlFor="gift-file">Reçu / facture</Label>
-            <input
-              ref={giftFileInputRef}
+            <Label htmlFor="gift-file" className="mb-1.5 block">
+              Reçu / facture
+            </Label>
+            <ChampFichierTeleverse
               id="gift-file"
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.doc,.docx"
-              className="hidden"
-              onChange={(e) => {
-                const fichier = e.target.files?.[0] ?? null;
-                void handleGiftFileChange(fichier);
-                // Permet de re-choisir le même fichier pour relancer l'analyse.
-                e.target.value = "";
+              etat={televersementRecu.etat}
+              fichierExistant={
+                editingGift ? recuDe(editingGift.id)?.name : undefined
+              }
+              onChoisir={(f) => void handleGiftFileChange(f)}
+              onRetirer={() => {
+                televersementRecu.retirer();
+                resetAnalyse();
               }}
+              onReessayer={televersementRecu.reessayer}
             />
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-start gap-2 font-normal"
-              onClick={() => giftFileInputRef.current?.click()}
-            >
-              <Upload className="h-4 w-4" />
-              {giftFile
-                ? giftFile.name
-                : editingGift && recuDe(editingGift.id)
-                  ? recuDe(editingGift.id)!.name
-                  : "Choisir un fichier"}
-            </Button>
             {analyseEnCours && (
               <p
                 role="status"
@@ -1961,19 +2217,53 @@ export default function ClientDetailPage({
               </p>
             )}
             {!analyseEnCours && analyseRetour && (
-              <p
-                role="status"
-                className={cn(
-                  "mt-2 text-sm",
-                  analyseRetour.ton === "succes"
-                    ? "text-green-600 dark:text-green-500"
-                    : "text-orange-500",
+              <div role="status" className="mt-2 space-y-1 text-sm">
+                <p
+                  className={cn(
+                    analyseRetour.ton === "succes"
+                      ? "text-green-600 dark:text-green-500"
+                      : "text-orange-500",
+                  )}
+                >
+                  {analyseRetour.texte}
+                </p>
+                {analyseRetour.lus && analyseRetour.lus.length > 0 && (
+                  <ul className="space-y-0.5">
+                    {analyseRetour.lus.map((l) => (
+                      <li
+                        key={l.champ}
+                        className="flex items-start gap-1.5 text-green-600 dark:text-green-500"
+                      >
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          {l.label} : <strong>{l.valeur}</strong>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-              >
-                {analyseRetour.texte}
-              </p>
+                {analyseRetour.manquants &&
+                  analyseRetour.manquants.length > 0 && (
+                    <p className="flex items-start gap-1.5 text-orange-500">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        À saisir : {analyseRetour.manquants.join(", ")}
+                      </span>
+                    </p>
+                  )}
+                {analyseRetour.estimation && (
+                  <p className="text-xs text-muted-foreground">
+                    {analyseRetour.estimation}
+                  </p>
+                )}
+              </div>
             )}
           </div>
+          {erreurCadeau && (
+            <p role="alert" className="text-sm text-destructive">
+              {erreurCadeau}
+            </p>
+          )}
         </div>
       </Modal>
     </div>

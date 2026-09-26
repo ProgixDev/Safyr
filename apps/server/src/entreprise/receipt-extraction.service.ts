@@ -19,7 +19,12 @@ const GROQ_MODEL = "qwen/qwen3.8-27b";
 const TAILLE_IMAGE_MAX = 3 * 1024 * 1024;
 
 export const MESSAGE_PDF =
-  "Lecture automatique disponible pour les photos (JPG/PNG) — saisissez les montants pour un PDF.";
+  "Lecture automatique indisponible pour les PDF : saisissez les montants. Astuce : une photo/capture d'écran du reçu (JPG/PNG) est lue automatiquement.";
+
+// Taux de TVA français courants : sert à valider le taux lu et à estimer
+// HT/TVA quand seul le TTC est lisible.
+const TAUX_TVA_FR = [2.1, 5.5, 10, 20];
+const TAUX_TVA_DEFAUT = 20;
 
 const ExtractedReceiptSchema = z.object({
   date: z.string().nullable(),
@@ -27,46 +32,82 @@ const ExtractedReceiptSchema = z.object({
   tva: z.number().nullable(),
   montantTTC: z.number().nullable(),
   description: z.string().nullable(),
+  tauxTVA: z.number().nullable().optional(),
 });
 
-export type ExtractedReceipt = z.infer<typeof ExtractedReceiptSchema>;
+type LectureBrute = z.infer<typeof ExtractedReceiptSchema>;
+
+/** Résultat renvoyé au front : les champs lus + l'indication d'estimation. */
+export interface ExtractedReceipt {
+  /** Date ISO AAAA-MM-JJ. */
+  date: string | null;
+  montantHT: number | null;
+  tva: number | null;
+  montantTTC: number | null;
+  description: string | null;
+  /** Vrai si HT/TVA ont été déduits du TTC avec un taux plausible. */
+  estime: boolean;
+  /** Taux (en %) utilisé pour l'estimation, sinon null. */
+  tauxEstime: number | null;
+}
 
 const RESPONSE_JSON_SCHEMA = {
   type: "object",
   properties: {
     date: {
       type: ["string", "null"],
-      description: "Date du ticket ou de la facture, au format ISO YYYY-MM-DD",
+      description:
+        "Date d'émission du ticket ou de la facture, au format ISO AAAA-MM-JJ. Une date française JJ/MM/AAAA se convertit (le jour vient en premier). null si absente.",
     },
     montantHT: {
       type: ["number", "null"],
-      description: "Total hors taxes, en euros",
+      description:
+        "Total hors taxes (HT) en euros, nombre avec point décimal. Si plusieurs taux de TVA, la somme de tous les HT.",
     },
     tva: {
       type: ["number", "null"],
-      description: "Montant total de la TVA, en euros (pas le taux en %)",
+      description:
+        "Montant total de la TVA en euros (jamais le taux en %). Si plusieurs taux de TVA, la somme de tous les montants de TVA.",
     },
     montantTTC: {
       type: ["number", "null"],
-      description: "Total toutes taxes comprises à payer, en euros",
+      description:
+        "Total toutes taxes comprises (TTC) réellement payé, en euros, nombre avec point décimal.",
     },
     description: {
       type: ["string", "null"],
       description:
-        "Résumé court de l'achat : article principal et/ou commerçant (moins de 80 caractères)",
+        "Une seule ligne : commerçant ou fournisseur, puis objet de l'achat, par exemple « Décathlon – vélo » (moins de 100 caractères).",
+    },
+    tauxTVA: {
+      type: ["number", "null"],
+      description:
+        "Taux de TVA principal en pourcentage (20, 10, 5.5 ou 2.1) si indiqué sur le document, sinon null.",
     },
   },
-  required: ["date", "montantHT", "tva", "montantTTC", "description"],
+  required: [
+    "date",
+    "montantHT",
+    "tva",
+    "montantTTC",
+    "description",
+    "tauxTVA",
+  ],
   additionalProperties: false,
 };
 
-const PROMPT =
-  "Cette image est un ticket de caisse ou une facture d'achat (cadeau client). " +
-  "Extrais la date, le total HT, le montant de TVA, le total TTC et une courte " +
-  "description de l'achat. Les montants sont en euros, sous forme de nombres " +
-  "(virgule décimale française à convertir en point). Si une information ne " +
-  "figure pas clairement sur le document, renvoie null pour ce champ plutôt " +
-  "que d'inventer une valeur.";
+const PROMPT = [
+  "Cette image est un ticket de caisse ou une facture d'achat française (cadeau client).",
+  "Renseigne TOUS les champs du schéma en lisant le document avec soin :",
+  "- date : date d'émission, format AAAA-MM-JJ. Les dates françaises sont JJ/MM/AAAA (le jour d'abord) : 22/09/2026 devient 2026-09-22.",
+  "- montantHT, tva, montantTTC : nombres en euros avec un point décimal (la virgule française 12,50 devient 12.5), sans symbole ni espace.",
+  "- tva est le MONTANT de TVA en euros, jamais le taux en pourcentage. TVA = TTC - HT.",
+  "- Si le document présente plusieurs taux de TVA (5,5 %, 10 %, 20 %…), additionne les HT entre eux et les montants de TVA entre eux ; le TTC est le total à payer.",
+  "- Si seul le total TTC est lisible, renvoie le TTC et null pour HT et TVA (ne les invente pas).",
+  "- description : une ligne, commerçant ou fournisseur puis objet de l'achat, par exemple « Décathlon – vélo ».",
+  "- tauxTVA : le taux principal indiqué sur le document, sinon null.",
+  "Si une information est vraiment absente ou illisible, renvoie null pour ce champ.",
+].join("\n");
 
 /**
  * Lit la photo d'un ticket ou d'une facture et en extrait date, HT, TVA, TTC
@@ -136,8 +177,8 @@ export class ReceiptExtractionService {
     return this.normaliser(parsed.data);
   }
 
-  /** Valide la date, arrondit les montants et complète le troisième montant. */
-  private normaliser(brut: ExtractedReceipt): ExtractedReceipt {
+  /** Valide la date, arrondit les montants et complète HT / TVA / TTC. */
+  private normaliser(brut: LectureBrute): ExtractedReceipt {
     const montant = (v: number | null): number | null =>
       v !== null && Number.isFinite(v) && v >= 0
         ? Math.round(v * 100) / 100
@@ -147,22 +188,53 @@ export class ReceiptExtractionService {
     let ht = montant(brut.montantHT);
     let tva = montant(brut.tva);
     let ttc = montant(brut.montantTTC);
+    let estime = false;
+    let tauxEstime: number | null = null;
+
+    // Un HT supérieur au TTC est une erreur de lecture : on garde le TTC, qui
+    // est le total payé, et HT/TVA sont déduits plus bas.
+    if (ht !== null && ttc !== null && ht > ttc) {
+      ht = null;
+      tva = null;
+    }
 
     // Le modèle ne renvoie parfois que deux des trois montants : le troisième
-    // se déduit sans risque (TTC = HT + TVA).
+    // se déduit sans risque (TTC = HT + TVA, TVA = TTC − HT).
     if (ttc === null && ht !== null && tva !== null) ttc = arrondi(ht + tva);
-    else if (tva === null && ht !== null && ttc !== null && ttc >= ht)
-      tva = arrondi(ttc - ht);
+    else if (ht !== null && ttc !== null) tva = arrondi(ttc - ht);
     else if (ht === null && ttc !== null && tva !== null && ttc >= tva)
       ht = arrondi(ttc - tva);
+
+    // Un seul montant lisible : on estime le reste avec un taux plausible et on
+    // le signale au front (jamais présenté comme une lecture certaine).
+    if (ht === null && tva === null && ttc !== null) {
+      const taux = this.tauxPlausible(brut.tauxTVA);
+      ht = arrondi(ttc / (1 + taux / 100));
+      tva = arrondi(ttc - ht);
+      estime = true;
+      tauxEstime = taux;
+    } else if (ht !== null && tva === null && ttc === null) {
+      const taux = this.tauxPlausible(brut.tauxTVA);
+      tva = arrondi((ht * taux) / 100);
+      ttc = arrondi(ht + tva);
+      estime = true;
+      tauxEstime = taux;
+    }
 
     return {
       date: dateIsoValide(brut.date),
       montantHT: ht,
       tva,
       montantTTC: ttc,
-      description: brut.description?.trim() || null,
+      description: brut.description?.trim().slice(0, 120) || null,
+      estime,
+      tauxEstime,
     };
+  }
+
+  /** Taux lu s'il est un taux français courant, sinon 20 %. */
+  private tauxPlausible(lu: number | null | undefined): number {
+    return lu != null && TAUX_TVA_FR.includes(lu) ? lu : TAUX_TVA_DEFAUT;
   }
 
   private illisible(): ServiceUnavailableException {
@@ -220,16 +292,33 @@ export class ReceiptExtractionService {
   }
 }
 
-/** Renvoie la date si c'est un vrai jour au format YYYY-MM-DD, sinon null. */
+/**
+ * Renvoie la date au format AAAA-MM-JJ si c'est un vrai jour, sinon null.
+ * Accepte aussi la forme française JJ/MM/AAAA (ou JJ-MM-AAAA, JJ.MM.AAAA), au
+ * cas où le modèle ne la convertirait pas.
+ */
 function dateIsoValide(valeur: string | null): string | null {
   if (!valeur) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valeur.trim());
-  if (!m) return null;
-  const [, a, mo, j] = m;
-  const d = new Date(Date.UTC(Number(a), Number(mo) - 1, Number(j)));
+  const texte = valeur.trim();
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(texte);
+  const fr = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})$/.exec(texte);
+  let annee: string;
+  let mois: string;
+  let jour: string;
+  if (iso) {
+    [, annee, mois, jour] = iso;
+  } else if (fr) {
+    [, jour, mois, annee] = fr;
+    if (annee.length === 2) annee = `20${annee}`;
+  } else {
+    return null;
+  }
+  mois = mois.padStart(2, "0");
+  jour = jour.padStart(2, "0");
+  const d = new Date(Date.UTC(Number(annee), Number(mois) - 1, Number(jour)));
   const coherente =
-    d.getUTCFullYear() === Number(a) &&
-    d.getUTCMonth() === Number(mo) - 1 &&
-    d.getUTCDate() === Number(j);
-  return coherente ? `${a}-${mo}-${j}` : null;
+    d.getUTCFullYear() === Number(annee) &&
+    d.getUTCMonth() === Number(mois) - 1 &&
+    d.getUTCDate() === Number(jour);
+  return coherente ? `${annee}-${mois}-${jour}` : null;
 }

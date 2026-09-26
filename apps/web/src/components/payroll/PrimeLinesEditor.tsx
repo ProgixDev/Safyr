@@ -1,6 +1,13 @@
 "use client";
 
-import { AlertTriangle, Clock, Plus, Shirt, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarClock,
+  Clock,
+  Plus,
+  Shirt,
+  Trash2,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,13 +22,20 @@ import {
 } from "@/components/ui/select";
 import type { SourceHeuresPaie } from "@/hooks/payroll";
 import {
+  PERIODES_ASTREINTE,
   PRIMES,
   formaterEuros,
   formaterNombre,
+  heuresMajorationRetenues,
   ligneVide,
+  periodeAstreinte,
   primeParId,
+  tauxHoraireMajoration,
   totalLigne,
+  versSaisie,
   type LignePrime,
+  type ModeMajoration,
+  type PeriodeAstreinte,
   type PrimeDefinition,
   type PrimeId,
 } from "@/lib/payroll-primes";
@@ -34,6 +48,8 @@ interface PrimeLinesEditorProps {
   /** Heures de paie du salarié pour le mois (calcul automatique de l'habillage). */
   heuresAuto: number;
   sourceHeures: SourceHeuresPaie;
+  /** Heures dimanche / fériés du Relevé des heures (majoration). */
+  heuresMajoration: number;
   /** `null` tant qu'aucun salarié n'est choisi. */
   droitHabillage: boolean | null;
   /** Ajout / retrait de lignes autorisé (création, ou modification d'un mois). */
@@ -53,6 +69,8 @@ function apercuPrime(def: PrimeDefinition, montant: number): string {
       ? `montant global (${formaterEuros(montant)})`
       : "montant global";
   }
+  if (def.mode === "forfait_periode") return "forfait mois / semaine / jour";
+  if (def.mode === "majoration_heures") return "heures du relevé × majoration";
   const unite =
     def.mode === "heures_x_taux" ? "heures" : (def.unite ?? "nombre");
   const suffixe = def.mode === "heures_x_taux" ? "/h" : "";
@@ -65,6 +83,7 @@ export function PrimeLinesEditor({
   montantPrime,
   heuresAuto,
   sourceHeures,
+  heuresMajoration,
   droitHabillage,
   multiLignes,
 }: PrimeLinesEditorProps) {
@@ -76,7 +95,7 @@ export function PrimeLinesEditor({
     onChange(lignes.map((l) => (l.cle === cle ? { ...l, ...changes } : l)));
 
   const changerPrime = (ligne: LignePrime, id: PrimeId) => {
-    const neuve = ligneVide(id, montantPrime(id));
+    const neuve = ligneVide(id, montantPrime(id), montantPrime);
     onChange(
       lignes.map((l) =>
         l.cle === ligne.cle
@@ -89,11 +108,14 @@ export function PrimeLinesEditor({
   const ajouter = () => {
     const utilisees = new Set(lignes.map((l) => l.primeId));
     const libre = PRIMES.find((p) => !utilisees.has(p.id)) ?? PRIMES[0];
-    onChange([...lignes, ligneVide(libre.id, montantPrime(libre.id))]);
+    onChange([
+      ...lignes,
+      ligneVide(libre.id, montantPrime(libre.id), montantPrime),
+    ]);
   };
 
   const totalGeneral = lignes.reduce(
-    (somme, l) => somme + totalLigne(l, heuresAutoEffectives),
+    (somme, l) => somme + totalLigne(l, heuresAutoEffectives, heuresMajoration),
     0,
   );
 
@@ -102,7 +124,7 @@ export function PrimeLinesEditor({
       {lignes.map((ligne) => {
         const def = primeParId(ligne.primeId);
         if (!def) return null;
-        const total = totalLigne(ligne, heuresAutoEffectives);
+        const total = totalLigne(ligne, heuresAutoEffectives, heuresMajoration);
         return (
           <div
             key={ligne.cle}
@@ -250,6 +272,166 @@ export function PrimeLinesEditor({
                 {def.aide && (
                   <p className="text-xs text-muted-foreground">{def.aide}</p>
                 )}
+              </div>
+            )}
+
+            {def.mode === "forfait_periode" && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <div className="space-y-2">
+                    <Label>Forfait retenu</Label>
+                    <Select
+                      value={ligne.periode}
+                      onValueChange={(v) =>
+                        maj(ligne.cle, {
+                          periode: v as PeriodeAstreinte,
+                          unitaire: versSaisie(
+                            montantPrime(periodeAstreinte(v).parametre),
+                          ),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PERIODES_ASTREINTE.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>
+                      {periodeAstreinte(ligne.periode).quantiteLabel}
+                    </Label>
+                    <Input
+                      type="number"
+                      step="1"
+                      min="0"
+                      value={ligne.quantite}
+                      onChange={(e) =>
+                        maj(ligne.cle, { quantite: e.target.value })
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{periodeAstreinte(ligne.periode).label} (€)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={ligne.unitaire}
+                      onChange={(e) =>
+                        maj(ligne.cle, { unitaire: e.target.value })
+                      }
+                    />
+                  </div>
+                  <TotalLigne total={total} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Total = quantité × forfait du mode choisi (mois, semaine ou
+                  jour). Les trois forfaits se règlent dans « Paramètres des
+                  primes ».
+                </p>
+              </div>
+            )}
+
+            {def.mode === "majoration_heures" && (
+              <div className="space-y-3">
+                <div className="rounded-md border border-dashed bg-muted/30 p-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CalendarClock className="h-4 w-4 text-orange-600" />
+                    <span className="font-medium">
+                      Heures dimanche / fériés du relevé :{" "}
+                      {formaterNombre(
+                        heuresMajorationRetenues(ligne, heuresMajoration),
+                      )}{" "}
+                      h
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      <Clock className="mr-1 h-3 w-3" />
+                      Relevé des heures
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Ces heures viennent du Relevé des heures (H Dimanche, H
+                    Férié) : elles ne se saisissent pas ici.
+                    {heuresMajoration === 0 &&
+                      " Aucune heure dimanche / férié n'est déclarée pour ce salarié sur ce mois."}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <div className="space-y-2">
+                    <Label>Calcul de la majoration</Label>
+                    <Select
+                      value={ligne.modeMajoration}
+                      onValueChange={(v) =>
+                        maj(ligne.cle, { modeMajoration: v as ModeMajoration })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="taux">Par taux (%)</SelectItem>
+                        <SelectItem value="montant">
+                          Par montant (€ / heure)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {ligne.modeMajoration === "taux" ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Taux de majoration (%)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={ligne.taux}
+                          onChange={(e) =>
+                            maj(ligne.cle, { taux: e.target.value })
+                          }
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Base horaire (€ / h)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={ligne.base}
+                          onChange={(e) =>
+                            maj(ligne.cle, { base: e.target.value })
+                          }
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>{def.montantLabel}</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={ligne.unitaire}
+                        onChange={(e) =>
+                          maj(ligne.cle, { unitaire: e.target.value })
+                        }
+                      />
+                    </div>
+                  )}
+                  <TotalLigne total={total} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Total = heures du relevé × majoration horaire (
+                  {formaterEuros(tauxHoraireMajoration(ligne))} / h).
+                </p>
               </div>
             )}
 

@@ -6,7 +6,7 @@ import {
   useCreateFiscalRecord,
   useUpdateFiscalRecord,
 } from "@/hooks/fiscal";
-import { primeParId } from "@/lib/payroll-primes";
+import { defautParametre } from "@/lib/payroll-primes";
 
 /**
  * Paramètres annuels de la paie : montant unitaire des primes (panier,
@@ -20,8 +20,13 @@ export const cleMontantPrime = (primeId: string) => `prime:${primeId}`;
 export const CLE_TAUX_PATRONAL = "taux_charges_patronales";
 export const CLE_TAUX_SALARIAL = "taux_charges_salariales";
 
-/** Estimation moyenne (hors réductions) pour la sécurité privée, à ajuster. */
-export const TAUX_PATRONAL_DEFAUT = 42;
+export const CLE_RGDU_ACTIVE = "rgdu_active";
+
+/** Taux patronal par défaut (remarque client du 23/09 : 42 % → 20 %). */
+export const TAUX_PATRONAL_DEFAUT = 20;
+/** Ancienne valeur par défaut : si elle a été enregistrée telle quelle, on la
+ * considère comme non personnalisée. */
+export const ANCIEN_TAUX_PATRONAL_DEFAUT = 42;
 export const TAUX_SALARIAL_DEFAUT = 22;
 
 interface ReglageAnnee {
@@ -71,10 +76,13 @@ export function useParametresPaie(annee: number) {
     [parAnnee, annee],
   );
 
-  /** Montant unitaire (ou global) courant d'une prime pour l'année. */
+  /**
+   * Montant unitaire (ou global) courant d'une prime pour l'année ; accepte
+   * aussi les paramètres annexes (forfaits d'astreinte, taux de majoration).
+   */
   const montantPrime = useCallback(
     (primeId: string): number =>
-      valeur(cleMontantPrime(primeId), primeParId(primeId)?.montantDefaut ?? 0),
+      valeur(cleMontantPrime(primeId), defautParametre(primeId)),
     [valeur],
   );
 

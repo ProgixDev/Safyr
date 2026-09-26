@@ -1,4 +1,5 @@
 import type { StoredFile } from "@/lib/document-files";
+import type { Rubrique } from "@/lib/dossier-entreprise-pdf";
 
 /** Ligne du registre « appel_offre » (une ligne = un appel d'offre). */
 export interface LigneAppelOffre {
@@ -38,20 +39,50 @@ export const CHAMPS_DOCUMENT_AO: readonly string[] = ["fichier"];
 
 export const TYPES_DOCUMENT_AO = [
   "Dossier de réponse",
-  "Cahier des charges (CCTP)",
-  "Règlement de consultation",
+  "Mon entreprise",
+  "Dossier du personnel",
   "Mémoire technique",
   "Documents financiers",
   "Références professionnelles",
-  "Dossier du personnel",
+  "Cahier des charges (CCTP)",
+  "Règlement de consultation",
   "Pièces administratives (DC1, DC2, DUME)",
   "Offre de prix",
   "Courrier / notification",
   "Autre",
 ] as const;
 
+export type TypeDocumentAO = (typeof TYPES_DOCUMENT_AO)[number];
+
 /** Type par défaut d'un fichier téléversé depuis la ligne d'un appel d'offre. */
-export const TYPE_DOCUMENT_PAR_DEFAUT = TYPES_DOCUMENT_AO[0];
+export const TYPE_DOCUMENT_PAR_DEFAUT: TypeDocumentAO = "Dossier de réponse";
+
+/**
+ * Types de document qui se génèrent automatiquement en PDF à partir des
+ * données de l'application, et la rubrique du dossier qui les produit.
+ */
+export const RUBRIQUE_PAR_TYPE: Partial<Record<string, Rubrique>> = {
+  "Mon entreprise": "entreprise",
+  "Dossier du personnel": "personnel",
+  "Mémoire technique": "memoire",
+  "Documents financiers": "financier",
+  "Références professionnelles": "references",
+};
+
+/** Type de document créé quand on ajoute le PDF d'une rubrique. */
+export const TYPE_PAR_RUBRIQUE: Record<Rubrique, TypeDocumentAO> = {
+  entreprise: "Mon entreprise",
+  personnel: "Dossier du personnel",
+  memoire: "Mémoire technique",
+  financier: "Documents financiers",
+  references: "Références professionnelles",
+};
+
+/** Types dont le PDF est produit dès qu'on les choisit dans le formulaire. */
+export const TYPES_AUTO_GENERES: readonly string[] = [
+  "Mon entreprise",
+  "Dossier du personnel",
+];
 
 export function aujourdhui(): string {
   return new Date().toISOString().slice(0, 10);

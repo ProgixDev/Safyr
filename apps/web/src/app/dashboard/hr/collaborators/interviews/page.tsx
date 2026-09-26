@@ -811,7 +811,7 @@ export default function InterviewsPage() {
               onChange={(e) =>
                 setFormData({ ...formData, notes: e.target.value })
               }
-              placeholder="Notes sur la performance, compétences, évolution..."
+              placeholder="Notes sur la performance, compétences..."
               rows={4}
             />
           </div>

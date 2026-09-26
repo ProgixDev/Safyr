@@ -157,7 +157,7 @@ const navItems: NavItem[] = [
         href: "/dashboard/hr/safety-health-training/training-plan/akto",
       },
       {
-        label: "Registre de formation & Alertes",
+        label: "Registre de formation",
         href: "/dashboard/hr/safety-health-training/training-register",
       },
       {
@@ -221,6 +221,7 @@ export function HRNavigationBar({ showNav = true }: HRNavigationBarProps) {
     <ModuleNavigationBar
       moduleIcon={Users}
       dashboardHref="/dashboard/hr"
+      dashboardLabel="Dashboard"
       navItems={navItems}
       showNav={showNav}
     />

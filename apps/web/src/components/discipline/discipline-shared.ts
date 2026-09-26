@@ -75,6 +75,8 @@ export interface LigneProcedure {
   interviewDate?: string;
   interviewTime?: string;
   issuedBy?: string;
+  /** Copie de la fonction du signataire : reste lisible si le responsable est supprimé de la liste. */
+  issuedByFonction?: string;
   /** Pièces jointes (reconstituées à la lecture, jamais enregistrées en meta). */
   document?: StoredFile | null;
   etape_1?: StoredFile | null;

@@ -1,4 +1,6 @@
 import { apiFetch } from "../client";
+import { attachDocument, type AttachedDocument } from "../contracts";
+import type { UploadResponse } from "../storage";
 
 export interface Dirigeant {
   nom?: string;
@@ -94,9 +96,7 @@ export async function getClient(clientId: string): Promise<Client> {
   return apiFetch<Client>(`/organization/clients/${clientId}`);
 }
 
-export async function createClient(
-  data: CreateClientPayload,
-): Promise<Client> {
+export async function createClient(data: CreateClientPayload): Promise<Client> {
   return apiFetch<Client>("/organization/clients", {
     method: "POST",
     body: data,
@@ -148,9 +148,7 @@ export async function updateSubcontractor(
   });
 }
 
-export async function deleteSubcontractor(
-  id: string,
-): Promise<Subcontractor> {
+export async function deleteSubcontractor(id: string): Promise<Subcontractor> {
   return apiFetch<Subcontractor>(`/organization/subcontractors/${id}`, {
     method: "DELETE",
   });
@@ -165,6 +163,10 @@ export interface ExtractedReceiptFields {
   tva: number | null;
   montantTTC: number | null;
   description: string | null;
+  /** Vrai si HT/TVA ont été déduits du TTC avec un taux plausible. */
+  estime?: boolean;
+  /** Taux de TVA (en %) utilisé pour l'estimation. */
+  tauxEstime?: number | null;
 }
 
 export function extractReceiptFile(
@@ -176,4 +178,33 @@ export function extractReceiptFile(
     method: "POST",
     body: form,
   });
+}
+
+/**
+ * Rattache à une ligne un fichier déjà téléversé (uploadFile), sans le renvoyer.
+ * Sur un serveur qui ne connaît pas encore cette route, retombe sur l'envoi
+ * classique du fichier (un second transfert, mais rien n'est perdu).
+ */
+export async function attachUploadedFile(
+  file: File,
+  uploaded: UploadResponse,
+  target: { scope: "client"; scopeId: string; slot: string },
+): Promise<AttachedDocument> {
+  try {
+    return await apiFetch<AttachedDocument>("/organization/attachments/link", {
+      method: "POST",
+      body: {
+        ...target,
+        storageKey: uploaded.key,
+        name: file.name,
+        mimeType: uploaded.mimeType || file.type || "application/octet-stream",
+        size: uploaded.size ?? file.size,
+      },
+    });
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) {
+      return attachDocument(file, target);
+    }
+    throw error;
+  }
 }

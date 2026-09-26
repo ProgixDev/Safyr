@@ -18,6 +18,12 @@ import {
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Plus, CheckCircle, XCircle, FileText, Send } from "lucide-react";
+import {
+  BADGE_ROUGE,
+  BADGE_VERT,
+  BADGE_VIOLET,
+  TEINTES,
+} from "./discipline-theme";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
@@ -68,11 +74,13 @@ const statusLabels = {
   cancelled: "Annulée",
 };
 
-const statusColors = {
-  ongoing: "default",
-  completed: "secondary",
-  cancelled: "destructive",
+const statusClasses = {
+  ongoing: BADGE_VIOLET,
+  completed: BADGE_VERT,
+  cancelled: BADGE_ROUGE,
 } as const;
+
+const teinte = TEINTES.procedures;
 
 /** Valeur du menu « Sanction envisagée » qui efface le choix. */
 const A_DEFINIR = "__a_definir__";
@@ -111,7 +119,7 @@ interface CourrierOuvert {
     | "interviewDate"
     | "interviewTime"
     | "issuedBy"
-  >;
+  > & { issuedByFonction?: string };
 }
 
 const pieceDeEtape = (
@@ -180,7 +188,7 @@ export function ProceduresSection() {
     dateEntretien: v.interviewDate || undefined,
     heureEntretien: v.interviewTime || undefined,
     responsable: v.issuedBy || undefined,
-    fonction: fonctionDe(v.issuedBy) || undefined,
+    fonction: fonctionDe(v.issuedBy) || v.issuedByFonction || undefined,
   });
 
   const handleCreate = () => {
@@ -250,6 +258,12 @@ export function ProceduresSection() {
         interviewDate: formData.interviewDate,
         interviewTime: formData.interviewTime,
         issuedBy: formData.issuedBy,
+        issuedByFonction:
+          fonctionDe(formData.issuedBy) ||
+          (editingProcedure?.issuedBy === formData.issuedBy
+            ? editingProcedure.issuedByFonction
+            : "") ||
+          "",
       });
       if (!editingId) idCreeRef.current = id;
 
@@ -361,6 +375,7 @@ export function ProceduresSection() {
         interviewDate: procedure.interviewDate ?? "",
         interviewTime: procedure.interviewTime ?? "",
         issuedBy: procedure.issuedBy ?? "",
+        issuedByFonction: procedure.issuedByFonction,
       },
     });
   };
@@ -441,7 +456,10 @@ export function ProceduresSection() {
       key: "status",
       label: "Statut",
       render: (procedure) => (
-        <Badge variant={statusColors[procedure.status ?? "ongoing"]}>
+        <Badge
+          variant="outline"
+          className={statusClasses[procedure.status ?? "ongoing"]}
+        >
           {statusLabels[procedure.status ?? "ongoing"]}
         </Badge>
       ),
@@ -499,23 +517,34 @@ export function ProceduresSection() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Procédures disciplinaires
-          </h1>
-          <p className="text-muted-foreground">
-            Gestion des procédures disciplinaires
-          </p>
+        <div className="flex items-center gap-4">
+          <div className={`rounded-xl p-3 ${teinte.pastille}`}>
+            <FileText className="h-7 w-7" />
+          </div>
+          <div>
+            <h1 className={`text-3xl font-bold tracking-tight ${teinte.titre}`}>
+              Procédures disciplinaires
+            </h1>
+            <p className="text-muted-foreground">
+              Gestion des procédures disciplinaires
+            </p>
+          </div>
         </div>
-        <Button onClick={handleCreate} className="gap-2">
+        <Button
+          onClick={handleCreate}
+          size="lg"
+          className={`gap-2 ${teinte.bouton}`}
+        >
           <Plus className="h-4 w-4" />
           Nouvelle procédure
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Procédures disciplinaires ({procedures.length})</CardTitle>
+      <Card className={teinte.carte}>
+        <CardHeader className={`rounded-t-xl ${teinte.entete}`}>
+          <CardTitle className={teinte.titre}>
+            Procédures disciplinaires ({procedures.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
@@ -861,7 +890,10 @@ export function ProceduresSection() {
               <div>
                 <Label>Statut</Label>
                 <Badge
-                  variant={statusColors[viewingProcedure.status ?? "ongoing"]}
+                  variant="outline"
+                  className={
+                    statusClasses[viewingProcedure.status ?? "ongoing"]
+                  }
                 >
                   {statusLabels[viewingProcedure.status ?? "ongoing"]}
                 </Badge>

@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { applyPdfFooters, loadPdfBranding } from "@/lib/pdf-branding";
 
 export interface PayrollBulletinEmployee {
   name: string;
@@ -63,13 +64,14 @@ export interface PayrollBulletinCompanyInfo {
   convention?: string;
 }
 
-export function generatePayrollBulletinPDF(
+export async function generatePayrollBulletinPDF(
   employee: PayrollBulletinEmployee,
   month: string,
   year: string,
   data: PayrollBulletinData,
   companyInfo?: PayrollBulletinCompanyInfo,
-) {
+): Promise<void> {
+  const branding = await loadPdfBranding();
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -679,7 +681,9 @@ export function generatePayrollBulletinPDF(
   );
 
   // ========== FOOTER ==========
-  const footerY = pageHeight - 10;
+  // Mention légale L612-14 en bas de page (pied compact : la mise en page du
+  // bulletin est dense, le bloc société est déjà en tête du document).
+  const footerY = pageHeight - 17;
   doc.setFontSize(5);
   doc.setFont("helvetica", "normal");
   doc.text(
@@ -688,6 +692,8 @@ export function generatePayrollBulletinPDF(
     footerY,
     { align: "center", maxWidth: pageWidth - 28 },
   );
+
+  applyPdfFooters(doc, branding, { compact: true, hidePageNumbers: true });
 
   // Save PDF
   const fileName = `Bulletin_${employee.name.replace(/\s+/g, "_")}_${month}_${year}.pdf`;

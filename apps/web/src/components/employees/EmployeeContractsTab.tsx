@@ -25,6 +25,7 @@ import {
   Trash2,
   Upload,
   Sparkles,
+  FileSignature,
 } from "lucide-react";
 import { pickFile, downloadStoredFile } from "@/lib/document-files";
 import type { Employee } from "@/lib/types";
@@ -37,6 +38,7 @@ import {
   useAttachDocument,
   useDeleteAttachment,
 } from "@/hooks/contracts";
+import { GenererContratDialog } from "./GenererContratDialog";
 import { extractContractFile } from "@safyr/api-client";
 import type { Contract, CreateContractPayload } from "@safyr/api-client";
 
@@ -104,6 +106,7 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
   const suppression = useDeleteContract(employee.id);
 
   const [modaleOuverte, setModaleOuverte] = useState(false);
+  const [generationOuverte, setGenerationOuverte] = useState(false);
   const [enEdition, setEnEdition] = useState<Contract | null>(null);
   const [aSupprimer, setASupprimer] = useState<Contract | null>(null);
   const [formulaire, setFormulaire] = useState<Formulaire>(FORMULAIRE_VIDE);
@@ -280,6 +283,17 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
     }
   };
 
+  /** « Générer contrat » : crée la ligne (id serveur) puis rattache le PDF. */
+  const creerContratGenere = async (payload: CreateContractPayload) =>
+    (await creation.mutateAsync(payload)).id;
+  const rattacherPdfGenere = async (contratId: string, fichier: File) => {
+    await attacher.mutateAsync({
+      file: fichier,
+      scopeId: contratId,
+      slot: "contrat",
+    });
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -290,10 +304,19 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
               CDD, CDI et avenants
             </p>
           </div>
-          <Button onClick={ouvrirCreation}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouveau contrat
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setGenerationOuverte(true)}
+            >
+              <FileSignature className="mr-2 h-4 w-4" />
+              Générer contrat
+            </Button>
+            <Button onClick={ouvrirCreation}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau contrat
+            </Button>
+          </div>
         </CardHeader>
       </Card>
 
@@ -644,6 +667,15 @@ export function EmployeeContractsTab({ employee }: EmployeeContractsTabProps) {
           </div>
         </div>
       </Modal>
+
+      {generationOuverte && (
+        <GenererContratDialog
+          employee={employee}
+          onClose={() => setGenerationOuverte(false)}
+          creerContrat={creerContratGenere}
+          rattacherPdf={rattacherPdfGenere}
+        />
+      )}
 
       {/* Suppression */}
       <Modal

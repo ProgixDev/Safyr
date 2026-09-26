@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
@@ -26,6 +25,7 @@ import {
   XCircle,
   MoreVertical,
   Award,
+  HeartPulse,
   Clock,
   Calendar,
   Users,
@@ -36,24 +36,28 @@ import {
   Trash2,
 } from "lucide-react";
 import type { TrainingCertification } from "@/lib/types";
-import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
-import { useEmployeeOptions } from "@/hooks/employees";
+import {
+  StatutHabilitation,
+  THEMES,
+  TitreHabilitation,
+} from "../_components/habilitation-ui";
+import { useEmployeeOptions, useHabilitations } from "@/hooks/employees";
 import { Combobox } from "@/components/ui/combobox";
 
-// Mock data for SST certifications with recycles
-const mockSSTCertifications: TrainingCertification[] = [];
+const theme = THEMES.sst;
 
 export default function SSTPage() {
   // Le salarié se choisit dans la liste : ce champ était une simple
   // saisie libre, l'habilitation n'était donc rattachée à personne.
   const salaries = useEmployeeOptions();
   const optionsSalaries = salaries.map((salarie) => ({
-    value: salarie.employeeNumber,
+    value: salarie.employeeNumber || salarie.id,
     label: salarie.name,
   }));
-  // Enregistré en base : la liste ne vivait que dans le navigateur.
-  const [certifications, setCertifications] =
-    useListePersistante<TrainingCertification>("sst");
+  // Source : les certifications des dossiers salariés (onglet « Diplômes et
+  // certifications »), fusionnées avec les anciennes lignes de ce registre.
+  const [certifications, setCertifications, chargement, erreur] =
+    useHabilitations("SST", "sst");
   const [isRecycleModalOpen, setIsRecycleModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isCertificationModalOpen, setIsCertificationModalOpen] =
@@ -122,7 +126,8 @@ export default function SSTPage() {
       number: certification.number,
       issueDate: certification.issueDate.toISOString().split("T")[0],
       expiryDate: certification.expiryDate.toISOString().split("T")[0],
-      issuer: "SDIS",
+      // Émetteur réel de la certification, pas une valeur figée.
+      issuer: certification.issuer,
     });
     setIsEditMode(true);
     setIsCertificationModalOpen(true);
@@ -238,6 +243,7 @@ export default function SSTPage() {
       label: "Employé",
       icon: Users,
       sortable: true,
+      headerClassName: theme.entete,
       sortValue: (certification) => certification.employeeName,
       render: (certification) => (
         <div>
@@ -253,6 +259,7 @@ export default function SSTPage() {
       label: "Certification initiale",
       icon: Calendar,
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
         <span className="text-sm">
           {certification.issueDate.toLocaleDateString("fr-FR")}
@@ -264,6 +271,7 @@ export default function SSTPage() {
       label: "Dernier recyclage",
       icon: RotateCcw,
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
         <span className="text-sm">
           {certification.lastRenewalDate?.toLocaleDateString("fr-FR") || "-"}
@@ -275,6 +283,7 @@ export default function SSTPage() {
       label: "Prochain recyclage",
       icon: Clock,
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
         <span className="text-sm">
           {certification.nextRenewalDate?.toLocaleDateString("fr-FR") || "-"}
@@ -285,22 +294,9 @@ export default function SSTPage() {
       key: "status",
       label: "Statut",
       sortable: true,
+      headerClassName: theme.entete,
       render: (certification) => (
-        <Badge
-          variant={
-            certification.status === "valid"
-              ? "default"
-              : certification.status === "expiring-soon"
-                ? "secondary"
-                : "destructive"
-          }
-        >
-          {certification.status === "valid"
-            ? "Valide"
-            : certification.status === "expiring-soon"
-              ? "Expire bientôt"
-              : "Expiré"}
-        </Badge>
+        <StatutHabilitation statut={certification.status} />
       ),
     },
   ];
@@ -318,9 +314,9 @@ export default function SSTPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-light tracking-tight">
+          <TitreHabilitation famille="sst" icone={HeartPulse}>
             SST & Recyclages
-          </h1>
+          </TitreHabilitation>
           <p className="mt-2 text-sm font-light text-muted-foreground">
             Suivi des certifications SST et gestion des recyclages
           </p>
@@ -331,6 +327,12 @@ export default function SSTPage() {
         </Button>
       </div>
 
+      {erreur && (
+        <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          {erreur}
+        </p>
+      )}
+
       {/* Stats Cards */}
       <InfoCardContainer>
         <InfoCard
@@ -338,7 +340,7 @@ export default function SSTPage() {
           title="Total SST"
           value={certifications.length}
           subtext="Certifications actives"
-          color="blue"
+          color={theme.carteTotal}
         />
         <InfoCard
           icon={CheckCircle}
@@ -367,6 +369,7 @@ export default function SSTPage() {
       <DataTable
         onRowClick={handleViewCertification}
         data={certifications}
+        isLoading={chargement}
         columns={columns}
         searchKeys={["employeeName", "number"]}
         getSearchValue={(certification) =>
@@ -454,21 +457,7 @@ export default function SSTPage() {
               <div>
                 <Label className="text-sm font-medium">Statut</Label>
                 <div className="mt-1">
-                  <Badge
-                    variant={
-                      selectedCertification.status === "valid"
-                        ? "default"
-                        : selectedCertification.status === "expiring-soon"
-                          ? "secondary"
-                          : "destructive"
-                    }
-                  >
-                    {selectedCertification.status === "valid"
-                      ? "Valide"
-                      : selectedCertification.status === "expiring-soon"
-                        ? "Expire bientôt"
-                        : "Expiré"}
-                  </Badge>
+                  <StatutHabilitation statut={selectedCertification.status} />
                 </div>
               </div>
             </div>
@@ -647,7 +636,10 @@ export default function SSTPage() {
             label: isEditMode ? "Mettre à jour" : "Créer",
             onClick: handleCreateOrUpdateCertification,
             disabled:
-              !certificationForm.employeeId || !certificationForm.number,
+              !certificationForm.employeeId ||
+              !certificationForm.number ||
+              !certificationForm.issueDate ||
+              !certificationForm.expiryDate,
           },
         }}
       >
@@ -661,7 +653,7 @@ export default function SSTPage() {
               value={certificationForm.employeeId}
               onValueChange={(valeur) => {
                 const salarie = salaries.find(
-                  (s) => s.employeeNumber === valeur,
+                  (s) => (s.employeeNumber || s.id) === valeur,
                 );
                 setCertificationForm((prev) => ({
                   ...prev,
@@ -710,6 +702,13 @@ export default function SSTPage() {
                   <SelectItem value="INRS">INRS</SelectItem>
                   <SelectItem value="SDIS">SDIS</SelectItem>
                   <SelectItem value="Autre">Autre</SelectItem>
+                  {!["INRS", "SDIS", "Autre"].includes(
+                    certificationForm.issuer,
+                  ) && (
+                    <SelectItem value={certificationForm.issuer}>
+                      {certificationForm.issuer}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -717,7 +716,9 @@ export default function SSTPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="issueDate">Date d&apos;émission</Label>
+              <Label htmlFor="issueDate">
+                Date d&apos;émission <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="issueDate"
                 type="date"
@@ -731,7 +732,10 @@ export default function SSTPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="expiryDate">Date d&apos;expiration</Label>
+              <Label htmlFor="expiryDate">
+                Date d&apos;expiration{" "}
+                <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="expiryDate"
                 type="date"

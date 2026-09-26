@@ -5,6 +5,15 @@ import type {
   PatrolCheckpoint,
 } from "@/data/geolocation-patrols";
 import { getPatrolDisplayStatus } from "@/data/geolocation-patrols";
+import {
+  PDF_FOOTER_RESERVED_MM,
+  applyPdfFooters,
+  brandedPdfDefaults,
+  drawPdfHeader,
+  loadPdfBranding,
+  pdfHeaderHeight,
+  pdfTableMargins,
+} from "@/lib/pdf-branding";
 
 function formatFrDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", {
@@ -30,12 +39,13 @@ function formatDistance(meters: number | null): string {
   return `${meters} m`;
 }
 
-export function generatePatrolReport(
+export async function generatePatrolReport(
   execution: PatrolExecution,
   checkpoints: PatrolCheckpoint[],
-): void {
+): Promise<void> {
+  const branding = await loadPdfBranding();
   const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
   const displayStatus = getPatrolDisplayStatus(execution);
   const statusLabel =
     displayStatus === "complete"
@@ -45,28 +55,12 @@ export function generatePatrolReport(
         : "Incomplète";
 
   // ── Header ────────────────────────────────────────────────────────
-  let y = 14;
-
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(0, 0, 0);
-  doc.text("RAPPORT DE RONDE", pageWidth / 2, y, { align: "center" });
-
-  y += 6;
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text(
-    `Généré le ${formatFrDateTime(new Date().toISOString())}`,
-    pageWidth / 2,
-    y,
-    { align: "center" },
-  );
-
-  // Divider
-  y += 4;
-  doc.setDrawColor(200, 200, 200);
-  doc.line(14, y, pageWidth - 14, y);
+  const header = {
+    title: "RAPPORT DE RONDE",
+    subtitle: `Généré le ${formatFrDateTime(new Date().toISOString())} — Document confidentiel`,
+  };
+  let y = drawPdfHeader(doc, branding, header);
+  const margins = pdfTableMargins(branding, { header });
 
   // ── Summary section ───────────────────────────────────────────────
   y += 8;
@@ -143,9 +137,10 @@ export function generatePatrolReport(
       ["#", "Point de contrôle", "Heure de scan", "Statut", "Commentaire"],
     ],
     body: checkpointRows,
-    theme: "grid",
-    styles: { fontSize: 7, cellPadding: 2 },
+    ...brandedPdfDefaults,
+    styles: { ...brandedPdfDefaults.styles, fontSize: 7, cellPadding: 2 },
     headStyles: {
+      ...brandedPdfDefaults.headStyles,
       fillColor: [15, 23, 42],
       textColor: [255, 255, 255],
       fontStyle: "bold",
@@ -169,7 +164,7 @@ export function generatePatrolReport(
         }
       }
     },
-    margin: { left: 14, right: 14 },
+    margin: margins,
   });
 
   // ── Incidents section ─────────────────────────────────────────────
@@ -178,9 +173,14 @@ export function generatePatrolReport(
   );
 
   if (incidentScans.length > 0) {
-    const afterTableY =
+    let afterTableY =
       (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
         .finalY + 8;
+    // Évite que le titre « Incidents » tombe dans la zone du pied de page.
+    if (afterTableY > pageHeight - PDF_FOOTER_RESERVED_MM - 15) {
+      doc.addPage();
+      afterTableY = pdfHeaderHeight(branding, header) + 4;
+    }
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
@@ -200,9 +200,10 @@ export function generatePatrolReport(
       startY: afterTableY + 3,
       head: [["#", "Point de contrôle", "Heure", "Description de l'incident"]],
       body: incidentRows,
-      theme: "grid",
-      styles: { fontSize: 7, cellPadding: 2 },
+      ...brandedPdfDefaults,
+      styles: { ...brandedPdfDefaults.styles, fontSize: 7, cellPadding: 2 },
       headStyles: {
+        ...brandedPdfDefaults.headStyles,
         fillColor: [127, 29, 29],
         textColor: [255, 255, 255],
         fontStyle: "bold",
@@ -214,21 +215,14 @@ export function generatePatrolReport(
         2: { cellWidth: 30 },
         3: { cellWidth: 90 },
       },
-      margin: { left: 14, right: 14 },
+      margin: margins,
     });
   }
 
   // ── Footer ────────────────────────────────────────────────────────
-  const pageHeight = doc.internal.pageSize.height;
-  doc.setFontSize(6);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(150, 150, 150);
-  doc.text(
-    `Document confidentiel — ${execution.site} — ${formatFrDate(execution.startedAt)}`,
-    pageWidth / 2,
-    pageHeight - 8,
-    { align: "center" },
-  );
+  applyPdfFooters(doc, branding, {
+    header: { ...header, skipFirstPage: true },
+  });
 
   // ── Save ──────────────────────────────────────────────────────────
   const dateSlug = execution.startedAt.slice(0, 10);

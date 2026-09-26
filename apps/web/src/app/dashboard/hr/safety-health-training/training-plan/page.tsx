@@ -263,6 +263,21 @@ export default function TrainingPlanPage() {
     setIsPlanModalOpen(true);
   };
 
+  /** Une formation terminée alimente le Registre de formation. */
+  const basculerTerminee = (plan: TrainingPlan) => {
+    setTrainingPlans(
+      trainingPlans.map((p) =>
+        p.id === plan.id
+          ? {
+              ...p,
+              status: p.status === "completed" ? "planned" : "completed",
+              updatedAt: new Date(),
+            }
+          : p,
+      ),
+    );
+  };
+
   const handleDeletePlan = () => {
     if (selectedPlanForDelete) {
       setTrainingPlans(
@@ -637,6 +652,15 @@ export default function TrainingPlanPage() {
               >
                 <Pencil className="h-4 w-4 text-orange-500" />
                 Modifier
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => basculerTerminee(plan)}
+                className="flex items-center gap-2"
+              >
+                <CheckCircle className="h-4 w-4 text-emerald-500" />
+                {plan.status === "completed"
+                  ? "Repasser en planifiée"
+                  : "Marquer comme terminée"}
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"

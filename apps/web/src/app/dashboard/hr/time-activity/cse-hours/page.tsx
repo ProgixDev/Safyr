@@ -25,7 +25,8 @@ import { BADGE_TONS } from "@/lib/hr-status-badges";
 import { useSession } from "@/lib/auth-client";
 import { exporterCsvExcel } from "@/lib/export-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { InfoCard } from "@/components/ui/info-card";
+import { GrilleKpi } from "../_components/OutilsTableau";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -623,8 +624,9 @@ export default function CSEHoursPage() {
         </div>
       )}
 
-      <InfoCardContainer>
+      <GrilleKpi colonnes={4}>
         <InfoCard
+          compact
           icon={Users}
           title="Élus CSE"
           value={elus.length}
@@ -632,6 +634,7 @@ export default function CSEHoursPage() {
           color="gray"
         />
         <InfoCard
+          compact
           icon={Clock}
           title="Heures allouées"
           value={`${totalAlloue} h`}
@@ -639,6 +642,7 @@ export default function CSEHoursPage() {
           color="blue"
         />
         <InfoCard
+          compact
           icon={CheckCircle}
           title="Heures utilisées"
           value={`${totalUtilise} h`}
@@ -648,13 +652,14 @@ export default function CSEHoursPage() {
           color="green"
         />
         <InfoCard
+          compact
           icon={Calendar}
           title="Séances"
           value={seancesDuMois.length}
           subtext="Ce mois-ci"
           color="orange"
         />
-      </InfoCardContainer>
+      </GrilleKpi>
 
       {!cse.isLoading && elus.length === 0 ? (
         <Card className="border-dashed">

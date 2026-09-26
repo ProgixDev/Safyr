@@ -54,6 +54,8 @@ export interface RowActionItem {
   destructive?: boolean;
   /** Insère un séparateur avant cette entrée. */
   separatorBefore?: boolean;
+  /** Classes du libellé (ex. statut coloré) ; l'icône garde sa `tone`. */
+  labelClassName?: string;
 }
 
 export interface RowActionsMenuProps {
@@ -86,7 +88,7 @@ function ActionEntry({ item }: { item: RowActionItem }) {
       onClick={item.onClick}
       disabled={item.disabled}
       variant={item.destructive ? "destructive" : "default"}
-      className="cursor-pointer"
+      className={cn("cursor-pointer", item.labelClassName)}
     >
       <Icon
         className={cn("mr-2 h-4 w-4", ROW_ACTION_TONES[item.tone ?? "neutral"])}

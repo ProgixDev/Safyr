@@ -7,7 +7,29 @@ import {
   type CreateEmployeeDto,
 } from "@safyr/schemas/employee";
 import { ApiError } from "@safyr/api-client";
-import { useCreateEmployee } from "@/hooks/employees";
+import { useCreateEmployee, useEmployees } from "@/hooks/employees";
+import { useFichesEmploi } from "@/hooks/employees/use-fiche-emploi";
+import {
+  FICHE_EMPLOI_VIDE,
+  ajouterJours,
+  ecartJours,
+  finEssaiProposee,
+  recalculerFiche,
+  type FicheEmploi,
+} from "@/lib/fiche-emploi";
+import {
+  FicheEmploiFields,
+  type ChangementFiche,
+} from "@/components/employees/FicheEmploiFields";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import type { Employee as ApiEmployee } from "@safyr/api-client";
 import { Modal } from "@/components/ui/modal";
 import { Stepper, Step } from "@/components/ui/stepper";
 import { Input } from "@/components/ui/input";
@@ -32,6 +54,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  CheckCircle2,
+  Copy,
   Save,
   Sparkles,
 } from "lucide-react";
@@ -139,6 +163,21 @@ export function EmployeeCreateDialog({ open, onOpenChange, onCreated }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const createMutation = useCreateEmployee();
+  const { ficheDe, enregistrerFiche } = useFichesEmploi();
+
+  // Grille des salaires et période d'essai : hors du modèle Member, tenues
+  // à part et enregistrées dans le registre `fiche_emploi` après la création.
+  const [fiche, setFiche] = useState<FicheEmploi>(FICHE_EMPLOI_VIDE);
+  // Tant que l'essai n'a pas été saisi à la main, il suit la date d'embauche.
+  const [essaiManuel, setEssaiManuel] = useState(false);
+  // Après « Copier salarié » : décalage (jours) de l'essai par rapport à
+  // l'embauche du salarié copié, réappliqué à la date d'embauche du nouveau.
+  const [essaiRelatif, setEssaiRelatif] = useState<{
+    debut: number;
+    fin: number;
+  } | null>(null);
+  const [copieDe, setCopieDe] = useState<string | null>(null);
+  const [copieSansGrille, setCopieSansGrille] = useState(false);
 
   const form = useForm({
     defaultValues: emptyDefaults,
@@ -146,7 +185,21 @@ export function EmployeeCreateDialog({ open, onOpenChange, onCreated }: Props) {
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       try {
-        await createMutation.mutateAsync(value);
+        const cree = await createMutation.mutateAsync(value);
+        const aUneFiche = fiche.categorie || fiche.debutEssai || fiche.finEssai;
+        if (aUneFiche) {
+          try {
+            await enregistrerFiche(
+              cree.id,
+              `${value.firstName} ${value.lastName}`.trim(),
+              recalculerFiche(fiche),
+            );
+          } catch {
+            window.alert(
+              "Le salarié est créé, mais la grille des salaires et la période d'essai n'ont pas pu être enregistrées. Renseignez-les depuis son dossier (onglet Informations).",
+            );
+          }
+        }
         onCreated?.();
         resetAndClose();
       } catch (err) {
@@ -177,6 +230,11 @@ export function EmployeeCreateDialog({ open, onOpenChange, onCreated }: Props) {
     form.reset();
     setCurrentStep(0);
     setSubmitError(null);
+    setFiche(FICHE_EMPLOI_VIDE);
+    setEssaiManuel(false);
+    setEssaiRelatif(null);
+    setCopieDe(null);
+    setCopieSansGrille(false);
     onOpenChange(false);
   };
 
@@ -227,12 +285,103 @@ export function EmployeeCreateDialog({ open, onOpenChange, onCreated }: Props) {
 
   const isSubmitting = createMutation.isPending;
 
+  /** Essai proposé à partir de l'embauche et du contrat (sauf saisie manuelle). */
+  const essaiPour = (
+    base: FicheEmploi,
+    hire: string,
+    contrat: string | undefined,
+    manuel: boolean,
+    relatif: { debut: number; fin: number } | null,
+  ): FicheEmploi => {
+    if (manuel) return base;
+    if (relatif && hire) {
+      return {
+        ...base,
+        debutEssai: ajouterJours(hire, relatif.debut),
+        finEssai: ajouterJours(hire, relatif.fin),
+      };
+    }
+    return {
+      ...base,
+      debutEssai: hire,
+      finEssai: finEssaiProposee(hire, contrat, base.categorie),
+    };
+  };
+
+  const changerFiche = (next: FicheEmploi, modifie: ChangementFiche) => {
+    if (modifie === "essai") {
+      // Deux champs vidés : on reprend le calcul automatique.
+      setEssaiManuel(Boolean(next.debutEssai || next.finEssai));
+      setEssaiRelatif(null);
+      setFiche(next);
+      return;
+    }
+    const v = form.state.values;
+    const categorieChangee = next.categorie !== fiche.categorie;
+    if (categorieChangee) setEssaiRelatif(null);
+    setFiche(
+      essaiPour(
+        next,
+        v.hireDate ?? "",
+        v.contractType,
+        essaiManuel,
+        categorieChangee ? null : essaiRelatif,
+      ),
+    );
+  };
+
+  /** Embauche ou contrat modifiés : l'essai proposé suit. */
+  const changerEmbaucheOuContrat = (
+    hire: string,
+    contrat: string | undefined,
+  ) => {
+    setEssaiRelatif(null);
+    setFiche((f) => essaiPour(f, hire, contrat, essaiManuel, null));
+  };
+
+  const copierSalarie = (source: ApiEmployee) => {
+    // Seuls les champs de l'étape « Emploi » : ni identité, ni documents.
+    const set = (nom: string, valeur: unknown) =>
+      form.setFieldValue(nom as never, valeur as never);
+    if (source.position) set("position", source.position);
+    if (source.contractType) set("contractType", source.contractType);
+    if (source.workSchedule) set("workSchedule", source.workSchedule);
+    set("dressingAllowance", source.dressingAllowance ?? false);
+
+    const nom = `${source.firstName ?? ""} ${source.lastName ?? ""}`.trim();
+    setCopieDe(nom || source.employeeNumber || "ce salarié");
+
+    const sourceFiche = ficheDe(source.id);
+    setCopieSansGrille(!sourceFiche);
+    if (!sourceFiche) return;
+
+    const hire = form.state.values.hireDate ?? "";
+    const debutSource = source.hireDate?.split("T")[0] ?? "";
+    const decDebut = ecartJours(debutSource, sourceFiche.debutEssai);
+    const decFin = ecartJours(debutSource, sourceFiche.finEssai);
+    const relatif =
+      decDebut !== null && decFin !== null
+        ? { debut: decDebut, fin: decFin }
+        : null;
+    setEssaiRelatif(relatif);
+    setEssaiManuel(false);
+    setFiche(
+      essaiPour(
+        { ...sourceFiche, debutEssai: "", finEssai: "" },
+        hire,
+        source.contractType ?? undefined,
+        false,
+        relatif,
+      ),
+    );
+  };
+
   return (
     <Modal
       open={open}
       onOpenChange={handleOpenChange}
       type="form"
-      title="Nouvel employé"
+      title="Nouveau salarié"
       description={`Étape ${currentStep + 1} sur ${steps.length}`}
       size="xl"
       actions={{
@@ -274,7 +423,17 @@ export function EmployeeCreateDialog({ open, onOpenChange, onCreated }: Props) {
         <div className="min-h-100">
           {currentStep === 0 && <PersonalStep form={form} />}
           {currentStep === 1 && <ContactStep form={form} />}
-          {currentStep === 2 && <EmploymentStep form={form} />}
+          {currentStep === 2 && (
+            <EmploymentStep
+              form={form}
+              fiche={fiche}
+              onFicheChange={changerFiche}
+              onEmbaucheOuContrat={changerEmbaucheOuContrat}
+              onCopier={copierSalarie}
+              copieDe={copieDe}
+              copieSansGrille={copieSansGrille}
+            />
+          )}
           {currentStep === 3 && <BankStep form={form} />}
         </div>
 
@@ -349,6 +508,7 @@ type FormApi = {
     children: (field: AnyFieldApi) => React.ReactNode;
   }) => React.ReactNode | Promise<React.ReactNode>;
   setFieldValue: (name: never, value: never) => void;
+  state: { values: CreateEmployeeDto };
 };
 
 // Multi-sélection des qualifications avec ajout manuel (si absente de la liste).
@@ -788,7 +948,80 @@ function ContactStep({ form }: { form: FormApi }) {
   );
 }
 
-function EmploymentStep({ form }: { form: FormApi }) {
+// « Copier salarié » : liste déroulante (avec recherche) de tous les salariés.
+function CopierSalarieButton({
+  onCopier,
+}: {
+  onCopier: (source: ApiEmployee) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data: salaries = [], isLoading } = useEmployees();
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="gap-2">
+          <Copy className="h-4 w-4 text-sky-600" />
+          Copier salarié
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-0">
+        <Command>
+          <CommandInput placeholder="Rechercher un salarié…" />
+          <CommandList>
+            <CommandEmpty>
+              {isLoading ? "Chargement…" : "Aucun salarié trouvé."}
+            </CommandEmpty>
+            <CommandGroup>
+              {salaries.map((e) => {
+                const nom =
+                  `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() ||
+                  (e.employeeNumber ?? "Salarié");
+                return (
+                  <CommandItem
+                    key={e.id}
+                    value={`${nom} ${e.employeeNumber ?? ""} ${e.position ?? ""}`}
+                    onSelect={() => {
+                      onCopier(e);
+                      setOpen(false);
+                    }}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium">{nom}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {[e.position, e.employeeNumber]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </div>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function EmploymentStep({
+  form,
+  fiche,
+  onFicheChange,
+  onEmbaucheOuContrat,
+  onCopier,
+  copieDe,
+  copieSansGrille,
+}: {
+  form: FormApi;
+  fiche: FicheEmploi;
+  onFicheChange: (next: FicheEmploi, modifie: ChangementFiche) => void;
+  onEmbaucheOuContrat: (hire: string, contrat: string | undefined) => void;
+  onCopier: (source: ApiEmployee) => void;
+  copieDe: string | null;
+  copieSansGrille: boolean;
+}) {
   const fill = () => {
     const suffix = fakerFR.number.int({ min: 100, max: 9999 });
     const hireDate = fakerFR.date.past({ years: 5 }).toISOString().slice(0, 10);
@@ -801,20 +1034,19 @@ function EmploymentStep({ form }: { form: FormApi }) {
       "Agent de prévention",
     ];
     form.setFieldValue("employeeNumber" as never, `EMP${suffix}` as never);
+    const contrat = fakerFR.helpers.arrayElement([
+      "CDI",
+      "CDD",
+      "APPRENTICESHIP",
+      "INTERNSHIP",
+    ]);
     form.setFieldValue("hireDate" as never, hireDate as never);
     form.setFieldValue(
       "position" as never,
       fakerFR.helpers.arrayElement(positions) as never,
     );
-    form.setFieldValue(
-      "contractType" as never,
-      fakerFR.helpers.arrayElement([
-        "CDI",
-        "CDD",
-        "APPRENTICESHIP",
-        "INTERNSHIP",
-      ]) as never,
-    );
+    form.setFieldValue("contractType" as never, contrat as never);
+    onEmbaucheOuContrat(hireDate, contrat);
     form.setFieldValue(
       "workSchedule" as never,
       fakerFR.helpers.arrayElement(["full-time", "part-time"]) as never,
@@ -831,7 +1063,22 @@ function EmploymentStep({ form }: { form: FormApi }) {
   };
   return (
     <div className="space-y-4">
-      <FillFakeButton onFill={fill} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CopierSalarieButton onCopier={onCopier} />
+        <FillFakeButton onFill={fill} />
+      </div>
+      {copieDe && (
+        <div className="flex items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Informations d&apos;emploi copiées depuis <strong>{copieDe}</strong>{" "}
+            (poste, contrat, temps de travail, grille des salaires, essai). Vous
+            pouvez les modifier ci-dessous.
+            {copieSansGrille &&
+              " Ce salarié n'a pas de grille des salaires enregistrée : seuls les champs du formulaire ont été copiés."}
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <form.Field name="employeeNumber">
           {(field) => (
@@ -860,7 +1107,13 @@ function EmploymentStep({ form }: { form: FormApi }) {
                 type="date"
                 value={field.state.value ?? ""}
                 onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
+                onChange={(e) => {
+                  field.handleChange(e.target.value);
+                  onEmbaucheOuContrat(
+                    e.target.value,
+                    form.state.values.contractType,
+                  );
+                }}
               />
               <FieldError field={field} />
             </div>
@@ -909,9 +1162,10 @@ function EmploymentStep({ form }: { form: FormApi }) {
               <Label>Type de contrat</Label>
               <Select
                 value={field.state.value}
-                onValueChange={(v) =>
-                  field.handleChange(v as CreateEmployeeDto["contractType"])
-                }
+                onValueChange={(v) => {
+                  field.handleChange(v as CreateEmployeeDto["contractType"]);
+                  onEmbaucheOuContrat(form.state.values.hireDate ?? "", v);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -994,6 +1248,20 @@ function EmploymentStep({ form }: { form: FormApi }) {
             </div>
           )}
         </form.Field>
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
+        <div>
+          <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+            Grille des salaires et période d&apos;essai
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Le coefficient, le taux horaire et le salaire se remplissent selon
+            la grille. La fin d&apos;essai est proposée d&apos;après le contrat
+            et reste modifiable.
+          </p>
+        </div>
+        <FicheEmploiFields fiche={fiche} onChange={onFicheChange} />
       </div>
     </div>
   );

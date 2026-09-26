@@ -574,7 +574,7 @@ export default function PersonalInfoChangePage() {
           activeTab === "bank_details"
             ? " de coordonnées bancaires"
             : activeTab === "address"
-              ? " d&apos;adresse"
+              ? " d'adresse"
               : " de statut civil"
         }`}
         size="lg"

@@ -58,38 +58,57 @@ function ChartCard({
   isEmpty?: boolean;
   children: React.ReactNode;
 }) {
-  // Un graphique sans donnée ne s'affiche pas du tout (au lieu d'un placeholder vide).
-  if (!isLoading && isEmpty) return null;
-
+  // La carte reste affichée même sans donnée : la retirer laissait un trou
+  // dans la grille du tableau de bord.
   return (
-    <Card className="glass-card border-border/40 h-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold text-foreground">
+    <Card className="glass-card border-border/40 flex h-full flex-col">
+      <CardHeader className="px-4 pt-3 pb-1">
+        <CardTitle className="truncate text-sm font-semibold text-foreground">
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        {isLoading ? <Skeleton className="h-60 w-full" /> : children}
+      <CardContent className="flex min-h-0 flex-1 flex-col px-4 pt-0 pb-3">
+        {isLoading ? (
+          <Skeleton className="h-full min-h-[100px] w-full" />
+        ) : isEmpty ? (
+          <p className="flex flex-1 items-center justify-center text-center text-xs text-muted-foreground">
+            Aucune donnée à afficher pour le moment.
+          </p>
+        ) : (
+          children
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function PieLegend({ data }: { data: PieDatum[] }) {
-  const total = data.reduce((sum, d) => sum + d.value, 0);
+/**
+ * Zone de graphique qui remplit la hauteur restante de la carte. Le conteneur
+ * absolu évite que ResponsiveContainer (height 100 %) s'effondre à 0 px quand
+ * la hauteur du parent vient d'un flex/grid.
+ */
+function ChartArea({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 mt-3">
+    <div className="relative min-h-[100px] flex-1">
+      <div className="absolute inset-0">{children}</div>
+    </div>
+  );
+}
+
+function PieLegend({ data }: { data: PieDatum[] }) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
       {data.map((entry) => (
         <div key={entry.name} className="flex items-center gap-1.5">
           <span
-            className="h-2.5 w-2.5 rounded-full shrink-0"
+            className="h-2 w-2 rounded-full shrink-0"
             style={{ background: entry.color }}
           />
-          <span className="text-xs text-muted-foreground">
-            {entry.name}{" "}
-            <span className="text-foreground/80 font-medium">
-              {entry.value}
-            </span>
+          <span className="truncate text-xs text-muted-foreground">
+            {entry.name}
+          </span>
+          <span className="ml-auto pl-1 text-xs font-medium text-foreground/80">
+            {entry.value}
           </span>
         </div>
       ))}
@@ -224,49 +243,61 @@ export function MiniDonut({
 function DonutChart({ data }: { data: PieDatum[] }) {
   // Animation dynamique : la tranche cliquée s'agrandit (et se réduit au re-clic).
   const [activeIndex, setActiveIndex] = useState(-1);
+  const total = data.reduce((sum, d) => sum + d.value, 0);
   return (
-    <>
-      <ResponsiveContainer width="100%" height={200}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={52}
-            outerRadius={80}
-            paddingAngle={3}
-            dataKey="value"
-            // Recharts 3 a retiré `activeIndex` de <Pie> : on pilote nous-mêmes
-            // le rayon de chaque secteur via `shape`.
-            shape={(props: PieSectorDataItem & { index?: number }) => (
-              <Sector
-                {...props}
-                outerRadius={
-                  props.index === activeIndex
-                    ? (props.outerRadius ?? 80) + 12
-                    : (props.outerRadius ?? 80)
-                }
-              />
-            )}
-            onClick={(_, index) =>
-              setActiveIndex((cur) => (cur === index ? -1 : index))
-            }
-            isAnimationActive
-            animationDuration={700}
-            className="cursor-pointer"
-          >
-            {data.map((entry, i) => (
-              <Cell key={`cell-${i}`} fill={entry.color} stroke="transparent" />
-            ))}
-          </Pie>
-          <Tooltip
-            {...DARK_TOOLTIP}
-            formatter={(value, name) => [value, name]}
-          />
-        </PieChart>
-      </ResponsiveContainer>
+    // Anneau réduit (96 px) avec la légende à droite : la carte reste basse.
+    <div className="flex flex-1 items-center gap-3">
+      <div className="relative h-24 w-24 shrink-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={27}
+              outerRadius={41}
+              paddingAngle={3}
+              dataKey="value"
+              // Recharts 3 a retiré `activeIndex` de <Pie> : on pilote nous-mêmes
+              // le rayon de chaque secteur via `shape`.
+              shape={(props: PieSectorDataItem & { index?: number }) => (
+                <Sector
+                  {...props}
+                  outerRadius={
+                    props.index === activeIndex
+                      ? (props.outerRadius ?? 41) + 6
+                      : (props.outerRadius ?? 41)
+                  }
+                />
+              )}
+              onClick={(_, index) =>
+                setActiveIndex((cur) => (cur === index ? -1 : index))
+              }
+              isAnimationActive
+              animationDuration={700}
+              className="cursor-pointer"
+            >
+              {data.map((entry, i) => (
+                <Cell
+                  key={`cell-${i}`}
+                  fill={entry.color}
+                  stroke="transparent"
+                />
+              ))}
+            </Pie>
+            <Tooltip
+              {...DARK_TOOLTIP}
+              formatter={(value, name) => [value, name]}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-lg leading-none font-light">{total}</span>
+          <span className="text-[10px] text-muted-foreground">total</span>
+        </div>
+      </div>
       <PieLegend data={data} />
-    </>
+    </div>
   );
 }
 
@@ -431,61 +462,68 @@ export function TrainingStatusBarWidget({ isLoading }: { isLoading: boolean }) {
       isLoading={isLoading || q}
       isEmpty={data.length === 0}
     >
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart
-          data={data}
-          margin={{ top: 8, right: 8, bottom: 0, left: -24 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#334155"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="type"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            allowDecimals={false}
-          />
-          <Tooltip
-            {...DARK_TOOLTIP}
-            formatter={(value, name) => [
-              value,
-              name === "aJour"
-                ? "À jour"
-                : name === "expirant"
-                  ? "Expirant"
-                  : "Expirés",
-            ]}
-          />
-          <Legend
-            wrapperStyle={{ fontSize: 12, color: "#94a3b8" }}
-            iconType="circle"
-            formatter={(value: string) =>
-              value === "aJour"
-                ? "À jour"
-                : value === "expirant"
-                  ? "Expirant"
-                  : "Expirés"
-            }
-          />
-          <Bar dataKey="aJour" stackId="s" fill="#34d399" maxBarSize={48} />
-          <Bar dataKey="expirant" stackId="s" fill="#fb923c" maxBarSize={48} />
-          <Bar
-            dataKey="expires"
-            stackId="s"
-            fill="#ef4444"
-            radius={[4, 4, 0, 0]}
-            maxBarSize={48}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+      <ChartArea>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            margin={{ top: 8, right: 8, bottom: 0, left: -24 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#334155"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="type"
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip
+              {...DARK_TOOLTIP}
+              formatter={(value, name) => [
+                value,
+                name === "aJour"
+                  ? "À jour"
+                  : name === "expirant"
+                    ? "Expirant"
+                    : "Expirés",
+              ]}
+            />
+            <Legend
+              wrapperStyle={{ fontSize: 11, color: "#94a3b8" }}
+              iconType="circle"
+              formatter={(value: string) =>
+                value === "aJour"
+                  ? "À jour"
+                  : value === "expirant"
+                    ? "Expirant"
+                    : "Expirés"
+              }
+            />
+            <Bar dataKey="aJour" stackId="s" fill="#34d399" maxBarSize={48} />
+            <Bar
+              dataKey="expirant"
+              stackId="s"
+              fill="#fb923c"
+              maxBarSize={48}
+            />
+            <Bar
+              dataKey="expires"
+              stackId="s"
+              fill="#ef4444"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={48}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartArea>
     </ChartCard>
   );
 }
@@ -523,52 +561,54 @@ export function StaffFlowBarWidget({ isLoading }: { isLoading: boolean }) {
       isLoading={isLoading || q}
       isEmpty={!hasData}
     >
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart
-          data={data}
-          margin={{ top: 8, right: 8, bottom: 0, left: -24 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#334155"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="mois"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            allowDecimals={false}
-          />
-          <Tooltip {...DARK_TOOLTIP} />
-          <Legend
-            wrapperStyle={{ fontSize: 12, color: "#94a3b8" }}
-            iconType="circle"
-            formatter={(value) =>
-              value === "entrees" ? "Embauches" : "Départs"
-            }
-          />
-          <Bar
-            dataKey="entrees"
-            name="entrees"
-            fill="#34d399"
-            radius={[4, 4, 0, 0]}
-            maxBarSize={22}
-          />
-          <Bar
-            dataKey="sorties"
-            name="sorties"
-            fill="#ef4444"
-            radius={[4, 4, 0, 0]}
-            maxBarSize={22}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+      <ChartArea>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            margin={{ top: 8, right: 8, bottom: 0, left: -24 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#334155"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="mois"
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip {...DARK_TOOLTIP} />
+            <Legend
+              wrapperStyle={{ fontSize: 11, color: "#94a3b8" }}
+              iconType="circle"
+              formatter={(value) =>
+                value === "entrees" ? "Embauches" : "Départs"
+              }
+            />
+            <Bar
+              dataKey="entrees"
+              name="entrees"
+              fill="#34d399"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={22}
+            />
+            <Bar
+              dataKey="sorties"
+              name="sorties"
+              fill="#ef4444"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={22}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartArea>
     </ChartCard>
   );
 }
@@ -605,42 +645,44 @@ export function HeadcountTrendLineWidget({
       isLoading={isLoading || q}
       isEmpty={!hasData}
     >
-      <ResponsiveContainer width="100%" height={240}>
-        <LineChart
-          data={data}
-          margin={{ top: 8, right: 12, bottom: 0, left: -20 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#334155"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="mois"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            allowDecimals={false}
-          />
-          <Tooltip
-            {...DARK_TOOLTIP}
-            formatter={(value) => [value, "Effectif"]}
-          />
-          <Line
-            type="monotone"
-            dataKey="effectif"
-            stroke="#22d3ee"
-            strokeWidth={2.5}
-            dot={{ r: 3, fill: "#22d3ee", strokeWidth: 0 }}
-            activeDot={{ r: 5 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      <ChartArea>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={data}
+            margin={{ top: 8, right: 12, bottom: 0, left: -20 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#334155"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="mois"
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip
+              {...DARK_TOOLTIP}
+              formatter={(value) => [value, "Effectif"]}
+            />
+            <Line
+              type="monotone"
+              dataKey="effectif"
+              stroke="#22d3ee"
+              strokeWidth={2.5}
+              dot={{ r: 3, fill: "#22d3ee", strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartArea>
     </ChartCard>
   );
 }
@@ -668,32 +710,34 @@ export function ComplianceRadarWidget({ isLoading }: { isLoading: boolean }) {
       isLoading={isLoading || q}
       isEmpty={data.length === 0}
     >
-      <ResponsiveContainer width="100%" height={240}>
-        <RadarChart data={data} outerRadius="72%">
-          <PolarGrid stroke="#334155" />
-          <PolarAngleAxis
-            dataKey="categorie"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
-          />
-          <PolarRadiusAxis
-            angle={90}
-            domain={[0, 100]}
-            tick={{ fill: "#64748b", fontSize: 10 }}
-            tickCount={5}
-          />
-          <Tooltip
-            {...DARK_TOOLTIP}
-            formatter={(value) => [`${value}%`, "Conformité"]}
-          />
-          <Radar
-            name="Conformité"
-            dataKey="taux"
-            stroke="#34d399"
-            fill="#34d399"
-            fillOpacity={0.35}
-          />
-        </RadarChart>
-      </ResponsiveContainer>
+      <ChartArea>
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={data} outerRadius="72%">
+            <PolarGrid stroke="#334155" />
+            <PolarAngleAxis
+              dataKey="categorie"
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+            />
+            <PolarRadiusAxis
+              angle={90}
+              domain={[0, 100]}
+              tick={{ fill: "#64748b", fontSize: 10 }}
+              tickCount={5}
+            />
+            <Tooltip
+              {...DARK_TOOLTIP}
+              formatter={(value) => [`${value}%`, "Conformité"]}
+            />
+            <Radar
+              name="Conformité"
+              dataKey="taux"
+              stroke="#34d399"
+              fill="#34d399"
+              fillOpacity={0.35}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
+      </ChartArea>
     </ChartCard>
   );
 }

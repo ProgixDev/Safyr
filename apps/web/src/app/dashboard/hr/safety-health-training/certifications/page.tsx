@@ -275,7 +275,7 @@ export default function CertificationsPage() {
     },
     {
       key: "issueDate",
-      label: "Date dd'apos;apos;émission",
+      label: "Date d'émission",
       icon: Calendar,
       sortable: true,
       render: (certification) => (
@@ -286,7 +286,7 @@ export default function CertificationsPage() {
     },
     {
       key: "expiryDate",
-      label: "Date dd'apos;apos;expiration",
+      label: "Date d'expiration",
       icon: Clock,
       sortable: true,
       render: (certification) => (
@@ -431,7 +431,7 @@ export default function CertificationsPage() {
         open={isViewModalOpen}
         onOpenChange={setIsViewModalOpen}
         type="details"
-        title="Détails de l'apos;habilitation"
+        title="Détails de l'habilitation"
         size="md"
       >
         {selectedCertification && (
@@ -558,9 +558,7 @@ export default function CertificationsPage() {
           }
         }}
         type="form"
-        title={
-          isEditMode ? "Modifier l&apos;habilitation" : "Nouvelle habilitation"
-        }
+        title={isEditMode ? "Modifier l'habilitation" : "Nouvelle habilitation"}
         size="md"
         actions={{
           secondary: {

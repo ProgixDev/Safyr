@@ -36,22 +36,19 @@ import {
   TEINTES,
   type Teinte,
 } from "@/components/safety-training/couleurs";
-import { exportDuerpToPdf, exportDuerpToExcel } from "@/lib/duerp-export";
+import {
+  POINTS_GRAVITE,
+  POINTS_PROBABILITE,
+  exportDuerpToExcel,
+  exportDuerpToPdf,
+  niveauDeScore,
+  niveauRisque,
+  scoreRisque,
+  type Niveau,
+  type Poste,
+  type Risk,
+} from "@/lib/duerp-export";
 import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
-
-interface Risk {
-  risque: string;
-  cause: string;
-  gravite: "Grave" | "Moyenne" | "Faible";
-  probabilite: "Élevée" | "Moyenne" | "Faible";
-  mesures: string;
-}
-
-interface Poste {
-  id: string;
-  title: string;
-  risks: Risk[];
-}
 
 const initialPostes: Poste[] = [
   {
@@ -387,23 +384,6 @@ const initialPostes: Poste[] = [
   },
 ];
 
-/**
- * Cotation d'un risque : gravité (1 à 3) × probabilité (1 à 3).
- * 1-2 faible, 3-4 moyen, 6 élevé, 9 critique (grave ET probable).
- */
-const POINTS_GRAVITE: Record<Risk["gravite"], number> = {
-  Faible: 1,
-  Moyenne: 2,
-  Grave: 3,
-};
-const POINTS_PROBABILITE: Record<Risk["probabilite"], number> = {
-  Faible: 1,
-  Moyenne: 2,
-  Élevée: 3,
-};
-
-type Niveau = "Faible" | "Moyen" | "Élevé" | "Critique";
-
 const NIVEAUX: {
   niveau: Niveau;
   teinte: Teinte;
@@ -440,22 +420,6 @@ const NIVEAUX: {
     aide: "Action immédiate",
   },
 ];
-
-function scoreRisque(risk: Risk): number {
-  return (
-    (POINTS_GRAVITE[risk.gravite] ?? 2) *
-    (POINTS_PROBABILITE[risk.probabilite] ?? 2)
-  );
-}
-
-function niveauDeScore(score: number): Niveau {
-  if (score >= 9) return "Critique";
-  if (score >= 6) return "Élevé";
-  if (score >= 3) return "Moyen";
-  return "Faible";
-}
-
-const niveauRisque = (risk: Risk): Niveau => niveauDeScore(scoreRisque(risk));
 
 const infosNiveau = (niveau: Niveau) =>
   NIVEAUX.find((n) => n.niveau === niveau)!;
@@ -620,6 +584,17 @@ export default function DUERPPage() {
     ]);
   };
 
+  /** Les exports sont asynchrones (logo et société chargés à la volée). */
+  const lancerExport = async (exporter: (p: Poste[]) => Promise<void>) => {
+    try {
+      await exporter(postes);
+    } catch (e) {
+      alert(
+        `Export impossible : ${e instanceof Error ? e.message : "erreur inconnue"}`,
+      );
+    }
+  };
+
   const tousLesRisques = postes.flatMap((poste) => poste.risks);
   const nombreParNiveau = (niveau: Niveau) =>
     tousLesRisques.filter((risk) => niveauRisque(risk) === niveau).length;
@@ -639,7 +614,7 @@ export default function DUERPPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            onClick={() => exportDuerpToPdf(postes)}
+            onClick={() => void lancerExport(exportDuerpToPdf)}
             className="gap-2"
           >
             <FileDown className="h-4 w-4 text-red-600" />
@@ -647,7 +622,7 @@ export default function DUERPPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => exportDuerpToExcel(postes)}
+            onClick={() => void lancerExport(exportDuerpToExcel)}
             className="gap-2"
           >
             <FileSpreadsheet className="h-4 w-4 text-green-600" />

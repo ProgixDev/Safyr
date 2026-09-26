@@ -18,7 +18,7 @@ import {
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, CheckCircle, Send } from "lucide-react";
+import { Plus, CheckCircle, Send, AlertTriangle } from "lucide-react";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
@@ -26,6 +26,7 @@ import { useRegistre } from "@/hooks/fiscal/use-registre";
 import { useOrganization } from "@/hooks/organization";
 import { CourrierDialog } from "./CourrierDialog";
 import { ResponsableSelect } from "./ResponsableSelect";
+import { BADGE_ROUGE, BADGE_VERT, TEINTES } from "./discipline-theme";
 import {
   TYPES_SANCTION,
   TYPE_SANCTION_PAR_DEFAUT,
@@ -41,10 +42,12 @@ const statusLabels = {
   lifted: "Levée",
 };
 
-const statusColors = {
-  active: "destructive",
-  lifted: "secondary",
+const statusClasses = {
+  active: BADGE_ROUGE,
+  lifted: BADGE_VERT,
 } as const;
+
+const teinte = TEINTES.sanctions;
 
 /** Les sanctions saisies avant l'ajout du type étaient des avertissements. */
 const typeDe = (ligne: { type?: string }) =>
@@ -231,7 +234,10 @@ export function WarningsSection() {
       key: "status",
       label: "Statut",
       render: (sanction) => (
-        <Badge variant={statusColors[sanction.status ?? "active"]}>
+        <Badge
+          variant="outline"
+          className={statusClasses[sanction.status ?? "active"]}
+        >
           {statusLabels[sanction.status ?? "active"]}
         </Badge>
       ),
@@ -277,21 +283,34 @@ export function WarningsSection() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sanctions</h1>
-          <p className="text-muted-foreground">
-            Gestion des sanctions disciplinaires
-          </p>
+        <div className="flex items-center gap-4">
+          <div className={`rounded-xl p-3 ${teinte.pastille}`}>
+            <AlertTriangle className="h-7 w-7" />
+          </div>
+          <div>
+            <h1 className={`text-3xl font-bold tracking-tight ${teinte.titre}`}>
+              Sanctions
+            </h1>
+            <p className="text-muted-foreground">
+              Gestion des sanctions disciplinaires
+            </p>
+          </div>
         </div>
-        <Button onClick={handleCreate} className="gap-2">
+        <Button
+          onClick={handleCreate}
+          size="lg"
+          className={`gap-2 ${teinte.bouton}`}
+        >
           <Plus className="h-4 w-4" />
           Nouvelle sanction
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Sanctions ({sanctions.length})</CardTitle>
+      <Card className={teinte.carte}>
+        <CardHeader className={`rounded-t-xl ${teinte.entete}`}>
+          <CardTitle className={teinte.titre}>
+            Sanctions ({sanctions.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
@@ -484,7 +503,10 @@ export function WarningsSection() {
               </div>
               <div>
                 <Label>Statut</Label>
-                <Badge variant={statusColors[viewing.status ?? "active"]}>
+                <Badge
+                  variant="outline"
+                  className={statusClasses[viewing.status ?? "active"]}
+                >
                   {statusLabels[viewing.status ?? "active"]}
                 </Badge>
               </div>

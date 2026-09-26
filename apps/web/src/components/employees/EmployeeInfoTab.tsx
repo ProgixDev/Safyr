@@ -24,7 +24,9 @@ import { useUpdateEmployee, useEmployeePhotoUrl } from "@/hooks/employees";
 import { useShifts } from "@/hooks/shifts";
 import { uploadFile } from "@safyr/api-client";
 import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
+import { EmployeeFicheEmploiCard } from "./EmployeeFicheEmploiCard";
 import { ApiError, type UpdateEmployeePayload } from "@safyr/api-client";
+import { dateVersChamp, formatDateFr } from "@/lib/employee-adapter";
 
 interface Props {
   employee: Employee;
@@ -63,12 +65,8 @@ type FormValues = {
   };
 };
 
-const toIso = (d: Date | undefined): string => {
-  if (!d) return "";
-  const t = d.getTime();
-  if (!t || Number.isNaN(t)) return "";
-  return d.toISOString().split("T")[0];
-};
+// Date absente = époque exacte ; une naissance avant 1970 est bien une date.
+const toIso = (d: Date | undefined): string => dateVersChamp(d);
 
 // Champ select gris en lecture, éditable en mode édition.
 function SelectRow({
@@ -472,15 +470,31 @@ export function EmployeeInfoTab({ employee }: Props) {
               )}
             </form.Field>
             <form.Field name="dateOfBirth">
-              {(field) => (
-                <FormFieldRow
-                  field={field}
-                  label="Date de naissance"
-                  editing={isEditing}
-                >
-                  <Input type="date" />
-                </FormFieldRow>
-              )}
+              {(field) =>
+                isEditing ? (
+                  <FormFieldRow field={field} label="Date de naissance" editing>
+                    <Input type="date" />
+                  </FormFieldRow>
+                ) : (
+                  // Lecture : JJ/MM/AAAA lu directement sur le salarié chargé
+                  // (un champ date désactivé peut s'afficher vide selon le
+                  // navigateur, ou garder une valeur périmée du formulaire).
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="dateOfBirthLecture"
+                      className="text-base font-medium leading-none"
+                    >
+                      Date de naissance
+                    </Label>
+                    <Input
+                      id="dateOfBirthLecture"
+                      readOnly
+                      value={formatDateFr(employee.dateOfBirth)}
+                      className="cursor-default border-transparent bg-muted/30 text-base shadow-none focus-visible:ring-0"
+                    />
+                  </div>
+                )
+              }
             </form.Field>
             <form.Field name="placeOfBirth">
               {(field) => (
@@ -619,6 +633,8 @@ export function EmployeeInfoTab({ employee }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      <EmployeeFicheEmploiCard employee={employee} />
 
       {/* Coordonnées */}
       <Card>

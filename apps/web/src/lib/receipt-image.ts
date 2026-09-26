@@ -3,7 +3,9 @@ const TAILLE_ENVOI_MAX = 3 * 1024 * 1024;
 
 /** Vrai pour les photos que la lecture automatique sait analyser. */
 export function estPhotoLisible(fichier: File): boolean {
-  return /^image\/(jpeg|png|webp)$/.test(fichier.type);
+  if (/^image\/(jpeg|png|webp)$/.test(fichier.type)) return true;
+  // Certains navigateurs ne renseignent pas le type : on se fie à l'extension.
+  return fichier.type === "" && /\.(jpe?g|png|webp)$/i.test(fichier.name);
 }
 
 /**

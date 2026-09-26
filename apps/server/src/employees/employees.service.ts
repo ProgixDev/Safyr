@@ -48,6 +48,9 @@ export class EmployeesService {
   } as const;
 
   private listMemberInclude = {
+    // Les écrans Habilitations (SSIAP, SST, H0B0) lisent les diplômes de tous
+    // les salariés en un seul appel.
+    certifications: true,
     user: { select: { id: true, email: true, name: true, image: true } },
   } as const;
 

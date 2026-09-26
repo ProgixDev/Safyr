@@ -40,16 +40,14 @@ import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/modal";
 import Link from "next/link";
 import { useListePersistante } from "@/hooks/fiscal/use-liste-persistante";
+import {
+  LIBELLES_GRAVITE,
+  LIBELLES_STATUT_ACCIDENT,
+  exportAccidentsToExcel,
+  exportAccidentsToPdf,
+} from "@/lib/accidents-export";
 
-// Mock data
-const mockWorkAccidents: WorkAccident[] = [];
-
-const severityLabels = {
-  minor: "Bénin",
-  moderate: "Modéré",
-  severe: "Grave",
-  fatal: "Mortel",
-};
+const severityLabels = LIBELLES_GRAVITE;
 
 const severityColors = {
   minor: "secondary",
@@ -58,11 +56,7 @@ const severityColors = {
   fatal: "destructive",
 } as const;
 
-const statusLabels = {
-  declared: "Déclaré",
-  investigating: "En investigation",
-  closed: "Clôturé",
-};
+const statusLabels = LIBELLES_STATUT_ACCIDENT;
 
 const statusColors = {
   declared: "default",
@@ -237,89 +231,30 @@ export default function WorkAccidentsPage() {
     setIsCreateModalOpen(false);
   };
 
-  /** Colonnes communes aux exports PDF et Excel du registre. */
-  const buildExportRows = () => {
-    const headers = [
-      "Salarié",
-      "Date de l'accident",
-      "Heure",
-      "Lieu",
-      "Description",
-      "Lésions",
-      "Gravité",
-      "Statut",
-      "N° déclaration",
-      "Date de déclaration",
-      "Arrêt de travail",
-      "Début d'arrêt",
-      "Fin d'arrêt",
-      "Reprise",
-      "CPAM notifiée",
-    ];
-    const fr = (d?: Date) =>
-      d ? new Date(d).toLocaleDateString("fr-FR") : "—";
-    const rows = filteredAccidents.map((a) => [
-      getEmployeeName(a.employeeId),
-      fr(a.accidentDate),
-      a.accidentTime || "—",
-      a.location,
-      a.description,
-      a.injuries,
-      severityLabels[a.severity],
-      statusLabels[a.status],
-      a.declarationNumber || "—",
-      fr(a.declarationDate),
-      a.workStoppage ? "Oui" : "Non",
-      fr(a.workStoppageStart),
-      fr(a.workStoppageEnd),
-      fr(a.returnToWork),
-      a.cpamNotified ? "Oui" : "Non",
-    ]);
-    return { headers, rows };
-  };
-
-  const handleExportPDF = async () => {
-    const { default: jsPDF } = await import("jspdf");
-    const autoTable = (await import("jspdf-autotable")).default;
-    const { headers, rows } = buildExportRows();
-    const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFontSize(14);
-    doc.text("Registre des accidents du travail", 14, 16);
-    doc.setFontSize(9);
-    doc.text(
-      `Édité le ${new Date().toLocaleDateString("fr-FR")} — ${rows.length} accident(s)`,
-      14,
-      22,
-    );
-    autoTable(doc, {
-      startY: 28,
-      head: [headers],
-      body: rows,
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [34, 211, 238] },
-    });
-    doc.save(
-      `registre-accidents-travail-${new Date().toISOString().slice(0, 10)}.pdf`,
-    );
-  };
-
-  const handleExportExcel = () => {
-    const { headers, rows } = buildExportRows();
-    const csv = [headers, ...rows]
-      .map((r) =>
-        r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";"),
-      )
-      .join("\r\n");
-    // BOM UTF-8 pour qu'Excel affiche correctement les accents.
-    const blob = new Blob(["﻿" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `registre-accidents-travail-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  /** Exporte le tableau affiché, avec ses filtres (PDF ou Excel de marque). */
+  const lancerExport = async (
+    exporter: typeof exportAccidentsToPdf | typeof exportAccidentsToExcel,
+  ) => {
+    const filtres = [
+      filterSeverity !== "all"
+        ? `Gravité : ${severityLabels[filterSeverity as WorkAccident["severity"]]}`
+        : "",
+      filterStatus !== "all"
+        ? `Statut : ${statusLabels[filterStatus as WorkAccident["status"]]}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" — ");
+    try {
+      await exporter(filteredAccidents, {
+        nomSalarie: getEmployeeName,
+        filtres: filtres || undefined,
+      });
+    } catch (e) {
+      alert(
+        `Export impossible : ${e instanceof Error ? e.message : "erreur inconnue"}`,
+      );
+    }
   };
 
   // Apply filters
@@ -457,11 +392,17 @@ export default function WorkAccidentsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleExportPDF} variant="outline">
+          <Button
+            onClick={() => void lancerExport(exportAccidentsToPdf)}
+            variant="outline"
+          >
             <Download className="mr-2 h-4 w-4 text-violet-500" />
             Exporter PDF
           </Button>
-          <Button onClick={handleExportExcel} variant="outline">
+          <Button
+            onClick={() => void lancerExport(exportAccidentsToExcel)}
+            variant="outline"
+          >
             <Download className="mr-2 h-4 w-4 text-violet-500" />
             Exporter Excel
           </Button>

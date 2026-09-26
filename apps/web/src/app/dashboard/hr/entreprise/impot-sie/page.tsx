@@ -131,6 +131,59 @@ interface Courrier {
   statut: "en_attente" | "traite" | "archive";
 }
 
+const MOIS_TVA = [
+  "janvier",
+  "février",
+  "mars",
+  "avril",
+  "mai",
+  "juin",
+  "juillet",
+  "août",
+  "septembre",
+  "octobre",
+  "novembre",
+  "décembre",
+];
+
+/** Jour d'échéance de la TVA : le 24 du mois suivant la période (et non le 20). */
+const JOUR_ECHEANCE_TVA = 24;
+
+/** Échéance par défaut : le 24 du mois qui suit ; décembre bascule en janvier N+1. */
+function echeanceTvaParDefaut(annee: string, mois: string): string {
+  const index = MOIS_TVA.indexOf(mois);
+  if (index < 0 || !/^\d{4}$/.test(annee)) return "";
+  const anneeEcheance = Number(annee) + (index === 11 ? 1 : 0);
+  const moisEcheance = ((index + 1) % 12) + 1;
+  return `${anneeEcheance}-${String(moisEcheance).padStart(2, "0")}-${JOUR_ECHEANCE_TVA}`;
+}
+
+/**
+ * Échéance effective d'un dossier. Les lignes déjà enregistrées portent encore
+ * l'ancien défaut (le 20, et « mois 13 » invalide pour décembre) : on ne
+ * réécrit pas la base, on les remplace à la lecture par le 24. Une date
+ * modifiée à la main (autre jour que le 20) est conservée.
+ */
+function echeanceTvaEffective(dossier: {
+  annee: string;
+  mois: string;
+  dateEcheance?: string;
+}): string {
+  const stockee = dossier.dateEcheance ?? "";
+  const valide =
+    /^\d{4}-\d{2}-\d{2}$/.test(stockee) && !isNaN(Date.parse(stockee));
+  if (!valide || stockee.endsWith("-20")) {
+    return echeanceTvaParDefaut(dossier.annee, dossier.mois) || stockee;
+  }
+  return stockee;
+}
+
+/** Affichage JJ/MM/AAAA sans passer par un fuseau horaire. */
+function formatEcheanceTva(iso: string): string {
+  const [a, m, j] = (iso ?? "").split("-");
+  return a && m && j ? `${j}/${m}/${a}` : "—";
+}
+
 const CHAMPS_TVA = [
   "grandLivre",
   "declaration",
@@ -296,6 +349,7 @@ export default function ImpotSIEPage() {
     const presents = docs.filter(Boolean).length;
     return {
       ...dossier,
+      dateEcheance: echeanceTvaEffective(dossier),
       statut:
         presents === docs.length
           ? "complet"
@@ -698,7 +752,7 @@ export default function ImpotSIEPage() {
       newDocumentType === "courrier"
         ? newDocument.date.slice(0, 4)
         : newDocumentType === "prelevement"
-          ? (/(20d{2})/.exec(newDocument.periode)?.[1] ?? selectedYear)
+          ? (/\b(20\d{2})\b/.exec(newDocument.periode)?.[1] ?? selectedYear)
           : newDocument.annee;
 
     if (newDocumentType === "tva") {
@@ -711,7 +765,7 @@ export default function ImpotSIEPage() {
         arDeclaration: null,
         paiement: null,
         statut: "manquant",
-        dateEcheance: `${newDocument.annee}-${(moisFrancais.indexOf(newDocument.mois) + 2).toString().padStart(2, "0")}-20`,
+        dateEcheance: echeanceTvaParDefaut(newDocument.annee, newDocument.mois),
       };
       void registreTva.enregistrer(newTvaDoc, infosTva(newTvaDoc));
     } else if (newDocumentType === "cfe") {
@@ -763,7 +817,7 @@ export default function ImpotSIEPage() {
       }
     }
 
-    if (/^d{4}$/.test(anneeCreee)) setSelectedYear(anneeCreee);
+    if (/^\d{4}$/.test(anneeCreee)) setSelectedYear(anneeCreee);
     setIsNewDocumentModalOpen(false);
     setNouveauCourrierFichier(null);
     // Reset form
@@ -791,8 +845,7 @@ export default function ImpotSIEPage() {
       key: "dateEcheance",
       label: "Échéance",
       sortable: true,
-      render: (dossier) =>
-        new Date(dossier.dateEcheance).toLocaleDateString("fr-FR"),
+      render: (dossier) => formatEcheanceTva(dossier.dateEcheance),
     },
     ...(
       ["grandLivre", "declaration", "arDeclaration", "paiement"] as const
@@ -1032,9 +1085,7 @@ export default function ImpotSIEPage() {
                       arDeclaration: null,
                       paiement: null,
                       statut: "manquant" as const,
-                      dateEcheance: `${selectedYear}-${(index + 2)
-                        .toString()
-                        .padStart(2, "0")}-20`,
+                      dateEcheance: echeanceTvaParDefaut(selectedYear, mois),
                     }
                   );
                 })}
@@ -1437,7 +1488,7 @@ export default function ImpotSIEPage() {
               <div>
                 <Label className="text-sm font-medium">Échéance</Label>
                 <p className="text-sm text-muted-foreground">
-                  {new Date(viewedTva.dateEcheance).toLocaleDateString("fr-FR")}
+                  {formatEcheanceTva(viewedTva.dateEcheance)}
                 </p>
               </div>
               <div>

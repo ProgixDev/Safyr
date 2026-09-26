@@ -121,8 +121,36 @@ function statutAffiche(visite: Visite): MedicalVisit["status"] {
   return visite.status;
 }
 
-const dateFr = (iso?: string) =>
-  iso ? new Date(iso).toLocaleDateString("fr-FR") : "-";
+// Lecture directe du jour « AAAA-MM-JJ » : passer par Date décalerait d'un
+// jour dans un fuseau à l'ouest de Greenwich.
+const dateFr = (iso?: string) => {
+  if (!iso) return "-";
+  const jour = /^(d{4})-(d{2})-(d{2})/.exec(iso);
+  if (jour) return `${jour[3]}/${jour[2]}/${jour[1]}`;
+  return new Date(iso).toLocaleDateString("fr-FR");
+};
+
+/** Périodicité de la visite médicale : 5 ans après la visite. */
+const DELAI_PROCHAINE_VISITE_ANS = 5;
+
+/** « AAAA-MM-JJ » + 5 ans ; le 29 février devient le 28 si l'année cible n'est pas bissextile. */
+function plusCinqAns(iso: string): string {
+  const m = /^(d{4})-(d{2})-(d{2})/.exec(iso);
+  if (!m) return "";
+  const annee = Number(m[1]) + DELAI_PROCHAINE_VISITE_ANS;
+  const mois = Number(m[2]);
+  let jour = Number(m[3]);
+  const dernierJour = new Date(Date.UTC(annee, mois, 0)).getUTCDate();
+  if (jour > dernierJour) jour = dernierJour;
+  return `${annee}-${String(mois).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
+}
+
+/** Prochaine visite : la date enregistrée, sinon date de la visite + 5 ans. */
+function prochaineVisite(visite: Visite): string | undefined {
+  if (visite.nextVisitDate) return visite.nextVisitDate;
+  const base = visite.completedDate || visite.scheduledDate;
+  return base ? plusCinqAns(base) || undefined : undefined;
+}
 
 const FORMULAIRE_VIDE = {
   employeeName: "",
@@ -239,6 +267,23 @@ export default function OccupationalMedicinePage() {
   // l'archivage sans avoir à être rouverte.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formData, setFormData] = useState(FORMULAIRE_VIDE);
+  // Vrai dès que l'utilisateur fixe lui-même la prochaine visite : le calcul
+  // automatique (date + 5 ans) ne l'écrase plus.
+  const [prochaineManuelle, setProchaineManuelle] = useState(false);
+
+  /** Change une date de visite et recalcule la prochaine visite si elle est automatique. */
+  const changerDates = (
+    patch: Partial<
+      Pick<typeof FORMULAIRE_VIDE, "scheduledDate" | "completedDate">
+    >,
+  ) => {
+    const suivant = { ...formData, ...patch };
+    if (!prochaineManuelle) {
+      const base = suivant.completedDate || suivant.scheduledDate;
+      suivant.nextVisitDate = base ? plusCinqAns(base) : "";
+    }
+    setFormData(suivant);
+  };
 
   const selectedVisit = visits.find((v) => v.id === selectedId) ?? null;
   const actives = visits.filter((v) => !v.archived);
@@ -308,7 +353,7 @@ export default function OccupationalMedicinePage() {
     {
       key: "nextVisitDate",
       label: "Prochaine visite",
-      render: (visit) => dateFr(visit.nextVisitDate),
+      render: (visit) => dateFr(prochaineVisite(visit)),
     },
     {
       key: "fitness",
@@ -348,11 +393,18 @@ export default function OccupationalMedicinePage() {
   const handleCreate = () => {
     setEditingId(null);
     setFormData(FORMULAIRE_VIDE);
+    setProchaineManuelle(false);
     setIsFormOpen(true);
   };
 
   const handleEdit = (visit: Visite) => {
     setEditingId(visit.id);
+    const baseVisite = visit.completedDate || visit.scheduledDate;
+    const enregistree = visit.nextVisitDate?.slice(0, 10) ?? "";
+    // Une date différente de « visite + 5 ans » a été fixée à la main.
+    setProchaineManuelle(
+      !!enregistree && (!baseVisite || enregistree !== plusCinqAns(baseVisite)),
+    );
     setFormData({
       employeeName: visit.employeeName,
       type: visit.type,
@@ -361,7 +413,7 @@ export default function OccupationalMedicinePage() {
       organization: visit.organization ?? "",
       status: visit.status,
       completedDate: visit.completedDate?.slice(0, 10) ?? "",
-      nextVisitDate: visit.nextVisitDate?.slice(0, 10) ?? "",
+      nextVisitDate: enregistree || (baseVisite ? plusCinqAns(baseVisite) : ""),
       fitness: visit.fitness,
       restrictions: visit.restrictions ?? "",
     });
@@ -402,6 +454,7 @@ export default function OccupationalMedicinePage() {
           type: formData.type,
           status: formData.scheduledDate ? "Planifiée" : "À planifier",
           scheduledDate: formData.scheduledDate || undefined,
+          nextVisitDate: formData.nextVisitDate || undefined,
           fitness: "-",
           doctor: formData.doctor,
           organization: formData.organization,
@@ -637,10 +690,31 @@ export default function OccupationalMedicinePage() {
               id="scheduledDate"
               type="date"
               value={formData.scheduledDate}
-              onChange={(e) =>
-                setFormData({ ...formData, scheduledDate: e.target.value })
-              }
+              onChange={(e) => changerDates({ scheduledDate: e.target.value })}
             />
+          </div>
+
+          <div>
+            <Label htmlFor="nextVisitDate">Prochaine visite</Label>
+            <Input
+              id="nextVisitDate"
+              type="date"
+              value={formData.nextVisitDate}
+              onChange={(e) => {
+                const valeur = e.target.value;
+                // Champ vidé : on repasse au calcul automatique.
+                const base = formData.completedDate || formData.scheduledDate;
+                setProchaineManuelle(!!valeur);
+                setFormData({
+                  ...formData,
+                  nextVisitDate: valeur || (base ? plusCinqAns(base) : ""),
+                });
+              }}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Calculée automatiquement : date de la visite + 5 ans. Vous pouvez
+              la modifier.
+            </p>
           </div>
 
           {editingId && (
@@ -707,24 +781,7 @@ export default function OccupationalMedicinePage() {
                     type="date"
                     value={formData.completedDate}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        completedDate: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="nextVisitDate">Prochaine visite</Label>
-                  <Input
-                    id="nextVisitDate"
-                    type="date"
-                    value={formData.nextVisitDate}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        nextVisitDate: e.target.value,
-                      })
+                      changerDates({ completedDate: e.target.value })
                     }
                   />
                 </div>
@@ -828,11 +885,11 @@ export default function OccupationalMedicinePage() {
               )}
             </div>
 
-            {selectedVisit.nextVisitDate && (
+            {prochaineVisite(selectedVisit) && (
               <div>
                 <Label>Prochaine visite</Label>
                 <p className="text-sm font-medium">
-                  {dateFr(selectedVisit.nextVisitDate)}
+                  {dateFr(prochaineVisite(selectedVisit))}
                 </p>
               </div>
             )}

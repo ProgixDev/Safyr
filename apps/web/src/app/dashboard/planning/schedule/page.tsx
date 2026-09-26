@@ -1364,6 +1364,16 @@ export function ScheduleView({
   const handleExportPDF = async () => {
     const { jsPDF } = await import("jspdf");
     const { default: autoTable } = await import("jspdf-autotable");
+    const {
+      PDF_FOOTER_RESERVED_MM,
+      applyPdfFooters,
+      brandedPdfDefaults,
+      drawPdfHeader,
+      loadPdfBranding,
+      pdfHeaderHeight,
+      pdfTableMargins,
+    } = await import("@/lib/pdf-branding");
+    const branding = await loadPdfBranding();
     const doc = new jsPDF({
       orientation: "landscape",
       unit: "mm",
@@ -1398,16 +1408,25 @@ export function ScheduleView({
         return row;
       });
 
-    const tableStyles = { fontSize: 7, cellPadding: 2 };
-    const headStyles = { fillColor: [15, 23, 42] as [number, number, number] };
+    const tableStyles = {
+      ...brandedPdfDefaults.styles,
+      fontSize: 7,
+      cellPadding: 2,
+    };
+    const header = { title: "PLANNING", subtitle: periodLabel };
+    const margins = pdfTableMargins(branding, { header });
 
-    doc.setFontSize(16);
-    doc.text("Planning", 14, 16);
-    doc.setFontSize(10);
-    doc.text(periodLabel, 14, 23);
-
-    let currentY = 30;
+    let currentY = drawPdfHeader(doc, branding, header) + 2;
     visibleSites.forEach((site) => {
+      // Le titre du site ne doit pas tomber dans la zone du pied de page.
+      if (
+        currentY >
+        doc.internal.pageSize.getHeight() - PDF_FOOTER_RESERVED_MM - 25
+      ) {
+        doc.addPage();
+        currentY = pdfHeaderHeight(branding, header) + 2;
+      }
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(11);
       doc.text(`${site.clientName} — ${site.name}`, 14, currentY);
       currentY += 5;
@@ -1418,11 +1437,12 @@ export function ScheduleView({
 
       if (rows.length > 0) {
         autoTable(doc, {
+          ...brandedPdfDefaults,
           startY: currentY,
+          margin: margins,
           head: [["Agent", ...dateLabels]],
           body: rows,
           styles: tableStyles,
-          headStyles,
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         currentY = ((doc as any).lastAutoTable?.finalY ?? currentY + 20) + 10;
@@ -1431,6 +1451,9 @@ export function ScheduleView({
       }
     });
 
+    applyPdfFooters(doc, branding, {
+      header: { ...header, skipFirstPage: true },
+    });
     doc.save(`planning-${periodLabel.replace(/\s+/g, "-")}.pdf`);
   };
 

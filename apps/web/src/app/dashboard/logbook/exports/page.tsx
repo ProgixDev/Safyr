@@ -226,7 +226,7 @@ export default function ExportsPage() {
     },
     {
       key: "retentionUntil",
-      label: "Conservation jusqu&apos;au",
+      label: "Conservation jusqu'au",
       render: (archive) =>
         new Date(archive.retentionUntil).toLocaleDateString("fr-FR"),
     },

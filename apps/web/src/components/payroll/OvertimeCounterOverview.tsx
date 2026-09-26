@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { InfoCard, InfoCardContainer } from "@/components/ui/info-card";
+import { InfoCard } from "@/components/ui/info-card";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 
@@ -179,8 +179,9 @@ export function OvertimeCounterOverview() {
       </p>
 
       {/* Stats Cards */}
-      <InfoCardContainer>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:gap-4">
         <InfoCard
+          compact
           icon={Clock}
           title="Total Accumulé"
           value={`${totalAccumulated}h`}
@@ -189,6 +190,7 @@ export function OvertimeCounterOverview() {
         />
 
         <InfoCard
+          compact
           icon={CheckCircle}
           title="Total Payé"
           value={`${totalPaid}h`}
@@ -197,13 +199,14 @@ export function OvertimeCounterOverview() {
         />
 
         <InfoCard
+          compact
           icon={AlertTriangle}
           title="En Attente de Paiement"
           value={`${totalRemaining}h`}
           subtext="À payer prochainement"
           color="orange"
         />
-      </InfoCardContainer>
+      </div>
 
       {/* Overtime Counter Table */}
       <Card>

@@ -8,6 +8,14 @@ import { arrondi2 } from "@/lib/payroll-primes";
 
 export type SourceHeuresPaie = "paie" | "planning" | "aucune";
 
+/** Variables d'heures du Relevé des heures qui ouvrent droit à la majoration. */
+const TYPES_DIMANCHE_FERIE = [
+  "h_dimanche",
+  "h_ferie",
+  "h_dimanche_nuit",
+  "h_ferie_nuit",
+];
+
 /**
  * Heures de paie d'un salarié pour un mois : les variables d'heures déjà
  * déclarées en paie (H Jour, H Nuit, H Supp…) ; à défaut, les heures des
@@ -20,7 +28,13 @@ export function useHeuresPaie(params: {
   matricule?: string;
   annee: string;
   mois: string;
-}): { heures: number; source: SourceHeuresPaie; isLoading: boolean } {
+}): {
+  heures: number;
+  source: SourceHeuresPaie;
+  isLoading: boolean;
+  /** Heures dimanche / fériés du Relevé des heures (base de la majoration). */
+  heuresDimancheFerie: number;
+} {
   const { memberId, matricule, annee, mois } = params;
   const { data: variables = [] } = usePayrollVariables();
 
@@ -48,21 +62,36 @@ export function useHeuresPaie(params: {
     enabled,
   });
 
-  if (!enabled) return { heures: 0, source: "aucune", isLoading: false };
+  if (!enabled) {
+    return {
+      heures: 0,
+      source: "aucune",
+      isLoading: false,
+      heuresDimancheFerie: 0,
+    };
+  }
 
   const prefixe = `${annee}-${mois.padStart(2, "0")}`;
-  const heuresPaie = variables
-    .filter(
-      (v) =>
-        v.type.startsWith("h_") &&
-        v.status !== "refused" &&
-        v.period.startsWith(prefixe) &&
-        (v.employeeId === memberId ||
-          (matricule && v.employeeId === matricule)),
-    )
-    .reduce((somme, v) => somme + v.amount, 0);
+  const variablesHeures = variables.filter(
+    (v) =>
+      v.type.startsWith("h_") &&
+      v.status !== "refused" &&
+      v.period.startsWith(prefixe) &&
+      (v.employeeId === memberId || (matricule && v.employeeId === matricule)),
+  );
+  const heuresPaie = variablesHeures.reduce((somme, v) => somme + v.amount, 0);
+  const heuresDimancheFerie = arrondi2(
+    variablesHeures
+      .filter((v) => TYPES_DIMANCHE_FERIE.includes(v.type))
+      .reduce((somme, v) => somme + v.amount, 0),
+  );
   if (heuresPaie > 0) {
-    return { heures: arrondi2(heuresPaie), source: "paie", isLoading };
+    return {
+      heures: arrondi2(heuresPaie),
+      source: "paie",
+      isLoading,
+      heuresDimancheFerie,
+    };
   }
 
   const heuresPlanning = vacations
@@ -84,7 +113,12 @@ export function useHeuresPaie(params: {
       0,
     );
   if (heuresPlanning > 0) {
-    return { heures: arrondi2(heuresPlanning), source: "planning", isLoading };
+    return {
+      heures: arrondi2(heuresPlanning),
+      source: "planning",
+      isLoading,
+      heuresDimancheFerie,
+    };
   }
-  return { heures: 0, source: "aucune", isLoading };
+  return { heures: 0, source: "aucune", isLoading, heuresDimancheFerie };
 }

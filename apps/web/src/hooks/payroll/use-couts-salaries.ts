@@ -10,7 +10,14 @@ import { useEmployees } from "@/hooks/employees";
 import { contractKeys } from "@/hooks/contracts";
 import type { PersonnelCost } from "@/lib/types";
 import { arrondi2 } from "@/lib/payroll-primes";
+import { calculerCout } from "@/lib/cout-salarie";
 import {
+  heuresHebdoVersMensuelles,
+  heuresMensuellesVersHebdo,
+} from "@/lib/heures-contrat";
+import {
+  ANCIEN_TAUX_PATRONAL_DEFAUT,
+  CLE_RGDU_ACTIVE,
   CLE_TAUX_PATRONAL,
   CLE_TAUX_SALARIAL,
   TAUX_PATRONAL_DEFAUT,
@@ -18,9 +25,9 @@ import {
   useParametresPaie,
 } from "./use-parametres-paie";
 
-/** Semaines par mois moyen : 35 h / semaine → 151,67 h / mois. */
-const SEMAINES_PAR_MOIS = 52 / 12;
 const HEURES_HEBDO_DEFAUT = 35;
+/** Seuil de la RGDU « moins de 50 salariés » (Tdelta = 0,38). */
+const EFFECTIF_SEUIL_RGDU = 50;
 
 export interface CoutSalarie extends PersonnelCost {
   memberId: string;
@@ -32,6 +39,12 @@ export interface CoutSalarie extends PersonnelCost {
   heuresEstimees: boolean;
   /** Contrat actif sans salaire brut renseigné. */
   brutManquant: boolean;
+  /** Coefficient RGDU (0 à 0,4) appliqué au brut du mois. */
+  coefficientRgdu: number;
+  /** Réduction RGDU calculée (€), avant plafonnement aux charges patronales. */
+  reductionRgdu: number;
+  /** max(0, charges patronales − réduction RGDU). */
+  chargesPatronalesApresReduction: number;
 }
 
 /** Contrat actif le plus récent d'un salarié. */
@@ -47,7 +60,9 @@ function contratActif(contrats: Contract[] | undefined): Contract | null {
 /**
  * Coût salarial par salarié, calculé à partir du salaire brut du contrat actif
  * (fiche salarié, onglet Contrats) :
- *   charges patronales = brut × taux patronal ; coût total = brut + charges ;
+ *   charges patronales = brut × taux patronal (20 % par défaut) ;
+ *   après réduction RGDU = max(0, charges − réduction) ;
+ *   coût total = brut + charges après réduction ;
  *   coût horaire = coût total ÷ heures mensuelles du contrat.
  *
  * Les taux de charges sont des estimations réglables (paramètres de paie).
@@ -59,10 +74,17 @@ export function useCoutsSalaries() {
   const { data: employees = [], isLoading: chargementSalaries } =
     useEmployees();
   const parametres = useParametresPaie(new Date().getFullYear());
-  const tauxPatronal = parametres.valeur(
+  const tauxPatronalEnregistre = parametres.valeur(
     CLE_TAUX_PATRONAL,
     TAUX_PATRONAL_DEFAUT,
   );
+  // 42 % = ancienne valeur par défaut, jamais choisie par le client : on
+  // la traite comme non personnalisée.
+  const tauxPatronal =
+    tauxPatronalEnregistre === ANCIEN_TAUX_PATRONAL_DEFAUT
+      ? TAUX_PATRONAL_DEFAUT
+      : tauxPatronalEnregistre;
+  const appliquerRgdu = parametres.valeur(CLE_RGDU_ACTIVE, 1) !== 0;
   const tauxSalarial = parametres.valeur(
     CLE_TAUX_SALARIAL,
     TAUX_SALARIAL_DEFAUT,
@@ -87,15 +109,21 @@ export function useCoutsSalaries() {
     year: "numeric",
   });
 
+  const effectifMoins50 = presents.length < EFFECTIF_SEUIL_RGDU;
+
   const couts: CoutSalarie[] = presents.map((e, i) => {
     const contract = contratActif(contrats[i]?.data);
     const brut = contract?.grossSalary ?? 0;
     const hebdo = contract?.workingHours ?? HEURES_HEBDO_DEFAUT;
-    const heures = arrondi2(hebdo * SEMAINES_PAR_MOIS);
-    const chargesPatronales = arrondi2((brut * tauxPatronal) / 100);
-    const chargesSalariales = arrondi2((brut * tauxSalarial) / 100);
-    const net = arrondi2(brut - chargesSalariales);
-    const total = arrondi2(brut + chargesPatronales);
+    const heures = heuresHebdoVersMensuelles(hebdo);
+    const ligne = calculerCout({
+      brut,
+      heures,
+      tauxPatronal,
+      tauxSalarial,
+      appliquerRgdu,
+      effectifMoins50,
+    });
     return {
       memberId: e.id,
       matricule: e.employeeNumber ?? "",
@@ -109,18 +137,21 @@ export function useCoutsSalaries() {
         (e.employeeNumber ?? "Salarié"),
       period: periode,
       grossSalary: brut,
-      netSalary: net,
-      taxableNet: net,
-      employeeContributions: chargesSalariales,
-      employerContributions: chargesPatronales,
-      totalEmployerCost: total,
+      netSalary: ligne.net,
+      taxableNet: ligne.net,
+      employeeContributions: ligne.chargesSalariales,
+      employerContributions: ligne.chargesPatronales,
+      coefficientRgdu: ligne.coefficientRgdu,
+      reductionRgdu: ligne.reductionRgdu,
+      chargesPatronalesApresReduction: ligne.chargesPatronalesApresReduction,
+      totalEmployerCost: ligne.coutTotal,
       currency: "€",
       workedHours: heures,
-      costPerHour: heures > 0 ? arrondi2(total / heures) : 0,
+      costPerHour: ligne.coutHoraire,
       allowances: 0,
       bonuses: 0,
       maintenance: 0,
-      totalCost: total,
+      totalCost: ligne.coutTotal,
     };
   });
 
@@ -134,7 +165,9 @@ export function useCoutsSalaries() {
     }) =>
       updateContract(v.memberId, v.contractId, {
         grossSalary: arrondi2(v.grossSalary),
-        workingHours: arrondi2(v.heuresMensuelles / SEMAINES_PAR_MOIS),
+        // Heures stockées telles quelles (pas d'arrondi à 2 décimales : 108 h
+        // revenait à 107,99 h).
+        workingHours: heuresMensuellesVersHebdo(v.heuresMensuelles),
       }),
     onSuccess: (_data, v) =>
       qc.invalidateQueries({ queryKey: contractKeys.list(v.memberId) }),
@@ -146,6 +179,8 @@ export function useCoutsSalaries() {
     contratsEnErreur: contrats.filter((c) => c.isError).length,
     tauxPatronal,
     tauxSalarial,
+    appliquerRgdu,
+    effectifMoins50,
     parametres,
     modifierRemuneration,
   };
