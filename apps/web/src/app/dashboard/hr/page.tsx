@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Users,
-  TrendingUp,
   AlertTriangle,
   Calendar,
   Clock,
@@ -13,7 +12,6 @@ import {
   Award,
   Briefcase,
   ChevronRight,
-  Target,
   DollarSign,
   Scale,
   BarChart3,
@@ -30,6 +28,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useEmployees } from "@/hooks/employees";
 import { useOrganizationCompliance } from "@/hooks/organization";
+import { useRegistre } from "@/hooks/fiscal";
+import { useRolesCse } from "@/hooks/fiscal/use-cse-roles";
+import { useCoutsSalaries } from "@/hooks/payroll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -360,27 +361,65 @@ function EmployeeStatsWidget({ isLoading }: { isLoading: boolean }) {
   );
 }
 
+/** Absences en cours ou passées, sur les 30 derniers jours. */
 function AbsenceWidget({ isLoading }: { isLoading: boolean }) {
-  if (isLoading) return <ChargementWidget />;
-  return (
-    <WidgetIndisponible
-      titre="Taux d'absentéisme"
-      icone={Calendar}
-      teinte="orange"
-      raison="Disponible une fois le module Absences & Congés relié à la base."
-    />
-  );
-}
+  const { data: employees = [], isLoading: chargeSal } = useEmployees();
+  const { lignes, isLoading: chargeAbs } = useRegistre<{
+    id: string;
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+    status: string;
+  }>("absence", []);
 
-function TurnoverWidget({ isLoading }: { isLoading: boolean }) {
-  if (isLoading) return <ChargementWidget />;
+  const { tauxPct, joursAbsence } = useMemo(() => {
+    const maintenant = new Date();
+    const ilYa30Jours = new Date(maintenant.getTime() - 30 * 86_400_000);
+    const jours = lignes
+      .filter((l) => l.status === "approved")
+      .filter((l) => {
+        const debut = new Date(l.startDate);
+        return debut >= ilYa30Jours && debut <= maintenant;
+      })
+      .reduce((s, l) => s + (Number(l.totalDays) || 0), 0);
+    const effectifActif = employees.filter((e) => e.status === "active").length;
+    const joursOuvrablesPossibles = effectifActif * 22; // ~22 j ouvrés/mois
+    const taux =
+      joursOuvrablesPossibles > 0
+        ? Math.round((jours / joursOuvrablesPossibles) * 1000) / 10
+        : 0;
+    return { tauxPct: taux, joursAbsence: jours };
+  }, [lignes, employees]);
+
+  if (isLoading || chargeSal || chargeAbs) return <ChargementWidget />;
+
   return (
-    <WidgetIndisponible
-      titre="Turnover"
-      icone={TrendingUp}
-      teinte="rose"
-      raison="Nécessite l'historique des entrées et sorties, pas encore enregistré."
-    />
+    <CarteKpi teinte="orange">
+      <CardHeader
+        className={ENTETE}
+        title="Estimation sur les 30 derniers jours : jours d'absence approuvés rapportés à ~22 jours ouvrés par salarié actif."
+      >
+        <TitreKpi teinte="orange" icone={Calendar}>
+          Taux d&apos;absentéisme
+        </TitreKpi>
+      </CardHeader>
+      <CardContent className={CORPS}>
+        <div className="space-y-1">
+          <span
+            className={cn(
+              "text-3xl font-semibold tracking-tight",
+              TEINTES.orange.valeur,
+            )}
+          >
+            {tauxPct}%
+          </span>
+          <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+            {joursAbsence} jour{joursAbsence > 1 ? "s" : ""} d&apos;absence
+            approuvé{joursAbsence > 1 ? "s" : ""} (30 derniers jours)
+          </p>
+        </div>
+      </CardContent>
+    </CarteKpi>
   );
 }
 
@@ -685,63 +724,161 @@ function AlertsWidget({ isLoading }: { isLoading: boolean }) {
   );
 }
 
-function PendingRequestsWidget({ isLoading }: { isLoading: boolean }) {
-  if (isLoading) return <ChargementWidget />;
-  return (
-    <WidgetIndisponible
-      titre="Demandes en attente"
-      icone={Mail}
-      teinte="sky"
-      raison="Les demandes RH ne sont pas encore enregistrées en base."
-    />
-  );
-}
-
+/** Masse salariale brute mensuelle des salariés actifs, contrat par contrat. */
 function PayrollWidget({ isLoading }: { isLoading: boolean }) {
-  if (isLoading) return <ChargementWidget />;
+  const { couts, isLoading: chargeCouts } = useCoutsSalaries();
+  const total = useMemo(
+    () => couts.reduce((s, c) => s + (c.grossSalary || 0), 0),
+    [couts],
+  );
+
+  if (isLoading || chargeCouts) return <ChargementWidget />;
+
   return (
-    <WidgetIndisponible
-      titre="Masse salariale"
-      icone={DollarSign}
-      teinte="green"
-      raison="Nécessite le module Paie relié à la base."
-    />
+    <CarteKpi teinte="green">
+      <CardHeader className={ENTETE}>
+        <TitreKpi teinte="green" icone={DollarSign}>
+          Masse salariale
+        </TitreKpi>
+      </CardHeader>
+      <CardContent className={CORPS}>
+        <div className="space-y-1">
+          <span
+            className={cn(
+              "text-3xl font-semibold tracking-tight",
+              TEINTES.green.valeur,
+            )}
+          >
+            {Math.round(total).toLocaleString("fr-FR")} €
+          </span>
+          <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+            Brut mensuel — {couts.length} salarié{couts.length > 1 ? "s" : ""}
+          </p>
+        </div>
+      </CardContent>
+    </CarteKpi>
   );
 }
 
+/** Heures de délégation CSE cumulées des élus en mandat. */
 function DelegationHoursWidget({ isLoading }: { isLoading: boolean }) {
-  if (isLoading) return <ChargementWidget />;
+  const { elus, isLoading: chargeElus } = useRolesCse();
+  const totalHeures = useMemo(
+    () => elus.reduce((s, e) => s + (e.delegationHours || 0), 0),
+    [elus],
+  );
+
+  if (isLoading || chargeElus) return <ChargementWidget />;
+
   return (
-    <WidgetIndisponible
-      titre="Heures de délégation CSE"
-      icone={Scale}
-      teinte="violet"
-      raison="Nécessite la saisie des heures de délégation."
-    />
+    <CarteKpi teinte="violet">
+      <CardHeader className={ENTETE}>
+        <TitreKpi teinte="violet" icone={Scale}>
+          Heures de délégation CSE
+        </TitreKpi>
+      </CardHeader>
+      <CardContent className={CORPS}>
+        {elus.length === 0 ? (
+          <p className={cn("text-sm", TEXTE_SECONDAIRE)}>
+            Aucun élu CSE enregistré.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            <span
+              className={cn(
+                "text-3xl font-semibold tracking-tight",
+                TEINTES.violet.valeur,
+              )}
+            >
+              {totalHeures}h
+            </span>
+            <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+              {elus.length} élu{elus.length > 1 ? "s" : ""} en mandat / mois
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </CarteKpi>
   );
 }
 
+/** Coût horaire moyen employeur, charges patronales incluses. */
 function CostPerEmployeeWidget({ isLoading }: { isLoading: boolean }) {
-  if (isLoading) return <ChargementWidget />;
+  const { couts, isLoading: chargeCouts } = useCoutsSalaries();
+  const moyenneHoraire = useMemo(() => {
+    const avecCout = couts.filter((c) => c.costPerHour > 0);
+    if (avecCout.length === 0) return 0;
+    return avecCout.reduce((s, c) => s + c.costPerHour, 0) / avecCout.length;
+  }, [couts]);
+
+  if (isLoading || chargeCouts) return <ChargementWidget />;
+
   return (
-    <WidgetIndisponible
-      titre="Coût par employé"
-      icone={BarChart3}
-      teinte="teal"
-      raison="Nécessite les salaires, pas encore enregistrés en base."
-    />
+    <CarteKpi teinte="teal">
+      <CardHeader className={ENTETE}>
+        <TitreKpi teinte="teal" icone={BarChart3}>
+          Coût par employé
+        </TitreKpi>
+      </CardHeader>
+      <CardContent className={CORPS}>
+        {couts.length === 0 ? (
+          <p className={cn("text-sm", TEXTE_SECONDAIRE)}>
+            Aucun contrat actif enregistré.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            <span
+              className={cn(
+                "text-3xl font-semibold tracking-tight",
+                TEINTES.teal.valeur,
+              )}
+            >
+              {moyenneHoraire.toFixed(2)} €/h
+            </span>
+            <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+              Coût horaire moyen, charges patronales incluses
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </CarteKpi>
   );
 }
 
+/** Total des charges patronales mensuelles (après réduction RGDU). */
 function EmployerChargesWidget({ isLoading }: { isLoading: boolean }) {
-  if (isLoading) return <ChargementWidget />;
+  const { couts, isLoading: chargeCouts } = useCoutsSalaries();
+  const total = useMemo(
+    () =>
+      couts.reduce((s, c) => s + (c.chargesPatronalesApresReduction || 0), 0),
+    [couts],
+  );
+
+  if (isLoading || chargeCouts) return <ChargementWidget />;
+
   return (
-    <WidgetIndisponible
-      titre="Charges patronales"
-      icone={Briefcase}
-      teinte="amber"
-      raison="Nécessite le module Paie relié à la base."
-    />
+    <CarteKpi teinte="amber">
+      <CardHeader className={ENTETE}>
+        <TitreKpi teinte="amber" icone={Briefcase}>
+          Charges patronales
+        </TitreKpi>
+      </CardHeader>
+      <CardContent className={CORPS}>
+        <div className="space-y-1">
+          <span
+            className={cn(
+              "text-3xl font-semibold tracking-tight",
+              TEINTES.amber.valeur,
+            )}
+          >
+            {Math.round(total).toLocaleString("fr-FR")} €
+          </span>
+          <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+            Mensuelles, après réduction RGDU
+          </p>
+        </div>
+      </CardContent>
+    </CarteKpi>
   );
 }
 
@@ -811,18 +948,6 @@ function GenderEqualityWidget({ isLoading }: { isLoading: boolean }) {
   );
 }
 
-function HRForecastWidget({ isLoading }: { isLoading: boolean }) {
-  if (isLoading) return <ChargementWidget />;
-  return (
-    <WidgetIndisponible
-      titre="Prévisions RH"
-      icone={Target}
-      teinte="cyan"
-      raison="Nécessite un historique d'effectif, pas encore constitué."
-    />
-  );
-}
-
 function SalaryMaintenanceWidget({ isLoading }: { isLoading: boolean }) {
   if (isLoading) return <ChargementWidget />;
   return (
@@ -835,15 +960,49 @@ function SalaryMaintenanceWidget({ isLoading }: { isLoading: boolean }) {
   );
 }
 
+/** Candidatures enregistrées, en attente vs traitées. */
 function RecruitmentKPIsWidget({ isLoading }: { isLoading: boolean }) {
-  if (isLoading) return <ChargementWidget />;
+  const { lignes, isLoading: chargeCand } = useRegistre<{
+    id: string;
+    status?: string;
+  }>("candidature", []);
+  const enAttente = useMemo(
+    () =>
+      lignes.filter((l) => (l.status ?? "en_attente") === "en_attente").length,
+    [lignes],
+  );
+
+  if (isLoading || chargeCand) return <ChargementWidget />;
+
   return (
-    <WidgetIndisponible
-      titre="KPIs recrutement"
-      icone={UserPlus}
-      teinte="pink"
-      raison="Nécessite le suivi des candidatures en base."
-    />
+    <CarteKpi teinte="pink">
+      <CardHeader className={ENTETE}>
+        <TitreKpi teinte="pink" icone={UserPlus}>
+          KPIs recrutement
+        </TitreKpi>
+      </CardHeader>
+      <CardContent className={CORPS}>
+        {lignes.length === 0 ? (
+          <p className={cn("text-sm", TEXTE_SECONDAIRE)}>
+            Aucune candidature enregistrée.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            <span
+              className={cn(
+                "text-3xl font-semibold tracking-tight",
+                TEINTES.pink.valeur,
+              )}
+            >
+              {lignes.length}
+            </span>
+            <p className={cn("text-xs", TEXTE_SECONDAIRE)}>
+              candidature{lignes.length > 1 ? "s" : ""} — {enAttente} en attente
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </CarteKpi>
   );
 }
 
@@ -982,13 +1141,8 @@ const defaultWidgetConfigs: HRWidgetConfig[] = [
     id: "absence",
     name: "Taux d'Absentéisme",
     component: AbsenceWidget,
-    visible: false,
-  },
-  {
-    id: "turnover",
-    name: "Turnover",
-    component: TurnoverWidget,
-    visible: false,
+    // Demandée nommément par le client (remarque du 14/09) : visible par défaut.
+    visible: true,
   },
   {
     id: "compliance",
@@ -1000,7 +1154,7 @@ const defaultWidgetConfigs: HRWidgetConfig[] = [
     id: "delegationHours",
     name: "Heures de délégation CSE",
     component: DelegationHoursWidget,
-    visible: false,
+    visible: true,
   },
   {
     id: "costPerEmployee",
@@ -1012,7 +1166,7 @@ const defaultWidgetConfigs: HRWidgetConfig[] = [
     id: "employerCharges",
     name: "Charges patronales",
     component: EmployerChargesWidget,
-    visible: false,
+    visible: true,
   },
   {
     id: "genderEquality",
@@ -1027,18 +1181,6 @@ const defaultWidgetConfigs: HRWidgetConfig[] = [
     visible: true,
   },
   { id: "alerts", name: "Alertes RH", component: AlertsWidget, visible: true },
-  {
-    id: "pendingRequests",
-    name: "Demandes en attente",
-    component: PendingRequestsWidget,
-    visible: false,
-  },
-  {
-    id: "hrForecast",
-    name: "Prévisions RH",
-    component: HRForecastWidget,
-    visible: false,
-  },
   {
     id: "salaryMaintenance",
     name: "Maintien salaire",
