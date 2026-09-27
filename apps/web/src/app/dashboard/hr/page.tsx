@@ -192,34 +192,33 @@ const TEINTES = {
 type Teinte = keyof typeof TEINTES;
 
 const TEXTE_SECONDAIRE = "text-slate-600 dark:text-slate-400";
+/**
+ * Style du Dashboard : sobre plutôt que "une couleur différente par carte".
+ * Une seule teinte d'accent, réservée aux éléments qui portent un vrai sens
+ * (statut, gravité) ; le chiffre principal de chaque carte reste neutre
+ * (blanc/anthracite), à la manière des tableaux de bord Stripe/Linear.
+ */
+const TEXTE_CHIFFRE = "text-foreground";
 
-// Paddings resserrés (Card en pose 24 px) pour que tout tienne sur un écran.
-const ENTETE = "px-4 pt-3 pb-1";
-const CORPS = "px-4 pt-0 pb-3";
+// Cartes plus aérées (l'écran compte 9 cartes maximum, plus de place qu'avant).
+const ENTETE = "px-5 pt-4 pb-1.5";
+const CORPS = "px-5 pt-0 pb-4";
 
-/** Carte d'indicateur : liseré coloré à gauche, léger dégradé teinté. */
+/** Carte d'indicateur : chrome neutre, identique pour toutes les cartes. */
 function CarteKpi({
-  teinte,
   className,
   children,
 }: {
-  teinte: Teinte;
+  teinte?: Teinte;
   className?: string;
   children: React.ReactNode;
 }) {
-  const { hex } = TEINTES[teinte];
   return (
     <Card
       className={cn(
-        "glass-card flex h-full flex-col transition-all hover:shadow-md",
+        "flex h-full flex-col rounded-xl border-border/50 bg-card/60 backdrop-blur-sm transition-colors hover:border-border",
         className,
       )}
-      style={{
-        borderColor: `${hex}59`,
-        borderLeftColor: hex,
-        borderLeftWidth: 4,
-        backgroundImage: `linear-gradient(135deg, ${hex}1f, transparent 65%)`,
-      }}
     >
       {children}
     </Card>
@@ -227,19 +226,16 @@ function CarteKpi({
 }
 
 function TitreKpi({
-  teinte,
   icone: Icone,
   children,
 }: {
-  teinte: Teinte;
+  teinte?: Teinte;
   icone: React.ElementType;
   children: React.ReactNode;
 }) {
   return (
-    <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
-      <span className={cn("shrink-0 rounded-lg p-1", TEINTES[teinte].pastille)}>
-        <Icone className="h-4 w-4" />
-      </span>
+    <CardTitle className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+      <Icone className="h-3.5 w-3.5 shrink-0" />
       <span className="truncate">{children}</span>
     </CardTitle>
   );
@@ -274,8 +270,8 @@ function WidgetIndisponible({
         <div className="space-y-1">
           <span
             className={cn(
-              "text-3xl font-semibold tracking-tight opacity-60",
-              TEINTES[teinte].valeur,
+              "text-4xl font-semibold tracking-tight opacity-40",
+              TEXTE_CHIFFRE,
             )}
           >
             —
@@ -324,8 +320,8 @@ function EmployeeStatsWidget({ isLoading }: { isLoading: boolean }) {
             <div>
               <span
                 className={cn(
-                  "text-3xl font-semibold tracking-tight",
-                  TEINTES.blue.valeur,
+                  "text-4xl font-semibold tracking-tight",
+                  TEXTE_CHIFFRE,
                 )}
               >
                 {total}
@@ -407,8 +403,8 @@ function AbsenceWidget({ isLoading }: { isLoading: boolean }) {
         <div className="space-y-1">
           <span
             className={cn(
-              "text-3xl font-semibold tracking-tight",
-              TEINTES.orange.valeur,
+              "text-4xl font-semibold tracking-tight",
+              TEXTE_CHIFFRE,
             )}
           >
             {tauxPct}%
@@ -451,8 +447,8 @@ function ComplianceWidget({ isLoading }: { isLoading: boolean }) {
             <div>
               <span
                 className={cn(
-                  "text-3xl font-semibold tracking-tight",
-                  TEINTES.emerald.valeur,
+                  "text-4xl font-semibold tracking-tight",
+                  TEXTE_CHIFFRE,
                 )}
               >
                 {taux}%
@@ -745,8 +741,8 @@ function PayrollWidget({ isLoading }: { isLoading: boolean }) {
         <div className="space-y-1">
           <span
             className={cn(
-              "text-3xl font-semibold tracking-tight",
-              TEINTES.green.valeur,
+              "text-4xl font-semibold tracking-tight",
+              TEXTE_CHIFFRE,
             )}
           >
             {Math.round(total).toLocaleString("fr-FR")} €
@@ -786,8 +782,8 @@ function DelegationHoursWidget({ isLoading }: { isLoading: boolean }) {
           <div className="space-y-1">
             <span
               className={cn(
-                "text-3xl font-semibold tracking-tight",
-                TEINTES.violet.valeur,
+                "text-4xl font-semibold tracking-tight",
+                TEXTE_CHIFFRE,
               )}
             >
               {totalHeures}h
@@ -829,8 +825,8 @@ function CostPerEmployeeWidget({ isLoading }: { isLoading: boolean }) {
           <div className="space-y-1">
             <span
               className={cn(
-                "text-3xl font-semibold tracking-tight",
-                TEINTES.teal.valeur,
+                "text-4xl font-semibold tracking-tight",
+                TEXTE_CHIFFRE,
               )}
             >
               {moyenneHoraire.toFixed(2)} €/h
@@ -867,8 +863,8 @@ function EmployerChargesWidget({ isLoading }: { isLoading: boolean }) {
         <div className="space-y-1">
           <span
             className={cn(
-              "text-3xl font-semibold tracking-tight",
-              TEINTES.amber.valeur,
+              "text-4xl font-semibold tracking-tight",
+              TEXTE_CHIFFRE,
             )}
           >
             {Math.round(total).toLocaleString("fr-FR")} €
@@ -913,8 +909,8 @@ function GenderEqualityWidget({ isLoading }: { isLoading: boolean }) {
             <div>
               <span
                 className={cn(
-                  "text-3xl font-semibold tracking-tight",
-                  TEINTES.fuchsia.valeur,
+                  "text-4xl font-semibold tracking-tight",
+                  TEXTE_CHIFFRE,
                 )}
               >
                 {partFemmes}%
@@ -990,8 +986,8 @@ function RecruitmentKPIsWidget({ isLoading }: { isLoading: boolean }) {
           <div className="space-y-1">
             <span
               className={cn(
-                "text-3xl font-semibold tracking-tight",
-                TEINTES.pink.valeur,
+                "text-4xl font-semibold tracking-tight",
+                TEXTE_CHIFFRE,
               )}
             >
               {lignes.length}
@@ -1024,98 +1020,79 @@ function QuickActionsWidget({ isLoading }: { isLoading: boolean }) {
     label: string;
     href: string;
     icon: React.ElementType;
-    teinte: Teinte;
   }[] = [
     {
       label: "Nouveau salarié",
       href: "/dashboard/hr/collaborators",
       icon: UserCheck,
-      teinte: "blue",
     },
     {
       label: "Nouveau client",
       href: "/dashboard/hr/entreprise/clients?new=1",
       icon: Building2,
-      teinte: "emerald",
     },
     {
       label: "Nouveau site",
       href: "/dashboard/hr/sites?new=1",
       icon: MapPin,
-      teinte: "teal",
     },
     {
       label: "Voir congés",
       href: "/dashboard/hr/time-activity/conges",
       icon: Calendar,
-      teinte: "orange",
     },
     {
       label: "Bilan social",
       href: "/dashboard/hr/hr-services/social-audit",
       icon: BarChart3,
-      teinte: "violet",
     },
     {
       label: "Marketing",
       href: "/dashboard/hr/business/marketing",
       icon: Megaphone,
-      teinte: "pink",
     },
     {
       label: "Appels d'offre",
       href: "/dashboard/hr/business/tenders",
       icon: FileText,
-      teinte: "amber",
     },
     {
       label: "AKTO & OPCO",
       href: "/dashboard/hr/safety-health-training/training-plan/akto",
       icon: GraduationCap,
-      teinte: "indigo",
     },
     {
       label: "Fin de contrat",
       href: "/dashboard/hr/lifecycle/offboarding",
       icon: UserX,
-      teinte: "red",
     },
     {
       label: "Communication",
       href: "/dashboard/hr/hr-services/communication",
       icon: Mail,
-      teinte: "sky",
     },
   ];
 
+  // Une seule couleur d'accent (celle de la marque), pas une par bouton :
+  // c'est ce qui rendait la rangée "arc-en-ciel" plutôt que sobre.
   return (
-    <CarteKpi teinte="cyan">
-      <div className="flex flex-col gap-2 px-4 py-3 xl:flex-row xl:items-center xl:gap-4">
-        <CardTitle className="shrink-0 text-sm font-semibold text-foreground">
-          <span className="flex items-center gap-2">
-            <span className={cn("rounded-lg p-1", TEINTES.cyan.pastille)}>
-              <Zap className="h-4 w-4" />
-            </span>
-            Actions rapides
-          </span>
+    <CarteKpi>
+      <div className="flex flex-col gap-3 px-5 py-4 xl:flex-row xl:items-center xl:gap-5">
+        <CardTitle className="flex shrink-0 items-center gap-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+          <Zap className="h-3.5 w-3.5" />
+          Actions rapides
         </CardTitle>
         <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-5 2xl:grid-cols-10">
           {actions.map((action) => {
             const Icon = action.icon;
-            const t = TEINTES[action.teinte];
             return (
               <Link
                 key={action.label}
                 href={action.href}
                 title={action.label}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-all hover:-translate-y-0.5 hover:shadow-md",
-                  t.bouton,
-                )}
+                className="group flex items-center gap-2 rounded-lg border border-border/50 bg-background/40 px-2.5 py-2 transition-colors hover:border-primary/50 hover:bg-primary/5"
               >
-                <span className={cn("rounded-md p-1 shrink-0", t.pastille)}>
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
+                <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
                   {action.label}
                 </span>
