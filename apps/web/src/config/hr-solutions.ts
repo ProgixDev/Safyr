@@ -118,8 +118,8 @@ export const businessFunctions: BusinessFunction[] = [
     subtitle: "Employee Lifecycle",
     description:
       "Gérez l'ensemble du parcours de vos agents, de leur candidature à leur départ",
-    color: "#22d3ee",
-    glow: "rgba(34,211,238,0.18)",
+    color: "#357AB7",
+    glow: "rgba(53,122,183,0.18)",
     tabs: [
       {
         id: "recruitment",
@@ -128,8 +128,8 @@ export const businessFunctions: BusinessFunction[] = [
         description:
           "Suivez vos candidats de la candidature à l'embauche. Pipeline structuré, entretiens, vérifications et onboarding.",
         icon: UserPlus,
-        color: "#22d3ee",
-        glow: "rgba(34,211,238,0.18)",
+        color: "#357AB7",
+        glow: "rgba(53,122,183,0.18)",
         kpis: [
           { value: "50%", label: "temps recrut." },
           { value: "100%", label: "traçabilité" },
@@ -380,8 +380,8 @@ export const businessFunctions: BusinessFunction[] = [
         description:
           "Variables automatiques vers le module paie. Détection anomalies, analyse coûts, comparatif N/N-1.",
         icon: DollarSign,
-        color: "#22d3ee",
-        glow: "rgba(34,211,238,0.18)",
+        color: "#357AB7",
+        glow: "rgba(53,122,183,0.18)",
         kpis: [
           { value: "70%", label: "temps gagné" },
           { value: "0", label: "erreurs" },
@@ -483,8 +483,8 @@ export const businessFunctions: BusinessFunction[] = [
         description:
           "KPIs RH personnalisés : effectif, absentéisme, turnover, masse salariale, conformité.",
         icon: BarChart3,
-        color: "#06b6d4",
-        glow: "rgba(6,182,212,0.18)",
+        color: "#295F8E",
+        glow: "rgba(41,95,142,0.18)",
         kpis: [
           { value: "Temps réel", label: " KPIs" },
           { value: "Custom", label: "widgets" },
@@ -536,7 +536,7 @@ export const journeySteps: JourneyStep[] = [
     description: "Réception et screening des candidatures",
     modules: ["Recrutement"],
     icon: Search,
-    color: "#22d3ee",
+    color: "#357AB7",
   },
   {
     id: "entretien",
@@ -649,7 +649,7 @@ export const workflows: Workflow[] = [
       },
     ],
     modules: ["Recrutement", "Dossiers Agents", "Workflows"],
-    color: "#22d3ee",
+    color: "#357AB7",
   },
   {
     id: "onboarding",
@@ -899,7 +899,7 @@ export const integrationModules: IntegrationModule[] = [
     name: "Paie",
     description: "Variables automatiques",
     icon: DollarSign,
-    color: "#22d3ee",
+    color: "#357AB7",
   },
   {
     name: "Planning",
@@ -999,7 +999,7 @@ export const heroKpis = [
 
 export const statusColors: Record<ComplianceItem["status"], string> = {
   automatisé: "#34d399",
-  inclus: "#22d3ee",
+  inclus: "#357AB7",
   alertes: "#fbbf24",
   tracking: "#a78bfa",
 };

@@ -94,7 +94,7 @@ export const CHECKPOINT_TYPE_CONFIG: Record<
   CheckpointType,
   { label: string; color: string }
 > = {
-  GPS: { label: "GPS", color: "#22d3ee" },
+  GPS: { label: "GPS", color: "#357AB7" },
   QR: { label: "QR Code", color: "#a855f7" },
   NFC: { label: "NFC", color: "#f59e0b" },
 };

@@ -63,7 +63,7 @@ function FormField({
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-xs font-medium text-[#94a3b8]">
-        {label} {required && <span className="text-[#22d3ee]">*</span>}
+        {label} {required && <span className="text-[#357AB7]">*</span>}
       </label>
       <div className="relative">
         <input
@@ -78,15 +78,15 @@ function FormField({
           placeholder={placeholder}
           className="w-full h-10 px-3 rounded-lg bg-[#0f172a] border text-[#f1f5f9] text-sm placeholder:text-[#3d5170] focus:outline-none transition-all duration-200"
           style={{
-            borderColor: focused ? "rgba(34,211,238,0.55)" : "rgba(45,65,96,1)",
+            borderColor: focused ? "rgba(53,122,183,0.55)" : "rgba(45,65,96,1)",
             boxShadow: focused
-              ? "0 0 0 3px rgba(34,211,238,0.08), inset 0 1px 2px rgba(0,0,0,0.2)"
+              ? "0 0 0 3px rgba(53,122,183,0.08), inset 0 1px 2px rgba(0,0,0,0.2)"
               : "inset 0 1px 2px rgba(0,0,0,0.2)",
           }}
         />
         {/* Animated bottom highlight */}
         <motion.div
-          className="absolute bottom-0 left-3 right-3 h-px bg-linear-to-r from-transparent via-[#22d3ee] to-transparent rounded-full"
+          className="absolute bottom-0 left-3 right-3 h-px bg-linear-to-r from-transparent via-[#357AB7] to-transparent rounded-full"
           initial={{ scaleX: 0, opacity: 0 }}
           animate={
             focused ? { scaleX: 1, opacity: 1 } : { scaleX: 0, opacity: 0 }
@@ -124,7 +124,7 @@ function TextAreaField({
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-xs font-medium text-[#94a3b8]">
-        {label} {required && <span className="text-[#22d3ee]">*</span>}
+        {label} {required && <span className="text-[#357AB7]">*</span>}
       </label>
       <div className="relative">
         <textarea
@@ -139,14 +139,14 @@ function TextAreaField({
           placeholder={placeholder}
           className="w-full px-3 py-2.5 rounded-lg bg-[#0f172a] border text-[#f1f5f9] text-sm placeholder:text-[#3d5170] focus:outline-none transition-all duration-200 resize-none"
           style={{
-            borderColor: focused ? "rgba(34,211,238,0.55)" : "rgba(45,65,96,1)",
+            borderColor: focused ? "rgba(53,122,183,0.55)" : "rgba(45,65,96,1)",
             boxShadow: focused
-              ? "0 0 0 3px rgba(34,211,238,0.08), inset 0 1px 2px rgba(0,0,0,0.2)"
+              ? "0 0 0 3px rgba(53,122,183,0.08), inset 0 1px 2px rgba(0,0,0,0.2)"
               : "inset 0 1px 2px rgba(0,0,0,0.2)",
           }}
         />
         <motion.div
-          className="absolute bottom-0 left-3 right-3 h-px bg-linear-to-r from-transparent via-[#22d3ee] to-transparent rounded-full"
+          className="absolute bottom-0 left-3 right-3 h-px bg-linear-to-r from-transparent via-[#357AB7] to-transparent rounded-full"
           initial={{ scaleX: 0, opacity: 0 }}
           animate={
             focused ? { scaleX: 1, opacity: 1 } : { scaleX: 0, opacity: 0 }
@@ -222,14 +222,14 @@ export default function Contact() {
           className="absolute top-0 left-1/2 -translate-x-1/2 w-175 h-112.5"
           style={{
             background:
-              "radial-gradient(ellipse at top, rgba(34,211,238,0.07) 0%, transparent 68%)",
+              "radial-gradient(ellipse at top, rgba(53,122,183,0.07) 0%, transparent 68%)",
           }}
         />
         <div
           className="absolute bottom-0 right-0 w-100 h-100"
           style={{
             background:
-              "radial-gradient(circle at 90% 90%, rgba(34,211,238,0.03) 0%, transparent 60%)",
+              "radial-gradient(circle at 90% 90%, rgba(53,122,183,0.03) 0%, transparent 60%)",
           }}
         />
       </div>
@@ -257,7 +257,7 @@ export default function Contact() {
                 key={text}
                 className="flex items-center gap-1.5 text-sm text-[#64748b]"
               >
-                <Icon size={14} className="text-[#22d3ee]/70 shrink-0" />
+                <Icon size={14} className="text-[#357AB7]/70 shrink-0" />
                 {text}
               </span>
             ))}
@@ -281,10 +281,10 @@ export default function Contact() {
                 whileHover={
                   shouldReduce ? {} : { x: 4, transition: { duration: 0.2 } }
                 }
-                className="flex items-start gap-4 p-5 rounded-xl border border-[#2d4160]/60 bg-[#1a2d45]/40 hover:border-[#22d3ee]/40 hover:bg-[#1a2d45]/70 transition-colors duration-200 group"
+                className="flex items-start gap-4 p-5 rounded-xl border border-[#2d4160]/60 bg-[#1a2d45]/40 hover:border-[#357AB7]/40 hover:bg-[#1a2d45]/70 transition-colors duration-200 group"
               >
-                <div className="w-10 h-10 rounded-lg bg-[#22d3ee]/10 flex items-center justify-center shrink-0 group-hover:bg-[#22d3ee]/20 transition-colors duration-200 mt-0.5">
-                  <detail.icon size={18} className="text-[#22d3ee]" />
+                <div className="w-10 h-10 rounded-lg bg-[#357AB7]/10 flex items-center justify-center shrink-0 group-hover:bg-[#357AB7]/20 transition-colors duration-200 mt-0.5">
+                  <detail.icon size={18} className="text-[#357AB7]" />
                 </div>
                 <div>
                   <p className="text-xs text-[#64748b] mb-0.5">
@@ -300,7 +300,7 @@ export default function Contact() {
             {/* Trust note */}
             <motion.div
               variants={itemVariants}
-              className="mt-2 p-5 rounded-xl border border-[#22d3ee]/15 bg-[#22d3ee]/3"
+              className="mt-2 p-5 rounded-xl border border-[#357AB7]/15 bg-[#357AB7]/3"
             >
               <p className="text-xs text-[#64748b] leading-relaxed">
                 🔒{" "}
@@ -328,14 +328,14 @@ export default function Contact() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
                 transition={{ delay: 0.3, duration: 0.5, ease: "easeOut" }}
-                className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl border border-[#22d3ee]/25 bg-[#22d3ee]/5"
+                className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl border border-[#357AB7]/25 bg-[#357AB7]/5"
               >
                 <div className="relative shrink-0">
                   <span className="absolute inset-0 rounded-full bg-[#10b981] animate-ping opacity-60" />
                   <span className="relative flex w-2.5 h-2.5 rounded-full bg-[#10b981]" />
                 </div>
                 <p className="text-sm text-[#94a3b8]">
-                  <span className="text-[#22d3ee] font-medium">
+                  <span className="text-[#357AB7] font-medium">
                     Nous répondons en moins de 24h
                   </span>{" "}
                   — réservez votre démo personnalisée dès maintenant.
@@ -349,7 +349,7 @@ export default function Contact() {
                 className="absolute top-0 inset-x-0 h-px"
                 style={{
                   background:
-                    "linear-gradient(to right, transparent, rgba(34,211,238,0.3), transparent)",
+                    "linear-gradient(to right, transparent, rgba(53,122,183,0.3), transparent)",
                 }}
               />
 

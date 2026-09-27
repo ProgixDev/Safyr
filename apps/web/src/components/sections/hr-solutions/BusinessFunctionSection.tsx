@@ -144,7 +144,7 @@ function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
         className="relative z-10 w-full max-w-5xl rounded-2xl overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-white/[0.07]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/60 to-transparent z-10" />
+        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/60 to-transparent z-10" />
         <video autoPlay loop muted playsInline className="w-full h-auto block">
           <source src={src} type="video/mp4" />
         </video>
@@ -156,7 +156,7 @@ function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
         exit={{ opacity: 0 }}
         transition={{ delay: 0.12 }}
         onClick={onClose}
-        className="absolute top-5 right-5 z-20 w-10 h-10 rounded-full bg-[#0f172a]/90 border border-white/10 flex items-center justify-center text-[#94a3b8] hover:text-white hover:border-[#22d3ee]/50 transition-all duration-200 cursor-pointer"
+        className="absolute top-5 right-5 z-20 w-10 h-10 rounded-full bg-[#0f172a]/90 border border-white/10 flex items-center justify-center text-[#94a3b8] hover:text-white hover:border-[#357AB7]/50 transition-all duration-200 cursor-pointer"
       >
         <X size={16} />
       </motion.button>
@@ -452,7 +452,7 @@ export default function BusinessFunctionSection({
           className="absolute inset-0 opacity-[0.015]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "64px 64px",
           }}
         />

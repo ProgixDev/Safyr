@@ -50,7 +50,7 @@ import {
 const EASE = [0.25, 0.46, 0.45, 0.94] as const;
 
 /* ─── Section Divider ─────────────────────────────────────────────────────── */
-function SectionDivider({ color = "#22d3ee" }: { color?: string }) {
+function SectionDivider({ color = "#357AB7" }: { color?: string }) {
   return (
     <div className="relative h-px w-full overflow-hidden">
       <div className="absolute inset-0 bg-linear-to-r from-transparent via-[#1e293b] to-transparent" />
@@ -78,8 +78,8 @@ function SectionDivider({ color = "#22d3ee" }: { color?: string }) {
 
 /* ─── Section Navigation ───────────────────────────────────────────────────── */
 const NAV_SECTIONS = [
-  { id: "employee-journey", label: "Parcours", color: "#22d3ee" },
-  { id: "lifecycle", label: "Cycle de vie", color: "#22d3ee" },
+  { id: "employee-journey", label: "Parcours", color: "#357AB7" },
+  { id: "lifecycle", label: "Cycle de vie", color: "#357AB7" },
   { id: "compliance", label: "Conformité", color: "#a78bfa" },
   { id: "operations", label: "Opérations", color: "#34d399" },
   { id: "automation", label: "Automatisation", color: "#fb923c" },
@@ -231,7 +231,7 @@ function CertificationsSection() {
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] opacity-30"
           style={{
             background:
-              "radial-gradient(circle, rgba(34,211,238,0.15) 0%, transparent 70%)",
+              "radial-gradient(circle, rgba(53,122,183,0.15) 0%, transparent 70%)",
           }}
         />
       </div>
@@ -250,8 +250,8 @@ function CertificationsSection() {
               transition={{ delay: 0.1 + index * 0.1 }}
               className="flex items-center gap-3 group"
             >
-              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-[#22d3ee]/30 transition-colors">
-                <cert.icon size={22} className="text-[#22d3ee]" />
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-[#357AB7]/30 transition-colors">
+                <cert.icon size={22} className="text-[#357AB7]" />
               </div>
               <div className="text-left">
                 <p className="text-sm font-semibold text-white">{cert.name}</p>
@@ -281,7 +281,7 @@ function VideoDemoSection() {
           className="absolute inset-0 opacity-20"
           style={{
             background:
-              "radial-gradient(circle at 50% 50%, rgba(34,211,238,0.1) 0%, transparent 70%)",
+              "radial-gradient(circle at 50% 50%, rgba(53,122,183,0.1) 0%, transparent 70%)",
           }}
         />
       </div>
@@ -293,7 +293,7 @@ function VideoDemoSection() {
           className="text-center mb-8"
         >
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 font-display">
-            Découvrez <span className="text-[#22d3ee]">Safyr</span> en action
+            Découvrez <span className="text-[#357AB7]">Safyr</span> en action
           </h2>
           <p className="text-[#64748b]">
             Une démonstration visuelle de la plateforme
@@ -308,7 +308,7 @@ function VideoDemoSection() {
           className="relative rounded-2xl border border-white/10 overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
         >
           {/* Top accent line */}
-          <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/60 to-transparent z-10" />
+          <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/60 to-transparent z-10" />
           <video
             src="https://res.cloudinary.com/dpo7sqgyg/video/upload/rh_f6xn0n.mp4"
             autoPlay
@@ -329,7 +329,7 @@ function TrustedBySection() {
   const isInView = useInView(sectionRef, { once: true, margin: "-50px" });
 
   const companies = [
-    { name: "Atlantis Sécurité", initials: "AS", color: "#22d3ee" },
+    { name: "Atlantis Sécurité", initials: "AS", color: "#357AB7" },
     { name: "Protect & Care", initials: "PC", color: "#34d399" },
     { name: "Gardiennage Sud", initials: "GS", color: "#fb923c" },
     { name: "Vigie Permanente", initials: "VP", color: "#a78bfa" },
@@ -385,7 +385,7 @@ function TrustedBySection() {
 /* ─── Stats Marquee ───────────────────────────────────────────────────────── */
 function StatsMarquee() {
   const stats = [
-    { value: "247", label: "Agents", icon: Users, color: "#22d3ee" },
+    { value: "247", label: "Agents", icon: Users, color: "#357AB7" },
     { value: "98%", label: "Conformité", icon: Shield, color: "#34d399" },
     { value: "70%", label: "Temps gagné", icon: Clock, color: "#fbbf24" },
     { value: "0", label: "Erreurs", icon: CheckCircle2, color: "#a78bfa" },
@@ -440,7 +440,7 @@ function BenefitsSection() {
       value: "70%",
       label: "Temps gagné",
       desc: "sur la gestion quotidienne",
-      color: "#22d3ee",
+      color: "#357AB7",
     },
     {
       value: "100%",
@@ -473,7 +473,7 @@ function BenefitsSection() {
           className="absolute inset-0 opacity-[0.02]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
@@ -486,7 +486,7 @@ function BenefitsSection() {
           className="text-center mb-12"
         >
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 font-display">
-            Pourquoi choisir <span className="text-[#22d3ee]">Safyr</span> ?
+            Pourquoi choisir <span className="text-[#357AB7]">Safyr</span> ?
           </h2>
           <p className="text-[#64748b]">Les avantages qui font la différence</p>
         </motion.div>
@@ -536,7 +536,7 @@ function QuickFeatures() {
       icon: Users,
       title: "Dossiers agents",
       desc: "Profils complets",
-      color: "#22d3ee",
+      color: "#357AB7",
     },
     {
       icon: UserCheck,
@@ -566,7 +566,7 @@ function QuickFeatures() {
       icon: DollarSign,
       title: "Variables paie",
       desc: "Sync automatique",
-      color: "#22d3ee",
+      color: "#357AB7",
     },
     {
       icon: FileText,
@@ -593,7 +593,7 @@ function QuickFeatures() {
           className="absolute inset-0 opacity-[0.02]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
@@ -604,7 +604,7 @@ function QuickFeatures() {
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           style={{
             background:
-              "radial-gradient(circle, rgba(34,211,238,0.1) 0%, transparent 70%)",
+              "radial-gradient(circle, rgba(53,122,183,0.1) 0%, transparent 70%)",
           }}
         />
       </div>
@@ -750,7 +750,7 @@ function FloatingParticles() {
       {particles.map((p) => (
         <div
           key={p.id}
-          className="absolute rounded-full bg-[#22d3ee] opacity-15"
+          className="absolute rounded-full bg-[#357AB7] opacity-15"
           style={{
             left: `${p.x}%`,
             top: `${p.y}%`,
@@ -801,7 +801,7 @@ function HeroSection() {
             className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[120px]"
             style={{
               background:
-                "radial-gradient(circle, rgba(34,211,238,0.3) 0%, transparent 70%)",
+                "radial-gradient(circle, rgba(53,122,183,0.3) 0%, transparent 70%)",
             }}
           />
           <div
@@ -825,14 +825,14 @@ function HeroSection() {
           className="absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "64px 64px",
           }}
         />
 
         {/* Top/bottom lines */}
-        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/40 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/30 to-transparent" />
+        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/40 to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/30 to-transparent" />
 
         <FloatingParticles />
 
@@ -841,7 +841,7 @@ function HeroSection() {
           {[...Array(5)].map((_, i) => (
             <motion.div
               key={i}
-              className="absolute h-px w-full bg-linear-to-r from-transparent via-[#22d3ee]/5 to-transparent"
+              className="absolute h-px w-full bg-linear-to-r from-transparent via-[#357AB7]/5 to-transparent"
               style={{ top: `${20 + i * 15}%` }}
               animate={{
                 opacity: [0, 1, 0],
@@ -867,7 +867,7 @@ function HeroSection() {
           >
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#f1f5f9] leading-[1.1] mb-6 font-display">
               Pilotez vos agents de{" "}
-              <span className="text-transparent bg-clip-text bg-linear-to-r from-[#22d3ee] via-[#34d399] to-[#22d3ee]">
+              <span className="text-transparent bg-clip-text bg-linear-to-r from-[#357AB7] via-[#34d399] to-[#357AB7]">
                 sécurité
               </span>{" "}
               simplement
@@ -910,8 +910,8 @@ function HeroSection() {
                   className="p-4 rounded-2xl border border-white/8 bg-white/[0.02] backdrop-blur-sm hover:bg-white/[0.04] hover:border-white/12 transition-all duration-300"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#22d3ee]" />
-                    <p className="text-2xl font-bold text-[#22d3ee]">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#357AB7]" />
+                    <p className="text-2xl font-bold text-[#357AB7]">
                       <AnimatedCounter value={kpi.value} suffix={kpi.suffix} />
                     </p>
                   </div>
@@ -969,7 +969,7 @@ function HeroSection() {
                       label: "Total agents",
                       value: "247",
                       icon: Users,
-                      color: "#22d3ee",
+                      color: "#357AB7",
                       trend: "+12%",
                     },
                     {
@@ -1023,7 +1023,7 @@ function HeroSection() {
                           transition={{ delay: 0.8 + i * 0.05, duration: 0.3 }}
                           className="flex-1 rounded-sm"
                           style={{
-                            backgroundColor: i >= 10 ? "#34d399" : "#22d3ee",
+                            backgroundColor: i >= 10 ? "#34d399" : "#357AB7",
                             opacity: i >= 10 ? 1 : 0.5,
                           }}
                         />
@@ -1038,7 +1038,7 @@ function HeroSection() {
                     <span className="text-xs text-[#64748b]">
                       Agents récents
                     </span>
-                    <span className="text-[10px] text-[#22d3ee] cursor-pointer hover:underline">
+                    <span className="text-[10px] text-[#357AB7] cursor-pointer hover:underline">
                       Voir tout
                     </span>
                   </div>
@@ -1066,7 +1066,7 @@ function HeroSection() {
                       key={i}
                       className="h-12 border-b border-white/5 flex items-center px-4 gap-3"
                     >
-                      <div className="w-8 h-8 rounded-full bg-linear-to-br from-[#22d3ee] to-[#34d399] flex items-center justify-center text-[12px] text-white font-medium">
+                      <div className="w-8 h-8 rounded-full bg-linear-to-br from-[#357AB7] to-[#34d399] flex items-center justify-center text-[12px] text-white font-medium">
                         {agent.name
                           .split(" ")
                           .map((n) => n[0])
@@ -1095,7 +1095,7 @@ function HeroSection() {
               </div>
 
               {/* Glow effect */}
-              <div className="absolute -inset-px rounded-2xl bg-linear-to-r from-[#22d3ee]/20 via-[#34d399]/10 to-[#a78bfa]/20 blur-xl -z-10" />
+              <div className="absolute -inset-px rounded-2xl bg-linear-to-r from-[#357AB7]/20 via-[#34d399]/10 to-[#a78bfa]/20 blur-xl -z-10" />
             </div>
 
             {/* Floating elements */}
@@ -1126,8 +1126,8 @@ function HeroSection() {
               }}
             >
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#22d3ee]/20 flex items-center justify-center">
-                  <Shield size={16} className="text-[#22d3ee]" />
+                <div className="w-8 h-8 rounded-lg bg-[#357AB7]/20 flex items-center justify-center">
+                  <Shield size={16} className="text-[#357AB7]" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-white">DSN</p>
@@ -1154,7 +1154,7 @@ function HeroSection() {
           animate={{ y: [0, 5, 0] }}
           transition={{ duration: 1.5, repeat: Infinity }}
         >
-          <div className="w-1.5 h-1.5 rounded-full bg-[#22d3ee]" />
+          <div className="w-1.5 h-1.5 rounded-full bg-[#357AB7]" />
         </motion.div>
       </motion.div>
     </section>
@@ -1189,7 +1189,7 @@ function FAQSection() {
           className="absolute inset-0 opacity-[0.015]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
@@ -1269,7 +1269,7 @@ function FAQSection() {
           <p className="text-sm text-[#64748b] mb-4">
             Vous avez une autre question ?
           </p>
-          <Button className="bg-[#22d3ee] hover:bg-[#06b6d4] text-[#050a10] font-semibold">
+          <Button className="bg-[#357AB7] hover:bg-[#295F8E] text-[#050a10] font-semibold">
             Nous contacter
             <ChevronRight size={16} className="ml-1" />
           </Button>
@@ -1322,14 +1322,14 @@ function TestimonialsSection() {
           className="absolute inset-0 opacity-20"
           style={{
             background:
-              "radial-linear(circle at 50% 50%, rgba(34,211,238,0.1) 0%, transparent 70%)",
+              "radial-linear(circle at 50% 50%, rgba(53,122,183,0.1) 0%, transparent 70%)",
           }}
         />
         <div
           className="absolute inset-0 opacity-[0.015]"
           style={{
             backgroundImage:
-              "linear-linear(#22d3ee 1px, transparent 1px), linear-linear(to right, #22d3ee 1px, transparent 1px)",
+              "linear-linear(#357AB7 1px, transparent 1px), linear-linear(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
@@ -1364,7 +1364,7 @@ function TestimonialsSection() {
               <div
                 className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
                 style={{
-                  background: `radial-gradient(circle at center, rgba(34,211,238,0.1) 0%, transparent 70%)`,
+                  background: `radial-gradient(circle at center, rgba(53,122,183,0.1) 0%, transparent 70%)`,
                 }}
               />
 
@@ -1392,7 +1392,7 @@ function TestimonialsSection() {
 
               {/* Author */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#22d3ee] to-[#34d399] flex items-center justify-center text-white font-bold text-sm">
+                <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#357AB7] to-[#34d399] flex items-center justify-center text-white font-bold text-sm">
                   {testimonial.author
                     .split(" ")
                     .map((n) => n[0])
@@ -1444,7 +1444,7 @@ function FloatingBackToTop() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 z-50 w-12 h-12 rounded-full bg-[#22d3ee] text-[#030712] flex items-center justify-center shadow-lg shadow-[#22d3ee]/30 hover:bg-[#06b6d4] transition-colors"
+          className="fixed bottom-8 right-8 z-50 w-12 h-12 rounded-full bg-[#357AB7] text-[#030712] flex items-center justify-center shadow-lg shadow-[#357AB7]/30 hover:bg-[#295F8E] transition-colors"
         >
           <ArrowUp size={20} />
         </motion.button>
@@ -1471,7 +1471,7 @@ function CTASection() {
             className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[120px]"
             style={{
               background:
-                "radial-gradient(circle, rgba(34,211,238,0.3) 0%, transparent 70%)",
+                "radial-gradient(circle, rgba(53,122,183,0.3) 0%, transparent 70%)",
             }}
           />
           <div
@@ -1488,13 +1488,13 @@ function CTASection() {
           className="absolute inset-0 opacity-[0.02]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
 
-        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/40 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/40 to-transparent" />
+        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/40 to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/40 to-transparent" />
       </div>
 
       <div className="relative max-w-4xl mx-auto px-6 lg:px-8 text-center">
@@ -1516,7 +1516,7 @@ function CTASection() {
             transition={{ delay: 0.3 }}
             className="flex flex-wrap justify-center gap-4"
           >
-            <Button className="bg-[#22d3ee] hover:bg-[#06b6d4] text-[#030712] font-semibold px-10 py-4 text-lg rounded-xl shadow-lg shadow-[#22d3ee]/20 hover:shadow-[#22d3ee]/30 transition-all">
+            <Button className="bg-[#357AB7] hover:bg-[#295F8E] text-[#030712] font-semibold px-10 py-4 text-lg rounded-xl shadow-lg shadow-[#357AB7]/20 hover:shadow-[#357AB7]/30 transition-all">
               Planifier une démo
               <ArrowRight size={20} className="ml-2" />
             </Button>
@@ -1589,7 +1589,7 @@ export default function HRSolutionsPage() {
         subtitle="Employee Journey"
       />
 
-      <SectionDivider color="#22d3ee" />
+      <SectionDivider color="#357AB7" />
 
       {/* Business Function Sections */}
       {businessFunctions.map((bf, index) => (

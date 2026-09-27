@@ -155,7 +155,7 @@ const TEINTES = {
       "border-sky-500/30 bg-sky-500/10 hover:border-sky-500/60 hover:bg-sky-500/20",
   },
   cyan: {
-    hex: "#06b6d4",
+    hex: "#295F8E",
     pastille: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400",
     valeur: "text-cyan-700 dark:text-cyan-300",
     barre: "bg-cyan-500/20 [&>div]:bg-cyan-500",

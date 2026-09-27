@@ -38,7 +38,7 @@ export const ZONE_TYPES: ZoneType[] = [
 ];
 
 export const ZONE_TYPE_COLORS: Record<ZoneType, string> = {
-  "Site client": "#22d3ee",
+  "Site client": "#357AB7",
   "Zone sensible": "#f59e0b",
   "Zone restreinte": "#ef4444",
   "Point de contrôle": "#a855f7",

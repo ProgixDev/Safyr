@@ -463,7 +463,7 @@ export const PatrolMap = forwardRef<PatrolMapHandle, PatrolMapProps>(
                 id="gps-trail-line"
                 type="line"
                 paint={{
-                  "line-color": "#22d3ee",
+                  "line-color": "#357AB7",
                   "line-width": 3,
                 }}
               />

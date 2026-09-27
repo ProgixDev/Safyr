@@ -42,7 +42,7 @@ const COULEURS: Record<string, { hex: string; pastille: string }> = {
   yellow: { hex: "#eab308", pastille: "bg-yellow-500/20 text-yellow-500" },
   amber: { hex: "#f59e0b", pastille: "bg-amber-500/20 text-amber-500" },
   teal: { hex: "#14b8a6", pastille: "bg-teal-500/20 text-teal-500" },
-  cyan: { hex: "#06b6d4", pastille: "bg-cyan-500/20 text-cyan-500" },
+  cyan: { hex: "#357AB7", pastille: "bg-cyan-500/20 text-cyan-500" },
   indigo: { hex: "#6366f1", pastille: "bg-indigo-500/20 text-indigo-500" },
   pink: { hex: "#ec4899", pastille: "bg-pink-500/20 text-pink-500" },
   slate: { hex: "#64748b", pastille: "bg-slate-500/20 text-slate-500" },

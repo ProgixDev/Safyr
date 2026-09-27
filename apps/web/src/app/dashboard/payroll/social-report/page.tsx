@@ -41,13 +41,13 @@ const COLORS = {
   success: "#22c55e",
   warning: "#f59e0b",
   danger: "#ef4444",
-  info: "#06b6d4",
+  info: "#295F8E",
   male: "#3b82f6",
   female: "#ec4899",
   cdi: "#22c55e",
   cdd: "#f59e0b",
   apprentice: "#8b5cf6",
-  interim: "#06b6d4",
+  interim: "#295F8E",
 };
 
 export default function PayrollSocialReportPage() {

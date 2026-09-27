@@ -50,14 +50,14 @@ export default function Testimonials() {
           className="absolute bottom-0 left-1/2 -translate-x-1/2 w-200 h-100"
           style={{
             background:
-              "radial-gradient(ellipse at bottom, rgba(34,211,238,0.05) 0%, transparent 70%)",
+              "radial-gradient(ellipse at bottom, rgba(53,122,183,0.05) 0%, transparent 70%)",
           }}
         />
         <div
           className="absolute top-0 right-0 w-125 h-100"
           style={{
             background:
-              "radial-gradient(circle at 90% 10%, rgba(34,211,238,0.03) 0%, transparent 60%)",
+              "radial-gradient(circle at 90% 10%, rgba(53,122,183,0.03) 0%, transparent 60%)",
           }}
         />
       </div>
@@ -72,7 +72,7 @@ export default function Testimonials() {
           className="text-center mb-16 flex flex-col items-center gap-4"
         >
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#f1f5f9] leading-tight font-display">
-            Ce que disent nos <span className="text-[#22d3ee]">clients</span>
+            Ce que disent nos <span className="text-[#357AB7]">clients</span>
           </h2>
           <p className="text-base text-[#94a3b8] max-w-xl">
             Des centaines de sociétés de sécurité privée font confiance à Safyr
@@ -112,14 +112,14 @@ export default function Testimonials() {
                   ? {}
                   : { y: -6, transition: { duration: 0.22, ease: "easeOut" } }
               }
-              className="relative p-6 rounded-2xl border border-[#2d4160]/60 bg-[#1a2d45]/40 hover:border-[#22d3ee]/30 hover:bg-[#1a2d45]/70 transition-colors duration-300 flex flex-col group cursor-default overflow-hidden"
+              className="relative p-6 rounded-2xl border border-[#2d4160]/60 bg-[#1a2d45]/40 hover:border-[#357AB7]/30 hover:bg-[#1a2d45]/70 transition-colors duration-300 flex flex-col group cursor-default overflow-hidden"
             >
               {/* Corner glow */}
               <div
                 className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-400 pointer-events-none rounded-2xl"
                 style={{
                   background:
-                    "radial-gradient(circle at top left, rgba(34,211,238,0.06) 0%, transparent 55%)",
+                    "radial-gradient(circle at top left, rgba(53,122,183,0.06) 0%, transparent 55%)",
                 }}
               />
 
@@ -127,7 +127,7 @@ export default function Testimonials() {
               <div className="flex items-center justify-between mb-4">
                 <Quote
                   size={20}
-                  className="text-[#22d3ee]/40 group-hover:text-[#22d3ee]/70 transition-colors duration-200 shrink-0"
+                  className="text-[#357AB7]/40 group-hover:text-[#357AB7]/70 transition-colors duration-200 shrink-0"
                 />
                 <StarRating />
               </div>
@@ -161,7 +161,7 @@ export default function Testimonials() {
               </div>
 
               {/* Animated bottom accent */}
-              <div className="absolute bottom-0 inset-x-0 h-0.5 bg-linear-to-r from-transparent via-[#22d3ee]/50 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-400 origin-center" />
+              <div className="absolute bottom-0 inset-x-0 h-0.5 bg-linear-to-r from-transparent via-[#357AB7]/50 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-400 origin-center" />
             </motion.div>
           ))}
         </motion.div>

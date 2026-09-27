@@ -24,10 +24,10 @@ export const colors = {
 
   // ── Brand / Primary ───────────────────────────────────
   primary: {
-    DEFAULT: "#22d3ee", // Cyan-400 (main brand accent)
-    dim: "#06b6d4", // Cyan-500 (hover / pressed)
-    glow: "rgba(34,211,238,0.15)", // Glow / soft highlight
-    muted: "rgba(34,211,238,0.08)", // Subtle fills
+    DEFAULT: "#357AB7", // Bleu acier (main brand accent)
+    dim: "#295F8E", // Bleu acier fonce (hover / pressed)
+    glow: "rgba(53,122,183,0.15)", // Glow / soft highlight
+    muted: "rgba(53,122,183,0.08)", // Subtle fills
   },
 
   // ── Border & Divider ──────────────────────────────────
@@ -35,7 +35,7 @@ export const colors = {
     default: "#2d4160",
     subtle: "#1e3352",
     strong: "#3d5a7a",
-    accent: "rgba(34,211,238,0.3)",
+    accent: "rgba(53,122,183,0.3)",
   },
 
   divider: {
@@ -47,7 +47,7 @@ export const colors = {
     success: "#10b981",
     warning: "#f59e0b",
     error: "#ef4444",
-    info: "#22d3ee",
+    info: "#357AB7",
   },
 
   // ── Elevation shadows ─────────────────────────────────

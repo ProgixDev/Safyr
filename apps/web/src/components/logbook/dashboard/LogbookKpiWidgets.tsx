@@ -71,7 +71,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   critical: "#ef4444",
   high: "#f97316",
   medium: "#eab308",
-  low: "#22d3ee",
+  low: "#357AB7",
 };
 
 const SEVERITY_LABELS: Record<string, string> = {
@@ -464,8 +464,8 @@ export function TrendChartWidget({ isLoading }: KpiWidgetProps) {
             >
               <defs>
                 <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#357AB7" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#357AB7" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
@@ -493,7 +493,7 @@ export function TrendChartWidget({ isLoading }: KpiWidgetProps) {
               <Area
                 type="monotone"
                 dataKey="evenements"
-                stroke="#22d3ee"
+                stroke="#357AB7"
                 strokeWidth={2}
                 fill="url(#trendFill)"
                 dot={false}
@@ -615,7 +615,7 @@ export function EventTypesWidget({ isLoading }: KpiWidgetProps) {
                 {...DARK_TOOLTIP_STYLE}
                 formatter={(value) => [value, "Événements"]}
               />
-              <Bar dataKey="count" fill="#22d3ee" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="count" fill="#357AB7" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -710,7 +710,7 @@ export function SiteComparisonWidget({ isLoading }: KpiWidgetProps) {
                 {...DARK_TOOLTIP_STYLE}
                 formatter={(value) => [value, "Événements"]}
               />
-              <Bar dataKey="count" fill="#22d3ee" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="count" fill="#357AB7" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -778,7 +778,7 @@ export function AgentActivityHeatmapWidget({ isLoading }: KpiWidgetProps) {
                         background:
                           v === 0
                             ? "rgba(148,163,184,0.08)"
-                            : `rgba(34,211,238,${intensity})`,
+                            : `rgba(53,122,183,${intensity})`,
                       }}
                     />
                   );
@@ -792,7 +792,7 @@ export function AgentActivityHeatmapWidget({ isLoading }: KpiWidgetProps) {
                   <span
                     key={i}
                     className="h-3 w-3 rounded-sm"
-                    style={{ background: `rgba(34,211,238,${i})` }}
+                    style={{ background: `rgba(53,122,183,${i})` }}
                   />
                 ))}
               </div>

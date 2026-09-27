@@ -54,7 +54,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   critical: "#ef4444",
   high: "#f97316",
   medium: "#eab308",
-  low: "#22d3ee",
+  low: "#357AB7",
 };
 
 const SEVERITY_LABELS: Record<string, string> = {
@@ -483,10 +483,10 @@ export function LogbookStatisticsPanel({
                     <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
                       <stop
                         offset="5%"
-                        stopColor="#22d3ee"
+                        stopColor="#357AB7"
                         stopOpacity={0.25}
                       />
-                      <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                      <stop offset="95%" stopColor="#357AB7" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -514,7 +514,7 @@ export function LogbookStatisticsPanel({
                   <Area
                     type="monotone"
                     dataKey="evenements"
-                    stroke="#22d3ee"
+                    stroke="#357AB7"
                     strokeWidth={2}
                     fill="url(#colorTrend)"
                     dot={false}
@@ -619,7 +619,7 @@ export function LogbookStatisticsPanel({
                     {...DARK_TOOLTIP_STYLE}
                     formatter={(value) => [value, "Événements"]}
                   />
-                  <Bar dataKey="count" fill="#22d3ee" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="count" fill="#357AB7" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

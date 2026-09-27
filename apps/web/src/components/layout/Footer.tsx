@@ -41,14 +41,14 @@ export default function Footer() {
   return (
     <footer className="relative bg-[#0f172a] border-t border-[#2d4160]/60">
       {/* Top accent line */}
-      <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/30 to-transparent" />
+      <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/30 to-transparent" />
 
       {/* Background glow */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-175 h-75 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at top, rgba(34,211,238,0.03) 0%, transparent 65%)",
+            "radial-gradient(ellipse at top, rgba(53,122,183,0.03) 0%, transparent 65%)",
         }}
       />
 
@@ -74,7 +74,7 @@ export default function Footer() {
                   key={label}
                   href={href}
                   aria-label={label}
-                  className="w-9 h-9 rounded-lg border border-[#2d4160] flex items-center justify-center text-[#64748b] hover:text-[#22d3ee] hover:border-[#22d3ee]/40 hover:bg-[#22d3ee]/5 transition-all duration-200"
+                  className="w-9 h-9 rounded-lg border border-[#2d4160] flex items-center justify-center text-[#64748b] hover:text-[#357AB7] hover:border-[#357AB7]/40 hover:bg-[#357AB7]/5 transition-all duration-200"
                 >
                   <Icon size={16} />
                 </a>

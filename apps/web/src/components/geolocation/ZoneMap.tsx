@@ -329,7 +329,7 @@ export function ZoneMap({
               id="drawing-preview-line"
               type="line"
               paint={{
-                "line-color": "#22d3ee",
+                "line-color": "#357AB7",
                 "line-width": 2,
                 "line-dasharray": [4, 4],
               }}
@@ -338,7 +338,7 @@ export function ZoneMap({
               id="drawing-preview-fill"
               type="fill"
               paint={{
-                "fill-color": "#22d3ee",
+                "fill-color": "#357AB7",
                 "fill-opacity": 0.1,
               }}
             />
@@ -348,7 +348,7 @@ export function ZoneMap({
               filter={["==", "$type", "Point"]}
               paint={{
                 "circle-radius": 5,
-                "circle-color": "#22d3ee",
+                "circle-color": "#357AB7",
                 "circle-stroke-width": 2,
                 "circle-stroke-color": "#ffffff",
               }}

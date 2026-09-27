@@ -584,7 +584,7 @@ export function EmployeeGeolocationTab({
                       id="employee-trail-line"
                       type="line"
                       paint={{
-                        "line-color": "#22d3ee",
+                        "line-color": "#357AB7",
                         "line-width": 2,
                         "line-opacity": 0.7,
                       }}

@@ -65,7 +65,7 @@ export default function Navbar() {
             className={cn(
               "px-4 py-2 text-sm rounded-md transition-all duration-200 cursor-pointer flex items-center gap-1",
               solutionsOpen || pathname.startsWith("/solutions")
-                ? "text-[#22d3ee] bg-[rgba(34,211,238,0.1)]"
+                ? "text-[#357AB7] bg-[rgba(53,122,183,0.1)]"
                 : "text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[rgba(255,255,255,0.05)]",
             )}
           >
@@ -141,7 +141,7 @@ export default function Navbar() {
           className={cn(
             "px-4 py-2 text-sm rounded-md transition-all duration-200 cursor-pointer",
             pathname === "/" && item.href === "/#how-it-works"
-              ? "text-[#22d3ee] bg-[rgba(34,211,238,0.1)]"
+              ? "text-[#357AB7] bg-[rgba(53,122,183,0.1)]"
               : "text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[rgba(255,255,255,0.05)]",
           )}
         >
@@ -157,7 +157,7 @@ export default function Navbar() {
         className={cn(
           "px-4 py-2 text-sm rounded-md transition-all duration-200",
           pathname === item.href
-            ? "text-[#22d3ee] bg-[rgba(34,211,238,0.1)]"
+            ? "text-[#357AB7] bg-[rgba(53,122,183,0.1)]"
             : "text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[rgba(255,255,255,0.05)]",
         )}
       >
@@ -175,7 +175,7 @@ export default function Navbar() {
             className={cn(
               "w-full text-left px-4 py-3 rounded-lg transition-all text-sm flex items-center justify-between cursor-pointer",
               mobileSolutionsOpen || pathname.startsWith("/solutions")
-                ? "text-[#22d3ee] bg-[rgba(34,211,238,0.1)]"
+                ? "text-[#357AB7] bg-[rgba(53,122,183,0.1)]"
                 : "text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[rgba(255,255,255,0.05)]",
             )}
           >
@@ -244,7 +244,7 @@ export default function Navbar() {
         className={cn(
           "text-left px-4 py-3 rounded-lg transition-all text-sm",
           pathname === item.href
-            ? "text-[#22d3ee] bg-[rgba(34,211,238,0.1)]"
+            ? "text-[#357AB7] bg-[rgba(53,122,183,0.1)]"
             : "text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[rgba(255,255,255,0.05)]",
         )}
       >

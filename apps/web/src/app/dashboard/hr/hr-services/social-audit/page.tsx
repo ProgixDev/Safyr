@@ -230,7 +230,7 @@ const COLORS = {
   danger: "#ef4444",
   info: "#3b82f6",
   pink: "#ec4899",
-  cyan: "#06b6d4",
+  cyan: "#295F8E",
   indigo: "#4f46e5",
   violet: "#7c3aed",
 };
@@ -1129,7 +1129,7 @@ export default function SocialReportPage() {
                       boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
                     }}
                   />
-                  <Bar dataKey="cout" fill="#06b6d4" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="cout" fill="#295F8E" radius={[4, 4, 0, 0]}>
                     <defs>
                       <linearGradient
                         id="hourlyCostGradient"
@@ -1138,7 +1138,7 @@ export default function SocialReportPage() {
                         x2="0"
                         y2="1"
                       >
-                        <stop offset="0%" stopColor="#06b6d4" />
+                        <stop offset="0%" stopColor="#295F8E" />
                         <stop offset="100%" stopColor="#3b82f6" />
                       </linearGradient>
                     </defs>

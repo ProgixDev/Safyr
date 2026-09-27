@@ -76,14 +76,14 @@ export default function About() {
           className="absolute right-0 top-0 w-150 h-150"
           style={{
             background:
-              "radial-gradient(circle at 80% 20%, rgba(34,211,238,0.05) 0%, transparent 60%)",
+              "radial-gradient(circle at 80% 20%, rgba(53,122,183,0.05) 0%, transparent 60%)",
           }}
         />
         <div
           className="absolute left-0 bottom-0 w-100 h-100"
           style={{
             background:
-              "radial-gradient(circle at 20% 80%, rgba(34,211,238,0.03) 0%, transparent 60%)",
+              "radial-gradient(circle at 20% 80%, rgba(53,122,183,0.03) 0%, transparent 60%)",
           }}
         />
       </div>
@@ -122,8 +122,8 @@ export default function About() {
                 transition={{ delay: 0.4, duration: 0.5, ease: "easeOut" }}
                 className="absolute bottom-5 left-5 bg-[#0f172a]/90 backdrop-blur-sm border border-[#2d4160] rounded-xl p-4 flex items-center gap-4"
               >
-                <div className="w-12 h-12 rounded-lg bg-[#22d3ee]/10 flex items-center justify-center">
-                  <Zap size={22} className="text-[#22d3ee]" />
+                <div className="w-12 h-12 rounded-lg bg-[#357AB7]/10 flex items-center justify-center">
+                  <Zap size={22} className="text-[#357AB7]" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-[#f1f5f9]">3×</p>
@@ -139,7 +139,7 @@ export default function About() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true, margin: "-80px" }}
                 transition={{ delay: 0.55, duration: 0.4 }}
-                className="absolute top-4 right-4 bg-[#0f172a]/80 backdrop-blur-sm border border-[#22d3ee]/30 rounded-lg px-3 py-1.5 flex items-center gap-2"
+                className="absolute top-4 right-4 bg-[#0f172a]/80 backdrop-blur-sm border border-[#357AB7]/30 rounded-lg px-3 py-1.5 flex items-center gap-2"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75" />
@@ -156,13 +156,13 @@ export default function About() {
               className="absolute -bottom-8 -left-8 w-40 h-40 pointer-events-none opacity-20"
               style={{
                 backgroundImage:
-                  "radial-gradient(circle, #22d3ee 1px, transparent 1px)",
+                  "radial-gradient(circle, #357AB7 1px, transparent 1px)",
                 backgroundSize: "16px 16px",
               }}
             />
 
             {/* Vertical accent line */}
-            <div className="absolute -right-1 top-8 bottom-8 w-px bg-linear-to-b from-transparent via-[#22d3ee]/20 to-transparent hidden lg:block" />
+            <div className="absolute -right-1 top-8 bottom-8 w-px bg-linear-to-b from-transparent via-[#357AB7]/20 to-transparent hidden lg:block" />
           </motion.div>
 
           {/* Right — content */}
@@ -190,7 +190,7 @@ export default function About() {
             {/* Divider */}
             <motion.div
               variants={itemVariants}
-              className="h-px bg-linear-to-r from-[#22d3ee]/20 via-[#22d3ee]/10 to-transparent"
+              className="h-px bg-linear-to-r from-[#357AB7]/20 via-[#357AB7]/10 to-transparent"
             />
 
             {/* Values grid */}
@@ -210,10 +210,10 @@ export default function About() {
                         ? {}
                         : { y: -3, transition: { duration: 0.2 } }
                     }
-                    className="flex items-center gap-3 p-4 rounded-xl bg-[#0f172a]/60 border border-[#2d4160]/60 hover:border-[#22d3ee]/30 hover:bg-[#0f172a]/80 transition-colors group cursor-default"
+                    className="flex items-center gap-3 p-4 rounded-xl bg-[#0f172a]/60 border border-[#2d4160]/60 hover:border-[#357AB7]/30 hover:bg-[#0f172a]/80 transition-colors group cursor-default"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-[#22d3ee]/10 flex items-center justify-center shrink-0 group-hover:bg-[#22d3ee]/20 transition-colors">
-                      <Icon size={18} className="text-[#22d3ee]" />
+                    <div className="w-9 h-9 rounded-lg bg-[#357AB7]/10 flex items-center justify-center shrink-0 group-hover:bg-[#357AB7]/20 transition-colors">
+                      <Icon size={18} className="text-[#357AB7]" />
                     </div>
                     <span className="text-sm text-[#94a3b8] group-hover:text-[#f1f5f9] transition-colors font-medium leading-tight">
                       {v.label}

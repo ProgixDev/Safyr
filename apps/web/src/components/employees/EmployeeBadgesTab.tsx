@@ -245,7 +245,7 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
       const bandeau = () => {
         doc.setFillColor(15, 23, 42);
         doc.rect(0, 0, 85.6, 15, "F");
-        doc.setFillColor(34, 211, 238);
+        doc.setFillColor(53, 122, 183);
         doc.rect(0, 15, 85.6, 1, "F");
       };
 
@@ -469,7 +469,7 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
                   style={{ backfaceVisibility: "hidden" }}
                 >
                   {/* Bandeau de marque : logo + entreprise */}
-                  <div className="flex items-center gap-3 bg-linear-to-r from-[#0f172a] via-[#155e75] to-[#22d3ee] px-4 py-2.5">
+                  <div className="flex items-center gap-3 bg-linear-to-r from-[#0f172a] via-[#295F8E] to-[#357AB7] px-4 py-2.5">
                     {/* Cadre du logo : il épouse l'image, qui le remplit
                         entièrement (aucune marge blanche autour). */}
                     <div className="flex h-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow">
@@ -553,7 +553,7 @@ export function EmployeeBadgesTab({ employee }: EmployeeBadgesTabProps) {
 
                 {/* Verso : QR code de vérification */}
                 <div
-                  className="absolute left-0 top-0 flex aspect-[1.586/1] w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-slate-700 bg-linear-to-br from-[#0f172a] via-[#155e75] to-[#0891b2] px-6 text-white shadow-2xl"
+                  className="absolute left-0 top-0 flex aspect-[1.586/1] w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-slate-700 bg-linear-to-br from-[#0f172a] via-[#295F8E] to-[#235179] px-6 text-white shadow-2xl"
                   style={{
                     backfaceVisibility: "hidden",
                     transform: "rotateY(180deg)",

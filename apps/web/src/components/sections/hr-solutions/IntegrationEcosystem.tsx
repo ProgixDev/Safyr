@@ -134,7 +134,7 @@ export default function IntegrationEcosystem({
             className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[80px]"
             style={{
               background:
-                "radial-gradient(circle, rgba(34,211,238,0.15) 0%, transparent 70%)",
+                "radial-gradient(circle, rgba(53,122,183,0.15) 0%, transparent 70%)",
             }}
           />
         </div>
@@ -143,7 +143,7 @@ export default function IntegrationEcosystem({
           className="absolute inset-0 opacity-[0.015]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "56px 56px",
           }}
         />

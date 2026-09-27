@@ -15,11 +15,11 @@ export default function LoginPage() {
       <div className="absolute inset-0 auth-pattern-login" />
 
       {/* Radial gradient overlays */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(34,211,238,0.15)_0%,transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(53,122,183,0.15)_0%,transparent_50%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(167,139,250,0.1)_0%,transparent_50%)]" />
 
       {/* Grid overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(34,211,238,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.03)_1px,transparent_1px)] bg-size-[50px_50px]" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(53,122,183,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(53,122,183,0.03)_1px,transparent_1px)] bg-size-[50px_50px]" />
 
       {/* Main content */}
       <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
@@ -43,7 +43,7 @@ export default function LoginPage() {
             {/* Form card */}
             <div className="relative">
               {/* Glow effect */}
-              <div className="absolute -inset-1 bg-linear-to-r from-[#22d3ee]/20 via-[#a78bfa]/20 to-[#22d3ee]/20 rounded-2xl blur-xl opacity-50" />
+              <div className="absolute -inset-1 bg-linear-to-r from-[#357AB7]/20 via-[#a78bfa]/20 to-[#357AB7]/20 rounded-2xl blur-xl opacity-50" />
 
               <div className="relative bg-[#0f172a]/90 backdrop-blur-xl border border-[#2d4160]/60 rounded-2xl p-5 sm:p-6 xl:p-10">
                 {/* Header */}
@@ -63,7 +63,7 @@ export default function LoginPage() {
                   Pas encore de compte ?{" "}
                   <Link
                     href="/register"
-                    className="text-[#22d3ee] hover:text-[#06b6d4] font-medium transition-colors"
+                    className="text-[#357AB7] hover:text-[#295F8E] font-medium transition-colors"
                   >
                     Créer un compte
                   </Link>

@@ -2938,7 +2938,7 @@ export function ScheduleView({
                       "#10b981",
                       "#ef4444",
                       "#ec4899",
-                      "#06b6d4",
+                      "#295F8E",
                     ].map((color) => (
                       <button
                         key={color}

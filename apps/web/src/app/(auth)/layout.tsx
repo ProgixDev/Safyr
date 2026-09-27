@@ -22,7 +22,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   if ((!initialSessionResolved && isPending) || session) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#22d3ee]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#357AB7]" />
       </div>
     );
   }

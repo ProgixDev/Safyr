@@ -27,7 +27,7 @@ import { ZONE_TYPES, ALERT_LABELS } from "@/data/geolocation-zones";
 // ── Constants ───────────────────────────────────────────────────────
 
 const PRESET_COLORS = [
-  "#22d3ee",
+  "#357AB7",
   "#f59e0b",
   "#ef4444",
   "#a855f7",
@@ -59,7 +59,7 @@ export function ZoneFormModal({
   const [name, setName] = useState(zone?.name ?? "");
   const [type, setType] = useState<ZoneType>(zone?.type ?? "Site client");
   const [site, setSite] = useState(zone?.site ?? "");
-  const [color, setColor] = useState(zone?.color ?? "#22d3ee");
+  const [color, setColor] = useState(zone?.color ?? "#357AB7");
   const [shape, setShape] = useState<ZoneShape | null>(
     zone?.shape ?? pendingShape ?? null,
   );
@@ -101,7 +101,7 @@ export function ZoneFormModal({
       setName("");
       setType("Site client");
       setSite("");
-      setColor("#22d3ee");
+      setColor("#357AB7");
       setShape(null);
       setAlerts({ entry: true, exit: true, absence: false, parking: false });
     }
@@ -400,7 +400,7 @@ export function ZoneFormPanel({
   const [name, setName] = useState(zone?.name ?? "");
   const [type, setType] = useState<ZoneType>(zone?.type ?? "Site client");
   const [site, setSite] = useState(zone?.site ?? "");
-  const [color, setColor] = useState(zone?.color ?? "#22d3ee");
+  const [color, setColor] = useState(zone?.color ?? "#357AB7");
   const [shape, setShape] = useState<ZoneShape | null>(
     zone?.shape ?? pendingShape ?? null,
   );
@@ -427,7 +427,7 @@ export function ZoneFormPanel({
       setName("");
       setType("Site client");
       setSite("");
-      setColor("#22d3ee");
+      setColor("#357AB7");
       setShape(null);
       setAlerts({ entry: true, exit: true, absence: false, parking: false });
     }

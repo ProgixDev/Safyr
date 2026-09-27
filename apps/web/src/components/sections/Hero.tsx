@@ -78,7 +78,7 @@ export default function Hero() {
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-225 h-150"
           style={{
             background:
-              "radial-gradient(ellipse at center, rgba(34,211,238,0.09) 0%, transparent 68%)",
+              "radial-gradient(ellipse at center, rgba(53,122,183,0.09) 0%, transparent 68%)",
           }}
         />
       </div>
@@ -88,7 +88,7 @@ export default function Hero() {
         className="absolute inset-0 pointer-events-none opacity-[0.025]"
         style={{
           backgroundImage:
-            "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+            "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
           backgroundSize: "64px 64px",
         }}
       />
@@ -98,7 +98,7 @@ export default function Hero() {
         PARTICLES.map((p, i) => (
           <motion.div
             key={i}
-            className="absolute rounded-full bg-[#22d3ee] pointer-events-none"
+            className="absolute rounded-full bg-[#357AB7] pointer-events-none"
             style={{
               left: p.x,
               top: p.y,
@@ -142,9 +142,9 @@ export default function Hero() {
                     isHighlighted ? (
                       <span
                         key={i}
-                        className="relative inline-block text-[#22d3ee]"
+                        className="relative inline-block text-[#357AB7]"
                         style={{
-                          textShadow: "0 0 32px rgba(34,211,238,0.45)",
+                          textShadow: "0 0 32px rgba(53,122,183,0.45)",
                         }}
                       >
                         {word}
@@ -209,7 +209,7 @@ export default function Hero() {
                 variant="secondary"
                 size="lg"
                 onClick={() => handleScroll(siteConfig.hero.secondaryCtaHref)}
-                className="group border border-[#2d4160] hover:border-[#22d3ee]/40 bg-transparent text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[#22d3ee]/5 transition-all"
+                className="group border border-[#2d4160] hover:border-[#357AB7]/40 bg-transparent text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[#357AB7]/5 transition-all"
               >
                 <ChevronDown
                   size={16}
@@ -259,7 +259,7 @@ export default function Hero() {
                   key={label}
                   className="flex items-center gap-1.5 text-xs text-[#64748b]"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#22d3ee]/60 shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#357AB7]/60 shrink-0" />
                   {label}
                 </span>
               ))}
@@ -279,7 +279,7 @@ export default function Hero() {
                 className="absolute inset-0 rounded-2xl pointer-events-none"
                 style={{
                   background:
-                    "radial-gradient(ellipse at 50% 50%, rgba(34,211,238,0.15) 0%, transparent 65%)",
+                    "radial-gradient(ellipse at 50% 50%, rgba(53,122,183,0.15) 0%, transparent 65%)",
                   filter: "blur(32px)",
                   transform: "scale(1.1)",
                 }}
@@ -288,7 +288,7 @@ export default function Hero() {
               {/* Dashboard preview — RH module video */}
               <div className="relative rounded-xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5)] border border-white/10">
                 {/* Top accent line */}
-                <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/60 to-transparent z-10" />
+                <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/60 to-transparent z-10" />
                 <video
                   src="https://res.cloudinary.com/dpo7sqgyg/video/upload/rh_f6xn0n.mp4"
                   autoPlay

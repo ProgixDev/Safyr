@@ -213,7 +213,7 @@ export function LoginForm() {
           }}
           className={`h-10 min-h-10 rounded-lg text-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.96] ${
             mode === "password"
-              ? "bg-[#22d3ee] text-[#0f172a]"
+              ? "bg-[#357AB7] text-[#0f172a]"
               : "text-[#94a3b8] hover:text-white"
           }`}
         >
@@ -229,7 +229,7 @@ export function LoginForm() {
           }}
           className={`h-10 min-h-10 rounded-lg text-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.96] ${
             mode === "otp"
-              ? "bg-[#22d3ee] text-[#0f172a]"
+              ? "bg-[#357AB7] text-[#0f172a]"
               : "text-[#94a3b8] hover:text-white"
           }`}
         >
@@ -247,7 +247,7 @@ export function LoginForm() {
           }}
           className={`h-10 min-h-10 rounded-lg text-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.96] ${
             mode === "magic-link"
-              ? "bg-[#22d3ee] text-[#0f172a]"
+              ? "bg-[#357AB7] text-[#0f172a]"
               : "text-[#94a3b8] hover:text-white"
           }`}
         >
@@ -285,7 +285,7 @@ export function LoginForm() {
             }
           }}
           placeholder="vous@entreprise.com"
-          className="w-full h-12 px-4 rounded-xl bg-[#1e293b]/80 border border-[#2d4160]/60 text-white placeholder:text-[#475569] focus:outline-none focus:border-[#22d3ee]/50 focus:ring-2 focus:ring-[#22d3ee]/20 transition-[border-color,box-shadow] duration-200"
+          className="w-full h-12 px-4 rounded-xl bg-[#1e293b]/80 border border-[#2d4160]/60 text-white placeholder:text-[#475569] focus:outline-none focus:border-[#357AB7]/50 focus:ring-2 focus:ring-[#357AB7]/20 transition-[border-color,box-shadow] duration-200"
         />
       </div>
 
@@ -304,7 +304,7 @@ export function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full h-12 px-4 rounded-xl bg-[#1e293b]/80 border border-[#2d4160]/60 text-white placeholder:text-[#475569] focus:outline-none focus:border-[#22d3ee]/50 focus:ring-2 focus:ring-[#22d3ee]/20 transition-[border-color,box-shadow] duration-200"
+            className="w-full h-12 px-4 rounded-xl bg-[#1e293b]/80 border border-[#2d4160]/60 text-white placeholder:text-[#475569] focus:outline-none focus:border-[#357AB7]/50 focus:ring-2 focus:ring-[#357AB7]/20 transition-[border-color,box-shadow] duration-200"
           />
         </div>
       )}
@@ -351,7 +351,7 @@ export function LoginForm() {
           onClick={() => {
             void requestOtp();
           }}
-          className="inline-flex h-10 min-h-10 items-center text-sm text-[#22d3ee] hover:text-[#06b6d4] transition-[color,transform] duration-150 ease-out active:scale-[0.96]"
+          className="inline-flex h-10 min-h-10 items-center text-sm text-[#357AB7] hover:text-[#295F8E] transition-[color,transform] duration-150 ease-out active:scale-[0.96]"
         >
           Renvoyer le code
         </button>
@@ -376,7 +376,7 @@ export function LoginForm() {
           status === "verifying" ||
           (mode === "otp" && otpRequested && otp.trim().length === 0)
         }
-        className="w-full h-12 rounded-xl bg-gradient-to-r from-[#22d3ee] to-[#06b6d4] text-[#0f172a] font-semibold flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(34,211,238,0.4)] transition-[box-shadow,opacity,transform] duration-300 will-change-transform disabled:opacity-70 disabled:cursor-not-allowed"
+        className="w-full h-12 rounded-xl bg-gradient-to-r from-[#357AB7] to-[#295F8E] text-[#0f172a] font-semibold flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(53,122,183,0.4)] transition-[box-shadow,opacity,transform] duration-300 will-change-transform disabled:opacity-70 disabled:cursor-not-allowed"
         whileHover={{
           scale: status === "sending" || status === "verifying" ? 1 : 1.01,
         }}

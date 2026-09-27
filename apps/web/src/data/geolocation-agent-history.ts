@@ -142,7 +142,7 @@ export function buildHistoryTrailGeoJson(
 ): GeoJSON.FeatureCollection {
   const STATUS_COLORS: Record<GeolocationAgent["status"], string> = {
     "En poste": "#22c55e",
-    "En déplacement": "#22d3ee",
+    "En déplacement": "#357AB7",
     "Hors ligne": "#6b7280",
   };
 

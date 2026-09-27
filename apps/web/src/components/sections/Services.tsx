@@ -17,7 +17,7 @@ import {
 import { siteConfig } from "@/config/site";
 
 const SERVICE_COLORS = [
-  { color: "#22d3ee", glow: "rgba(34,211,238,0.18)" },
+  { color: "#357AB7", glow: "rgba(53,122,183,0.18)" },
   { color: "#a78bfa", glow: "rgba(167,139,250,0.18)" },
   { color: "#818cf8", glow: "rgba(129,140,248,0.18)" },
   { color: "#38bdf8", glow: "rgba(56,189,248,0.18)" },
@@ -165,7 +165,7 @@ export default function Services() {
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-225 h-150"
           style={{
             background:
-              "radial-gradient(ellipse at center, rgba(34,211,238,0.04) 0%, transparent 70%)",
+              "radial-gradient(ellipse at center, rgba(53,122,183,0.04) 0%, transparent 70%)",
           }}
         />
       </div>

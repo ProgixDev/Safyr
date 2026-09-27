@@ -486,7 +486,7 @@ export default function BillingKPIPage() {
                       "#f59e0b",
                       "#8b5cf6",
                       "#ef4444",
-                      "#06b6d4",
+                      "#295F8E",
                       "#ec4899",
                     ][index % 7],
                   }))}
@@ -536,7 +536,7 @@ export default function BillingKPIPage() {
                           "#f59e0b",
                           "#8b5cf6",
                           "#ef4444",
-                          "#06b6d4",
+                          "#295F8E",
                           "#ec4899",
                         ][index % 7]
                       }

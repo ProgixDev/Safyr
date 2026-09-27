@@ -200,7 +200,7 @@ export default function WorkflowCard({
           className="absolute inset-0 opacity-[0.015]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "56px 56px",
           }}
         />

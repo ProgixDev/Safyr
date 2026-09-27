@@ -42,8 +42,8 @@ const SPRING: Transition = { type: "spring", stiffness: 380, damping: 30 };
 const STEP_META = [
   {
     icon: Users,
-    color: "#22d3ee",
-    glow: "rgba(34,211,238,0.18)",
+    color: "#357AB7",
+    glow: "rgba(53,122,183,0.18)",
     video: "https://res.cloudinary.com/dpo7sqgyg/video/upload/rh_f6xn0n.mp4" as
       | string
       | null,
@@ -254,7 +254,7 @@ function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
         className="relative z-10 w-full max-w-5xl rounded-2xl overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-white/[0.07]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/60 to-transparent z-10" />
+        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/60 to-transparent z-10" />
         <video autoPlay loop muted playsInline className="w-full h-auto block">
           <source src={src} type="video/mp4" />
         </video>
@@ -266,7 +266,7 @@ function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
         exit={{ opacity: 0 }}
         transition={{ delay: 0.12 }}
         onClick={onClose}
-        className="absolute top-5 right-5 z-20 w-10 h-10 rounded-full bg-[#0f172a]/90 border border-white/10 flex items-center justify-center text-[#94a3b8] hover:text-white hover:border-[#22d3ee]/50 transition-all duration-200 cursor-pointer"
+        className="absolute top-5 right-5 z-20 w-10 h-10 rounded-full bg-[#0f172a]/90 border border-white/10 flex items-center justify-center text-[#94a3b8] hover:text-white hover:border-[#357AB7]/50 transition-all duration-200 cursor-pointer"
       >
         <X size={16} />
       </motion.button>
@@ -644,13 +644,13 @@ export default function HowItWorks() {
           className="absolute inset-0 opacity-[0.018]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "72px 72px",
           }}
         />
         {/* Top / bottom lines */}
-        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/20 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/10 to-transparent" />
+        <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/20 to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/10 to-transparent" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
@@ -663,7 +663,7 @@ export default function HowItWorks() {
         >
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#f1f5f9] leading-tight max-w-2xl font-display">
             10 modules,{" "}
-            <span className="text-[#22d3ee]">une seule plateforme</span>
+            <span className="text-[#357AB7]">une seule plateforme</span>
           </h2>
           <p className="text-base text-[#64748b] max-w-xl leading-relaxed">
             Chaque module couvre un pilier de vos opérations de sécurité privée
@@ -864,17 +864,17 @@ export default function HowItWorks() {
           className="mt-20 relative rounded-2xl overflow-hidden border border-white/[0.07]"
           style={{
             background:
-              "linear-gradient(135deg, rgba(34,211,238,0.06) 0%, rgba(129,140,248,0.06) 50%, rgba(52,211,153,0.06) 100%)",
+              "linear-gradient(135deg, rgba(53,122,183,0.06) 0%, rgba(129,140,248,0.06) 50%, rgba(52,211,153,0.06) 100%)",
           }}
         >
           {/* Top accent */}
-          <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/40 to-transparent" />
+          <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/40 to-transparent" />
           {/* Subtle grid */}
           <div
             className="absolute inset-0 opacity-[0.025] pointer-events-none"
             style={{
               backgroundImage:
-                "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+                "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
               backgroundSize: "48px 48px",
             }}
           />
@@ -883,7 +883,7 @@ export default function HowItWorks() {
             className="absolute -top-12 left-1/2 -translate-x-1/2 w-96 h-48 pointer-events-none"
             style={{
               background:
-                "radial-gradient(ellipse at center, rgba(34,211,238,0.08) 0%, transparent 70%)",
+                "radial-gradient(ellipse at center, rgba(53,122,183,0.08) 0%, transparent 70%)",
               filter: "blur(24px)",
             }}
           />
@@ -896,23 +896,23 @@ export default function HowItWorks() {
                 <div
                   className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border"
                   style={{
-                    backgroundColor: "rgba(34,211,238,0.1)",
-                    borderColor: "rgba(34,211,238,0.25)",
+                    backgroundColor: "rgba(53,122,183,0.1)",
+                    borderColor: "rgba(53,122,183,0.25)",
                   }}
                 >
-                  <Smartphone size={22} className="text-[#22d3ee]" />
+                  <Smartphone size={22} className="text-[#357AB7]" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-[#22d3ee]">
+                    <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-[#357AB7]">
                       Inclus dans Safyr
                     </span>
                     <span
                       className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
                       style={{
-                        backgroundColor: "rgba(34,211,238,0.08)",
-                        borderColor: "rgba(34,211,238,0.2)",
-                        color: "rgba(34,211,238,0.7)",
+                        backgroundColor: "rgba(53,122,183,0.08)",
+                        borderColor: "rgba(53,122,183,0.2)",
+                        color: "rgba(53,122,183,0.7)",
                       }}
                     >
                       Bientôt disponible
@@ -962,7 +962,7 @@ export default function HowItWorks() {
                     }}
                     className="flex items-center gap-2.5 text-sm text-[#94a3b8]"
                   >
-                    <Icon size={14} className="shrink-0 text-[#22d3ee]" />
+                    <Icon size={14} className="shrink-0 text-[#357AB7]" />
                     {text}
                   </motion.div>
                 ))}
@@ -973,7 +973,7 @@ export default function HowItWorks() {
             <div className="flex flex-col items-center gap-4">
               <VideoCard
                 src={MOBILE_VIDEO}
-                color="#22d3ee"
+                color="#357AB7"
                 onExpand={() => setLightboxSrc(MOBILE_VIDEO)}
                 portrait
               />

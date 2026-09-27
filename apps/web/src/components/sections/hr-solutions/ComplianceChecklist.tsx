@@ -91,7 +91,7 @@ function ComplianceItemRow({
         >
           {statusColor === "#34d399" ? (
             <CheckCircle2 size={16} style={{ color: statusColor }} />
-          ) : statusColor === "#22d3ee" ? (
+          ) : statusColor === "#357AB7" ? (
             <CheckCircle2 size={16} style={{ color: statusColor }} />
           ) : (
             <Circle size={16} style={{ color: statusColor }} />
@@ -172,7 +172,7 @@ export default function ComplianceChecklist({
             className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[80px]"
             style={{
               background:
-                "radial-gradient(circle, rgba(34,211,238,0.15) 0%, transparent 70%)",
+                "radial-gradient(circle, rgba(53,122,183,0.15) 0%, transparent 70%)",
             }}
           />
         </div>
@@ -181,7 +181,7 @@ export default function ComplianceChecklist({
           className="absolute inset-0 opacity-[0.015]"
           style={{
             backgroundImage:
-              "linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)",
+              "linear-gradient(#357AB7 1px, transparent 1px), linear-gradient(to right, #357AB7 1px, transparent 1px)",
             backgroundSize: "56px 56px",
           }}
         />

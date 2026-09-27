@@ -73,7 +73,7 @@ export default function ContactPage() {
 
         <div className="relative max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#f1f5f9] mb-6 font-display">
-            Parlons de vos <span className="text-[#22d3ee]">besoins</span>
+            Parlons de vos <span className="text-[#357AB7]">besoins</span>
           </h1>
           <p className="text-xl text-[#94a3b8] max-w-2xl mx-auto">
             Réservez un appel avec notre équipe etirez découvrir comment Safyr
@@ -95,8 +95,8 @@ export default function ContactPage() {
                 </h2>
                 <div className="space-y-5">
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[#22d3ee]/10 flex items-center justify-center shrink-0">
-                      <Mail className="w-5 h-5 text-[#22d3ee]" />
+                    <div className="w-10 h-10 rounded-lg bg-[#357AB7]/10 flex items-center justify-center shrink-0">
+                      <Mail className="w-5 h-5 text-[#357AB7]" />
                     </div>
                     <div>
                       <p className="text-sm text-[#64748b]">Email</p>
@@ -106,8 +106,8 @@ export default function ContactPage() {
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[#22d3ee]/10 flex items-center justify-center shrink-0">
-                      <Phone className="w-5 h-5 text-[#22d3ee]" />
+                    <div className="w-10 h-10 rounded-lg bg-[#357AB7]/10 flex items-center justify-center shrink-0">
+                      <Phone className="w-5 h-5 text-[#357AB7]" />
                     </div>
                     <div>
                       <p className="text-sm text-[#64748b]">Téléphone</p>
@@ -117,8 +117,8 @@ export default function ContactPage() {
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[#22d3ee]/10 flex items-center justify-center shrink-0">
-                      <MapPin className="w-5 h-5 text-[#22d3ee]" />
+                    <div className="w-10 h-10 rounded-lg bg-[#357AB7]/10 flex items-center justify-center shrink-0">
+                      <MapPin className="w-5 h-5 text-[#357AB7]" />
                     </div>
                     <div>
                       <p className="text-sm text-[#64748b]">Adresse</p>
@@ -128,8 +128,8 @@ export default function ContactPage() {
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[#22d3ee]/10 flex items-center justify-center shrink-0">
-                      <Clock className="w-5 h-5 text-[#22d3ee]" />
+                    <div className="w-10 h-10 rounded-lg bg-[#357AB7]/10 flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5 text-[#357AB7]" />
                     </div>
                     <div>
                       <p className="text-sm text-[#64748b]">Disponibilité</p>
@@ -154,7 +154,7 @@ export default function ContactPage() {
                     "Accompagnement à la migration",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-[#22d3ee] shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-5 h-5 text-[#357AB7] shrink-0 mt-0.5" />
                       <span className="text-[#94a3b8] text-sm">{item}</span>
                     </li>
                   ))}
@@ -181,7 +181,7 @@ export default function ContactPage() {
                         onChange={(e) =>
                           setForm({ ...form, firstName: e.target.value })
                         }
-                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#22d3ee] focus:outline-none transition-colors"
+                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#357AB7] focus:outline-none transition-colors"
                         placeholder="Jean"
                       />
                     </div>
@@ -196,7 +196,7 @@ export default function ContactPage() {
                         onChange={(e) =>
                           setForm({ ...form, lastName: e.target.value })
                         }
-                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#22d3ee] focus:outline-none transition-colors"
+                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#357AB7] focus:outline-none transition-colors"
                         placeholder="Dupont"
                       />
                     </div>
@@ -214,7 +214,7 @@ export default function ContactPage() {
                         onChange={(e) =>
                           setForm({ ...form, email: e.target.value })
                         }
-                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#22d3ee] focus:outline-none transition-colors"
+                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#357AB7] focus:outline-none transition-colors"
                         placeholder="jean@entreprise.com"
                       />
                     </div>
@@ -228,7 +228,7 @@ export default function ContactPage() {
                         onChange={(e) =>
                           setForm({ ...form, phone: e.target.value })
                         }
-                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#22d3ee] focus:outline-none transition-colors"
+                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#357AB7] focus:outline-none transition-colors"
                         placeholder="+33 6 12 34 56 78"
                       />
                     </div>
@@ -247,7 +247,7 @@ export default function ContactPage() {
                         onChange={(e) =>
                           setForm({ ...form, companyName: e.target.value })
                         }
-                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#22d3ee] focus:outline-none transition-colors"
+                        className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#357AB7] focus:outline-none transition-colors"
                         placeholder="Mon entreprise"
                       />
                     </div>
@@ -260,7 +260,7 @@ export default function ContactPage() {
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="w-full h-10 px-3 rounded-lg bg-[#0f172a] border border-[#2d4160] text-sm flex items-center justify-between hover:border-[#22d3ee]/50 focus:outline-none focus:border-[#22d3ee] transition-all duration-200"
+                            className="w-full h-10 px-3 rounded-lg bg-[#0f172a] border border-[#2d4160] text-sm flex items-center justify-between hover:border-[#357AB7]/50 focus:outline-none focus:border-[#357AB7] transition-all duration-200"
                           >
                             <span
                               className={
@@ -295,7 +295,7 @@ export default function ContactPage() {
                               {form.companySize === size.value && (
                                 <CheckCircle2
                                   size={14}
-                                  className="text-[#22d3ee]"
+                                  className="text-[#357AB7]"
                                 />
                               )}
                             </DropdownMenuItem>
@@ -313,7 +313,7 @@ export default function ContactPage() {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="w-full h-10 px-3 rounded-lg bg-[#0f172a] border border-[#2d4160] text-sm flex items-center justify-between hover:border-[#22d3ee]/50 focus:outline-none focus:border-[#22d3ee] transition-all duration-200"
+                          className="w-full h-10 px-3 rounded-lg bg-[#0f172a] border border-[#2d4160] text-sm flex items-center justify-between hover:border-[#357AB7]/50 focus:outline-none focus:border-[#357AB7] transition-all duration-200"
                         >
                           <span
                             className={
@@ -345,7 +345,7 @@ export default function ContactPage() {
                             {form.subject === subject.value && (
                               <CheckCircle2
                                 size={14}
-                                className="text-[#22d3ee]"
+                                className="text-[#357AB7]"
                               />
                             )}
                           </DropdownMenuItem>
@@ -365,7 +365,7 @@ export default function ContactPage() {
                       onChange={(e) =>
                         setForm({ ...form, message: e.target.value })
                       }
-                      className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#22d3ee] focus:outline-none transition-colors resize-none"
+                      className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-[#2d4160] text-white focus:border-[#357AB7] focus:outline-none transition-colors resize-none"
                       placeholder="Décrivez votre projet, vos besoins ou posez vos questions..."
                     />
                   </div>
@@ -379,7 +379,7 @@ export default function ContactPage() {
                       onChange={(e) =>
                         setForm({ ...form, consent: e.target.checked })
                       }
-                      className="mt-1 w-4 h-4 rounded border-[#2d4160] bg-[#0f172a] text-[#22d3ee] focus:ring-[#22d3ee]"
+                      className="mt-1 w-4 h-4 rounded border-[#2d4160] bg-[#0f172a] text-[#357AB7] focus:ring-[#357AB7]"
                     />
                     <label htmlFor="consent" className="text-sm text-[#94a3b8]">
                       J&apos;accepte que Safyr traite mes données personnelles

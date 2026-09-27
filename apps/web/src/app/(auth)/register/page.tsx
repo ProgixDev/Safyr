@@ -16,7 +16,7 @@ export default function RegisterPage() {
 
       {/* Radial gradient overlays */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(167,139,250,0.15)_0%,transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(34,211,238,0.1)_0%,transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(53,122,183,0.1)_0%,transparent_50%)]" />
 
       {/* Grid overlay */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(167,139,250,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(167,139,250,0.03)_1px,transparent_1px)] bg-size-[50px_50px]" />
@@ -61,7 +61,7 @@ export default function RegisterPage() {
             {/* Form card */}
             <div className="relative">
               {/* Glow effect */}
-              <div className="absolute -inset-1 bg-linear-to-r from-[#a78bfa]/20 via-[#22d3ee]/20 to-[#a78bfa]/20 rounded-2xl blur-xl opacity-50" />
+              <div className="absolute -inset-1 bg-linear-to-r from-[#a78bfa]/20 via-[#357AB7]/20 to-[#a78bfa]/20 rounded-2xl blur-xl opacity-50" />
 
               <div
                 className="relative bg-[#0f172a]/90 backdrop-blur-xl border border-[#2d4160]/60 rounded-2xl p-5 sm:p-6 xl:p-8 overflow-y-auto"

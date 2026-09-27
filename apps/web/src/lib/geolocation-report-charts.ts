@@ -35,7 +35,7 @@ export const CHART_COLORS = {
   emerald: "#10b981",
   amber: "#f59e0b",
   red: "#ef4444",
-  cyan: "#06b6d4",
+  cyan: "#295F8E",
   violet: "#8b5cf6",
   slate: "#64748b",
 } as const;

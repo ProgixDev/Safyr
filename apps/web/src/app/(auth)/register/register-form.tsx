@@ -83,7 +83,7 @@ const modules = [
       "Suivi des postes",
     ],
     icon: Users,
-    color: "#22d3ee",
+    color: "#357AB7",
     core: true,
   },
   {
@@ -737,7 +737,7 @@ export function RegisterForm() {
               <div
                 className={`rounded-lg border transition-all duration-200 ${
                   isCore
-                    ? "bg-[#22d3ee]/5 border-[#22d3ee]/30"
+                    ? "bg-[#357AB7]/5 border-[#357AB7]/30"
                     : isSelected
                       ? "bg-[#a78bfa]/10 border-[#a78bfa]/50"
                       : "bg-[#1e293b]/50 border-[#2d4160]/60"
@@ -814,7 +814,7 @@ export function RegisterForm() {
                               key={i}
                               className="text-xs text-[#94a3b8] flex items-center gap-2"
                             >
-                              <Check size={10} className="text-[#22d3ee]" />
+                              <Check size={10} className="text-[#357AB7]" />
                               {feature}
                             </li>
                           ))}
@@ -844,7 +844,7 @@ export function RegisterForm() {
 
             {/* Core modules - included by default */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-[#22d3ee] uppercase tracking-wide">
+              <div className="flex items-center gap-2 text-xs font-medium text-[#357AB7] uppercase tracking-wide">
                 <Check size={10} />
                 Inclus
               </div>

@@ -78,31 +78,31 @@ function StatCard({
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.55, delay: index * 0.1, ease: "easeOut" }}
       onAnimationComplete={() => setActive(true)}
-      className="group relative flex flex-col items-center text-center px-6 py-6 rounded-xl border border-transparent hover:border-[#22d3ee]/20 hover:bg-[#22d3ee]/3 transition-all duration-300 cursor-default"
+      className="group relative flex flex-col items-center text-center px-6 py-6 rounded-xl border border-transparent hover:border-[#357AB7]/20 hover:bg-[#357AB7]/3 transition-all duration-300 cursor-default"
     >
       {/* Hover glow */}
       <div
         className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at 50% 0%, rgba(34,211,238,0.07) 0%, transparent 70%)",
+            "radial-gradient(ellipse at 50% 0%, rgba(53,122,183,0.07) 0%, transparent 70%)",
         }}
       />
 
       {/* Animated top border line on hover */}
-      <div className="absolute top-0 left-4 right-4 h-px bg-linear-to-r from-transparent via-[#22d3ee]/60 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-400 rounded-full" />
+      <div className="absolute top-0 left-4 right-4 h-px bg-linear-to-r from-transparent via-[#357AB7]/60 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-400 rounded-full" />
 
       <span
-        className="relative text-3xl sm:text-4xl font-bold text-[#22d3ee] tabular-nums tracking-tight transition-all duration-300"
+        className="relative text-3xl sm:text-4xl font-bold text-[#357AB7] tabular-nums tracking-tight transition-all duration-300"
         style={{
-          textShadow: "0 0 28px rgba(34,211,238,0.3)",
+          textShadow: "0 0 28px rgba(53,122,183,0.3)",
         }}
       >
         {displayed}
         <span
           className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
           style={{
-            textShadow: "0 0 40px rgba(34,211,238,0.55)",
+            textShadow: "0 0 40px rgba(53,122,183,0.55)",
             color: "transparent",
           }}
           aria-hidden
@@ -122,8 +122,8 @@ export default function Stats() {
   return (
     <section className="relative py-20 bg-[#0f172a] overflow-hidden">
       {/* Accent lines */}
-      <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/40 to-transparent" />
-      <div className="absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#22d3ee]/20 to-transparent" />
+      <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/40 to-transparent" />
+      <div className="absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#357AB7]/20 to-transparent" />
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:divide-x lg:divide-[#2d4160]/60">

@@ -121,7 +121,7 @@ function PieLegend({ data }: { data: PieDatum[] }) {
 export function RadialGauge({
   value,
   max = 100,
-  color = "#22d3ee",
+  color = "#357AB7",
   display,
   caption,
 }: {
@@ -333,7 +333,7 @@ function lastNMonths(n: number) {
 }
 
 const CONTRACT_META: Record<string, { label: string; color: string }> = {
-  CDI: { label: "CDI", color: "#22d3ee" },
+  CDI: { label: "CDI", color: "#357AB7" },
   CDD: { label: "CDD", color: "#a78bfa" },
   INTERIM: { label: "Intérim", color: "#fb923c" },
   APPRENTICESHIP: { label: "Apprentissage", color: "#34d399" },
@@ -675,9 +675,9 @@ export function HeadcountTrendLineWidget({
             <Line
               type="monotone"
               dataKey="effectif"
-              stroke="#22d3ee"
+              stroke="#357AB7"
               strokeWidth={2.5}
-              dot={{ r: 3, fill: "#22d3ee", strokeWidth: 0 }}
+              dot={{ r: 3, fill: "#357AB7", strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
           </LineChart>

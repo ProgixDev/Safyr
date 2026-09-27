@@ -13,7 +13,7 @@ export default function ForgotPasswordPage() {
 
       {/* Radial gradient overlays */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,146,60,0.12)_0%,transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(34,211,238,0.08)_0%,transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(53,122,183,0.08)_0%,transparent_50%)]" />
 
       {/* Main content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-6">

@@ -101,7 +101,7 @@ const SITE_ZONES: Record<(typeof SITES)[number], string[]> = {
 };
 
 export const CHART_COLORS = {
-  cyan: "#22d3ee",
+  cyan: "#357AB7",
   green: "#10b981",
   amber: "#f59e0b",
   purple: "#8b5cf6",
