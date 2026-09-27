@@ -388,7 +388,7 @@ export function construireDonnees(src: SourcesDossier): DonneesDossier {
     .sort((a, b) => b.annee.localeCompare(a.annee));
 
   // Pièces attendues : les attestations viennent du dossier de conformité de
-  // l'entreprise ; les bilans se cherchent dans « Divers documents ».
+  // l'entreprise ; les bilans se cherchent dans « Divers organismes ».
   const conformite = src.conformite ?? [];
   const parType = (type: string) =>
     conformite.find((c) => c.requirement.type === type);
@@ -405,12 +405,12 @@ export function construireDonnees(src: SourcesDossier): DonneesDossier {
       ? {
           libelle: "Bilans et comptes de résultat (3 derniers exercices)",
           statut: "Fournie",
-          detail: `${bilans.length} document(s) trouvé(s) dans Divers documents`,
+          detail: `${bilans.length} document(s) trouvé(s) dans Divers organismes`,
         }
       : {
           libelle: "Bilans et comptes de résultat (3 derniers exercices)",
           statut: "À fournir",
-          detail: "Aucun bilan enregistré dans Divers documents",
+          detail: "Aucun bilan enregistré dans Divers organismes",
         },
   );
   for (const [type, libelleParDefaut] of [

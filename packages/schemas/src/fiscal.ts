@@ -7,7 +7,7 @@ export const FiscalRecordTypeSchema = z.enum([
   "prelevement",
   "courrier",
   "akto",
-  // Organismes et pièces de « Divers documents »
+  // Organismes et pièces de « Divers organismes »
   "organisme",
   "divers",
   "courrier_organisme",
