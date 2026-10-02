@@ -49,7 +49,9 @@ export class EmployeesService {
 
   private listMemberInclude = {
     // Les écrans Habilitations (SSIAP, SST, H0B0) lisent les diplômes de tous
-    // les salariés en un seul appel.
+    // les salariés en un seul appel. Le registre unique du personnel lit
+    // aussi l'adresse depuis cette même liste.
+    addressRecord: true,
     certifications: true,
     user: { select: { id: true, email: true, name: true, image: true } },
   } as const;
