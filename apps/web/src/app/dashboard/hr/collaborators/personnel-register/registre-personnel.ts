@@ -469,7 +469,7 @@ function naissance(l: LigneRegistre): { date: string; lieu: string } {
 export const ENTETES_REGISTRE = [
   "Noms",
   "Prénoms",
-  "Date de naissance",
+  "Date et lieu de naissance",
   "NSS",
   "Date d'embauche",
   "Type de contrat",

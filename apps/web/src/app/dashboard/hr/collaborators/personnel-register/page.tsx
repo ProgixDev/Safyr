@@ -303,7 +303,7 @@ export default function PersonnelRegisterPage() {
     },
     {
       key: "naissance",
-      label: "Date de naissance",
+      label: "Date et lieu de naissance",
       headerClassName: ENTETE,
       sortValue: (l) => jourIso(l.entree.birthDate),
       render: (l) => (
