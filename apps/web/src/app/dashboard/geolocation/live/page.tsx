@@ -258,7 +258,7 @@ function AgentDetailContent({
             <p className="text-xs text-muted-foreground/70">{agent.zone}</p>
           )}
           <Link
-            href={`/dashboard/hr/employees/${agent.id}`}
+            href={`/dashboard/hr/collaborators/${agent.id}`}
             className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors mt-1"
             onClick={onClose}
           >

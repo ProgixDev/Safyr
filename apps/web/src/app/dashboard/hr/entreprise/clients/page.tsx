@@ -27,15 +27,44 @@ import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { ClientContract, ClientGift } from "@/lib/types";
 import type { Client } from "@safyr/api-client";
 import { useClients, useCreateClient, useDeleteClient } from "@/hooks/clients";
+import { useRegistre } from "@/hooks/fiscal/use-registre";
+
+// Mêmes lignes que la fiche client (clients/[id]/page.tsx) : contrats et
+// cadeaux de TOUS les clients, pour les compteurs de cette liste.
+interface LigneContrat {
+  id: string;
+  clientId: string;
+  endDate?: string;
+  status: "active" | "expired" | "terminated";
+}
+interface LigneCadeau {
+  id: string;
+  clientId: string;
+  date: string;
+}
+const AUCUN_FICHIER: readonly string[] = [];
 
 export default function ClientsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: clients = [] } = useClients();
 
-  const [contracts] = useState<ClientContract[]>([]);
-
-  const [gifts] = useState<ClientGift[]>([]);
+  // Ces deux compteurs affichaient toujours 0 : les cartes lisaient un state
+  // local jamais alimenté, au lieu des mêmes registres que la fiche client.
+  const registreContrats = useRegistre<LigneContrat>(
+    "client_contrat",
+    AUCUN_FICHIER,
+  );
+  const registreCadeaux = useRegistre<LigneCadeau>(
+    "client_cadeau",
+    AUCUN_FICHIER,
+  );
+  const contracts: Pick<ClientContract, "status">[] = registreContrats.lignes
+    .filter((l) => l.clientId)
+    .map((l) => ({ status: l.status ?? "active" }));
+  const gifts: Pick<ClientGift, "date">[] = registreCadeaux.lignes
+    .filter((l) => l.clientId)
+    .map((l) => ({ date: l.date ? new Date(l.date) : new Date(0) }));
 
   // Ouvre directement le formulaire quand on arrive depuis l'action rapide
   // "Nouveau client" du tableau de bord (/...?new=1).

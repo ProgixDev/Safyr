@@ -206,7 +206,7 @@ export function WarningsSection() {
         <div>
           <div className="font-medium">
             <Link
-              href={`/dashboard/hr/employees/${sanction.employeeId}`}
+              href={`/dashboard/hr/collaborators/${sanction.employeeId}`}
               className="text-primary hover:underline"
             >
               {getEmployeeName(sanction.employeeId)}

@@ -778,11 +778,19 @@ export function EmployeeDocumentsTab({ employee }: EmployeeDocumentsTabProps) {
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Ouvrir DRACAR
               </Button>
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                disabled
+                title="Pas encore disponible : à faire directement depuis DRACAR pour le moment."
+              >
                 <Download className="mr-2 h-4 w-4" />
                 Télécharger attestation
               </Button>
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                disabled
+                title="Pas encore disponible : à faire directement depuis DRACAR pour le moment."
+              >
                 <Eye className="mr-2 h-4 w-4 text-green-600" />
                 Voir carte numérique
               </Button>

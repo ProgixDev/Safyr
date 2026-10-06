@@ -424,7 +424,7 @@ export function ProceduresSection() {
         <div>
           <div className="font-medium">
             <Link
-              href={`/dashboard/hr/employees/${procedure.employeeId}`}
+              href={`/dashboard/hr/collaborators/${procedure.employeeId}`}
               className="text-primary hover:underline"
             >
               {getEmployeeName(procedure.employeeId)}

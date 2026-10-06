@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
@@ -56,6 +56,7 @@ import {
 
 export default function PlanningAgentsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Source unique : les dossiers salariés du module RH. La page partait
   // auparavant d'une liste de démonstration, si bien qu'un salarié créé dans
@@ -208,7 +209,7 @@ export default function PlanningAgentsPage() {
               variant="destructive"
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteClick(agent);
+                handleDeleteClick();
               }}
               className="text-red-600"
             >
@@ -284,21 +285,21 @@ export default function PlanningAgentsPage() {
     setIsCreateModalOpen(true);
   };
 
+  // La fiche agent vient du dossier salarié RH (usePlanningAgents) : modifier
+  // ou supprimer se fait là-bas, sur les vraies données, pas ici sur une
+  // copie locale qui ne survivait pas au rechargement.
   const handleEditFromDropdown = (agent: PlanningAgent) => {
-    setSelectedAgent(agent);
-    openEditModal(agent);
+    router.push(`/dashboard/hr/collaborators/${agent.id}`);
   };
 
   const handleEdit = () => {
     if (selectedAgent) {
-      setIsViewModalOpen(false);
-      openEditModal(selectedAgent);
+      router.push(`/dashboard/hr/collaborators/${selectedAgent.id}`);
     }
   };
 
-  const handleDeleteClick = (agent: PlanningAgent) => {
-    setAgentToDelete(agent);
-    setIsDeleteDialogOpen(true);
+  const handleDeleteClick = () => {
+    router.push(`/dashboard/hr/collaborators`);
   };
 
   const handleDeleteConfirm = () => {
@@ -332,12 +333,7 @@ export default function PlanningAgentsPage() {
             Consultation et gestion des fiches agents
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setFormData({});
-            setIsCreateModalOpen(true);
-          }}
-        >
+        <Button onClick={() => router.push("/dashboard/hr/collaborators")}>
           <Plus className="mr-2 h-4 w-4" />
           Nouvel Agent
         </Button>
@@ -690,7 +686,7 @@ export default function PlanningAgentsPage() {
           <div className="space-y-6">
             {/* Agent Header */}
             <Link
-              href={`/dashboard/hr/employees/${selectedAgent.id}`}
+              href={`/dashboard/hr/collaborators/${selectedAgent.id}`}
               className="block"
             >
               <div className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors">

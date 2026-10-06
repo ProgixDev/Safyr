@@ -229,7 +229,7 @@ export function SanctionsSection() {
       render: (ligne) => (
         <div className="font-medium">
           <Link
-            href={`/dashboard/hr/employees/${ligne.employeeId}`}
+            href={`/dashboard/hr/collaborators/${ligne.employeeId}`}
             className="text-primary hover:underline"
           >
             {ligne.employeeName}

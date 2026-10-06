@@ -497,10 +497,14 @@ export default function OccupationalMedicinePage() {
     void registre.enregistrer(misAJour, infosVisite(misAJour));
   };
 
+  // Marque la visite comme signalée : aucun e-mail n'est envoyé (pas encore
+  // branché sur le service d'envoi), le message ne doit donc pas le prétendre.
   const handleSendAlert = (visit: Visite) => {
     const misAJour: Visite = { ...visit, alertSent: true };
     void registre.enregistrer(misAJour, infosVisite(misAJour));
-    alert("Alerte envoyée à l'employé et l'organisme de médecine du travail");
+    alert(
+      "Visite marquée comme signalée. L'envoi automatique d'e-mail n'est pas encore disponible : prévenez l'employé et l'organisme vous-même.",
+    );
   };
 
   // Le salarié d'une visite ancienne peut ne plus être dans la liste : on le
@@ -962,7 +966,7 @@ export default function OccupationalMedicinePage() {
                   }}
                 >
                   <AlertCircle className="h-4 w-4 mr-2" />
-                  Envoyer une alerte automatique
+                  Marquer comme signalée
                 </Button>
               )}
           </div>
