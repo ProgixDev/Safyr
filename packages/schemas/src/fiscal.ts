@@ -71,6 +71,10 @@ export const FiscalRecordTypeSchema = z.enum([
   "parametre_paie",
   // Grille salariale et période d'essai d'un salarié (étape « Emploi »).
   "fiche_emploi",
+  // Rattachement manuel d'un agent à un site dans le planning (avant toute
+  // vacation réelle) : persiste ce que la grille déduisait seulement des
+  // vacations enregistrées.
+  "site_agent_assignment",
 ]);
 
 export const CreateFiscalRecordSchema = z.object({

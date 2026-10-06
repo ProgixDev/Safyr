@@ -65,6 +65,7 @@ import {
   usePlanningAgents,
   usePlanningSites,
   usePlanningTimeOff,
+  usePlanningSiteAgents,
 } from "@/hooks/planning";
 import { useShifts, useCreateShift, useDeleteShift } from "@/hooks/shifts";
 import { useShiftTemplates, useCreateShiftTemplate } from "@/hooks/contracts";
@@ -113,6 +114,7 @@ export function ScheduleView({
     clients: mockClients,
   } = usePlanningSites();
   const { timeOffRequests } = usePlanningTimeOff();
+  const siteAgentsRegistre = usePlanningSiteAgents();
   const idCounterRef = React.useRef(0);
   const generateShiftId = () => {
     idCounterRef.current += 1;
@@ -286,6 +288,28 @@ export function ScheduleView({
         precedentes.map((sa) => `${sa.siteId}:${sa.agentId}`),
       );
       const ajouts = [...deduites.values()].filter(
+        (sa) => !connues.has(`${sa.siteId}:${sa.agentId}`),
+      );
+      return ajouts.length > 0 ? [...precedentes, ...ajouts] : precedentes;
+    });
+  }
+
+  // Rattachements manuels (« Affecter un agent ») enregistrés en base :
+  // avant, ils ne vivaient que dans cet état React et disparaissaient au
+  // rechargement. Même logique de fusion que les vacations ci-dessus.
+  const [affectationsChargees, setAffectationsChargees] = useState<
+    string | null
+  >(null);
+  const cleAffectations = siteAgentsRegistre.assignments
+    .map((a) => a.id)
+    .join(",");
+  if (!forceSimulation && cleAffectations !== affectationsChargees) {
+    setAffectationsChargees(cleAffectations);
+    setLiveSiteAgents((precedentes) => {
+      const connues = new Set(
+        precedentes.map((sa) => `${sa.siteId}:${sa.agentId}`),
+      );
+      const ajouts = siteAgentsRegistre.assignments.filter(
         (sa) => !connues.has(`${sa.siteId}:${sa.agentId}`),
       );
       return ajouts.length > 0 ? [...precedentes, ...ajouts] : precedentes;
@@ -813,6 +837,14 @@ export function ScheduleView({
       .filter((x): x is SiteAgentAssignment => x !== null);
 
     setSiteAgents([...siteAgents, ...newAssignments]);
+    // Pas de données propres en mode simulation : on ne persiste que le réel.
+    if (!simulationMode) {
+      for (const a of newAssignments) {
+        void siteAgentsRegistre
+          .assigner(a.siteId, a.agentId, a.agentName)
+          .catch((e) => console.error("Affectation agent non enregistrée", e));
+      }
+    }
     setAgentsToAssign([]);
     setAssignSearch("");
     setShowAgentCommand(false);
@@ -833,14 +865,19 @@ export function ScheduleView({
 
   const confirmRemoveAgent = () => {
     if (!selectedAgentForRemoval || !activeSiteIdRef.current) return;
+    const siteId = activeSiteIdRef.current;
     setSiteAgents(
       siteAgents.map((sa) =>
-        sa.siteId === activeSiteIdRef.current &&
-        sa.agentId === selectedAgentForRemoval
+        sa.siteId === siteId && sa.agentId === selectedAgentForRemoval
           ? { ...sa, active: false }
           : sa,
       ),
     );
+    if (!simulationMode) {
+      void siteAgentsRegistre
+        .retirer(siteId, selectedAgentForRemoval)
+        .catch((e) => console.error("Retrait agent non enregistré", e));
+    }
     setAgentShifts(
       agentShifts.filter(
         (s) =>

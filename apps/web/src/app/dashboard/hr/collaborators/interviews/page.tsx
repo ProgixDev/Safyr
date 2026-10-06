@@ -30,6 +30,7 @@ import { Modal } from "@/components/ui/modal";
 import { Combobox } from "@/components/ui/combobox";
 import { Progress } from "@/components/ui/progress";
 import { useRegistre } from "@/hooks/fiscal/use-registre";
+import { downloadStoredFile, type StoredFile } from "@/lib/document-files";
 import { BADGE_TONS, type BadgeTon } from "@/lib/hr-status-badges";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,8 @@ interface LigneEntretien {
   notes: string;
   objectives: string[];
   status: "scheduled" | "completed" | "cancelled";
+  /** Ajouté par useRegistre (CHAMPS_FICHIERS) : le PDF joint, le cas échéant. */
+  document?: StoredFile | null;
 }
 
 interface LigneObjectif {
@@ -149,7 +152,7 @@ export default function InterviewsPage() {
     notes: ligne.notes ?? "",
     objectives: ligne.objectives ?? [],
     status: ligne.status ?? "scheduled",
-    documents: [],
+    documents: ligne.document?.key ? [ligne.document.key] : [],
     createdAt: EPOQUE,
     updatedAt: EPOQUE,
   });
@@ -908,12 +911,18 @@ export default function InterviewsPage() {
                 <Label>Documents</Label>
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  <a
-                    href={viewingItem.documents[0]}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadStoredFile({
+                        name: "Document d'entretien.pdf",
+                        key: viewingItem.documents![0],
+                      })
+                    }
                     className="text-sm text-blue-600 hover:underline"
                   >
                     Voir le document
-                  </a>
+                  </button>
                 </div>
               </div>
             )}
