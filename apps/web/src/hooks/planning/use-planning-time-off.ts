@@ -75,14 +75,43 @@ export function estEnCongeAujourdHui(
   employeeId: string,
   timeOffRequests: TimeOffRequest[],
 ): boolean {
-  const auj = new Date();
-  auj.setHours(12, 0, 0, 0);
+  return estEnCongeADate(employeeId, new Date(), timeOffRequests);
+}
+
+/** Vrai si le salarié a un congé/une absence approuvé(e) couvrant cette date. */
+export function estEnCongeADate(
+  employeeId: string,
+  date: Date,
+  timeOffRequests: TimeOffRequest[],
+): boolean {
+  const cible = new Date(date);
+  cible.setHours(12, 0, 0, 0);
   return timeOffRequests.some((r) => {
     if (r.employeeId !== employeeId || r.status !== "approved") return false;
     const debut = new Date(r.startDate);
     const fin = new Date(r.endDate);
     debut.setHours(0, 0, 0, 0);
     fin.setHours(23, 59, 59, 999);
-    return auj >= debut && auj <= fin;
+    return cible >= debut && cible <= fin;
   });
+}
+
+/** Le congé/absence approuvé(e) qui couvre cette date, pour afficher le détail. */
+export function congeADate(
+  employeeId: string,
+  date: Date,
+  timeOffRequests: TimeOffRequest[],
+): TimeOffRequest | null {
+  const cible = new Date(date);
+  cible.setHours(12, 0, 0, 0);
+  return (
+    timeOffRequests.find((r) => {
+      if (r.employeeId !== employeeId || r.status !== "approved") return false;
+      const debut = new Date(r.startDate);
+      const fin = new Date(r.endDate);
+      debut.setHours(0, 0, 0, 0);
+      fin.setHours(23, 59, 59, 999);
+      return cible >= debut && cible <= fin;
+    }) ?? null
+  );
 }

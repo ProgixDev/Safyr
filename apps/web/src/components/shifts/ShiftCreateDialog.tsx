@@ -16,6 +16,7 @@ import {
 import { useCreateShift } from "@/hooks/shifts";
 import { useSites } from "@/hooks/sites";
 import { useEmployees } from "@/hooks/employees";
+import { usePlanningTimeOff, congeADate } from "@/hooks/planning";
 
 interface Props {
   open: boolean;
@@ -46,6 +47,7 @@ export function ShiftCreateDialog({ open, onOpenChange, defaultDate }: Props) {
   const sitesQ = useSites();
   const employeesQ = useEmployees();
   const mutation = useCreateShift();
+  const { timeOffRequests } = usePlanningTimeOff();
 
   const [siteId, setSiteId] = useState<string>("");
   const [postId, setPostId] = useState<string>("");
@@ -92,14 +94,25 @@ export function ShiftCreateDialog({ open, onOpenChange, defaultDate }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPost?.id]);
 
+  // Un agent en congé/absence approuvé(e) sur cette date : avant, rien ne le
+  // signalait dans cette fenêtre (contrairement à la grille du planning).
+  const congeEnConflit = useMemo(
+    () =>
+      memberId && startAt
+        ? congeADate(memberId, new Date(startAt), timeOffRequests)
+        : null,
+    [memberId, startAt, timeOffRequests],
+  );
+
   const canSubmit = useMemo(
     () =>
       !!postId &&
       !!startAt &&
       !!endAt &&
       new Date(endAt) > new Date(startAt) &&
+      !congeEnConflit &&
       !mutation.isPending,
-    [postId, startAt, endAt, mutation.isPending],
+    [postId, startAt, endAt, congeEnConflit, mutation.isPending],
   );
 
   async function handleSubmit() {
@@ -154,7 +167,7 @@ export function ShiftCreateDialog({ open, onOpenChange, defaultDate }: Props) {
                 setPostId("");
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choisir un site" />
               </SelectTrigger>
               <SelectContent>
@@ -176,7 +189,7 @@ export function ShiftCreateDialog({ open, onOpenChange, defaultDate }: Props) {
           <div className="space-y-2">
             <Label>Poste *</Label>
             <Select value={postId} onValueChange={setPostId} disabled={!siteId}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
                     !siteId
@@ -207,7 +220,7 @@ export function ShiftCreateDialog({ open, onOpenChange, defaultDate }: Props) {
             value={memberId || "__unassigned"}
             onValueChange={(v) => setMemberId(v === "__unassigned" ? "" : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="À pourvoir" />
             </SelectTrigger>
             <SelectContent>
@@ -225,6 +238,15 @@ export function ShiftCreateDialog({ open, onOpenChange, defaultDate }: Props) {
               })}
             </SelectContent>
           </Select>
+          {congeEnConflit && (
+            <p className="text-sm text-destructive" role="alert">
+              Agent en congé ({congeEnConflit.type === "sick_leave" ? "arrêt maladie" : "congé"}{" "}
+              approuvé du{" "}
+              {new Date(congeEnConflit.startDate).toLocaleDateString("fr-FR")}{" "}
+              au {new Date(congeEnConflit.endDate).toLocaleDateString("fr-FR")}) —
+              choisissez un autre agent ou une autre date.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -252,7 +274,7 @@ export function ShiftCreateDialog({ open, onOpenChange, defaultDate }: Props) {
             value={status}
             onValueChange={(v) => setStatus(v as ShiftStatus)}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
