@@ -34,7 +34,11 @@ import {
 } from "@/hooks/contracts";
 import { pickFile, downloadStoredFile } from "@/lib/document-files";
 import { exporterCsvExcel, exporterPdf } from "@/lib/export-table";
-import { estPhotoLisible, preparerPhotoPourLecture } from "@/lib/receipt-image";
+import {
+  estFichierLisible,
+  estPhotoLisible,
+  preparerPhotoPourLecture,
+} from "@/lib/receipt-image";
 import {
   Building2,
   FileText,
@@ -189,8 +193,8 @@ function appliquerMontant<
   return suivant;
 }
 
-const MESSAGE_PDF =
-  "Lecture automatique indisponible pour les PDF : saisissez les montants. Astuce : une photo/capture d'écran du reçu (JPG/PNG) est lue automatiquement.";
+const MESSAGE_FORMAT_NON_LISIBLE =
+  "Lecture automatique indisponible pour ce format : saisissez les montants. Astuce : une photo/capture d'écran ou un PDF du reçu est lu automatiquement.";
 
 /** Champs du formulaire cadeau que la lecture automatique sait remplir. */
 type ChampLu = "date" | "valueHT" | "tva" | "valueTTC" | "giftDescription";
@@ -900,8 +904,8 @@ export default function ClientDetailPage({
   };
 
   /**
-   * Après le choix du reçu : il part au stockage immédiatement, puis (photos
-   * seulement) est lu pour pré-remplir date, HT, TVA, TTC et description. Un
+   * Après le choix du reçu : il part au stockage immédiatement, puis (photo
+   * ou PDF) est lu pour pré-remplir date, HT, TVA, TTC et description. Un
    * échec n'empêche jamais la saisie manuelle.
    */
   const handleGiftFileChange = async (fichier: File | null) => {
@@ -913,16 +917,19 @@ export default function ClientDetailPage({
     setChampsLus([]);
     setDescriptionProposee("");
 
-    // Les PDF (et Word/Excel) ne sont pas lus : évite un aller-retour serveur
-    // dont le résultat est connu d'avance.
-    if (!estPhotoLisible(fichier)) {
-      setAnalyseRetour({ texte: MESSAGE_PDF, ton: "info" });
+    // Les formats hors photo/PDF (Word, Excel…) ne sont pas lus : évite un
+    // aller-retour serveur dont le résultat est connu d'avance.
+    if (!estFichierLisible(fichier)) {
+      setAnalyseRetour({ texte: MESSAGE_FORMAT_NON_LISIBLE, ton: "info" });
       return;
     }
 
     setAnalyseEnCours(true);
     try {
-      const envoi = await preparerPhotoPourLecture(fichier);
+      // Les photos sont réduites avant l'envoi (poids) ; un PDF part tel quel.
+      const envoi = estPhotoLisible(fichier)
+        ? await preparerPhotoPourLecture(fichier)
+        : fichier;
       const extrait = await extractReceiptFile(envoi);
       if (courant !== analyseId.current) return;
 

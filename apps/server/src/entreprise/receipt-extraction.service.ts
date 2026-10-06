@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 import { ENV } from "@/config/env.module";
 import type { Env } from "@/config/env";
+import { extractPdfText } from "@/common/pdf-text-extraction";
 
 const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 
@@ -18,8 +19,8 @@ const GROQ_MODEL = "qwen/qwen3.8-27b";
 // Le front réduit les photos avant l'envoi ; ce plafond protège les autres appelants.
 const TAILLE_IMAGE_MAX = 3 * 1024 * 1024;
 
-export const MESSAGE_PDF =
-  "Lecture automatique indisponible pour les PDF : saisissez les montants. Astuce : une photo/capture d'écran du reçu (JPG/PNG) est lue automatiquement.";
+export const MESSAGE_PDF_SCANNE =
+  "Ce PDF semble être un scan sans texte détectable (image de document) : l'extraction automatique ne peut pas le lire. Saisissez les montants manuellement, ou déposez une photo/capture d'écran du reçu (JPG/PNG).";
 
 // Taux de TVA français courants : sert à valider le taux lu et à estimer
 // HT/TVA quand seul le TTC est lisible.
@@ -97,7 +98,7 @@ const RESPONSE_JSON_SCHEMA = {
 };
 
 const PROMPT = [
-  "Cette image est un ticket de caisse ou une facture d'achat française (cadeau client).",
+  "Ce document (image ou texte extrait d'un PDF) est un ticket de caisse ou une facture d'achat française (cadeau client).",
   "Renseigne TOUS les champs du schéma en lisant le document avec soin :",
   "- date : date d'émission, format AAAA-MM-JJ. Les dates françaises sont JJ/MM/AAAA (le jour d'abord) : 22/09/2026 devient 2026-09-22.",
   "- montantHT, tva, montantTTC : nombres en euros avec un point décimal (la virgule française 12,50 devient 12.5), sans symbole ni espace.",
@@ -110,12 +111,14 @@ const PROMPT = [
 ].join("\n");
 
 /**
- * Lit la photo d'un ticket ou d'une facture et en extrait date, HT, TVA, TTC
- * et description, pour pré-remplir le formulaire d'un cadeau client.
+ * Lit le reçu (photo ou PDF) d'un cadeau client et en extrait date, HT, TVA,
+ * TTC et description, pour pré-remplir le formulaire.
  *
- * Volontairement limité aux images (mode vision de Groq) : la lecture des PDF
- * passe par pdfjs, dont le chargement est instable en serverless (voir
- * l'extraction de contrat). Un PDF reçoit donc un message clair, sans crash.
+ * Les PDF sont d'abord convertis en texte (pdf-parse, voir
+ * @/common/pdf-text-extraction) puis envoyés au modèle en mode texte. Les
+ * images passent par le mode vision du même modèle. Un PDF scanné sans
+ * couche de texte (donc sans texte extractible) est signalé explicitement
+ * plutôt que de produire un résultat vide ou halluciné.
  */
 @Injectable()
 export class ReceiptExtractionService {
@@ -135,14 +138,13 @@ export class ReceiptExtractionService {
     buffer: Buffer,
     mimeType: string,
   ): Promise<ExtractedReceipt> {
-    // Le format est vérifié avant la clé : un PDF reçoit le même message
-    // explicatif que la clé soit configurée ou non.
-    if (mimeType === "application/pdf") {
-      throw new BadRequestException(MESSAGE_PDF);
-    }
-    if (!(IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)) {
+    const estPdf = mimeType === "application/pdf";
+    if (
+      !estPdf &&
+      !(IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)
+    ) {
       throw new BadRequestException(
-        "Format non pris en charge pour la lecture automatique : utilisez une photo JPG, PNG ou WEBP.",
+        "Format non pris en charge pour la lecture automatique : utilisez un PDF ou une photo JPG, PNG ou WEBP.",
       );
     }
     if (!this.apiKey) {
@@ -152,15 +154,23 @@ export class ReceiptExtractionService {
     }
     if (buffer.length > TAILLE_IMAGE_MAX) {
       throw new BadRequestException(
-        "Photo trop volumineuse pour la lecture automatique (3 Mo maximum).",
+        estPdf
+          ? "Fichier trop volumineux pour la lecture automatique (3 Mo maximum)."
+          : "Photo trop volumineuse pour la lecture automatique (3 Mo maximum).",
       );
     }
 
-    const dataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
-    const texte = await this.callGroq([
-      { type: "text", text: PROMPT },
-      { type: "image_url", image_url: { url: dataUrl } },
-    ]);
+    const texte = estPdf
+      ? await this.callGroq([{ type: "text", text: await this.buildPdfPrompt(buffer) }])
+      : await this.callGroq([
+          { type: "text", text: PROMPT },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${buffer.toString("base64")}`,
+            },
+          },
+        ]);
 
     let json: unknown;
     try {
@@ -241,6 +251,25 @@ export class ReceiptExtractionService {
     return new ServiceUnavailableException(
       "Le document n'a pas pu être analysé. Saisissez les champs manuellement.",
     );
+  }
+
+  /** Texte du PDF (ou message d'erreur explicite) suivi du prompt d'extraction. */
+  private async buildPdfPrompt(buffer: Buffer): Promise<string> {
+    let texte: string | null;
+    try {
+      texte = await extractPdfText(buffer);
+    } catch (error) {
+      this.logger.error(
+        `Échec de la lecture du PDF : ${error instanceof Error ? error.message : "erreur inconnue"}`,
+      );
+      throw new BadRequestException(
+        "Ce fichier PDF n'a pas pu être lu. Vérifiez qu'il n'est pas corrompu ou protégé par mot de passe.",
+      );
+    }
+    if (!texte) {
+      throw new BadRequestException(MESSAGE_PDF_SCANNE);
+    }
+    return `${PROMPT}\n\n--- Contenu du reçu ---\n${texte}`;
   }
 
   private async callGroq(

@@ -8,6 +8,13 @@ export function estPhotoLisible(fichier: File): boolean {
   return fichier.type === "" && /\.(jpe?g|png|webp)$/i.test(fichier.name);
 }
 
+/** Vrai pour tout fichier que la lecture automatique sait analyser (photo ou PDF). */
+export function estFichierLisible(fichier: File): boolean {
+  if (estPhotoLisible(fichier)) return true;
+  if (fichier.type === "application/pdf") return true;
+  return fichier.type === "" && /\.pdf$/i.test(fichier.name);
+}
+
 /**
  * Réduit une photo avant l'envoi à la lecture automatique : une photo de
  * téléphone dépasse vite les 3 Mo acceptés par le serveur, et un ticket reste

@@ -122,3 +122,4 @@ supabase/.branches/
 
 # TS incremental build cache (must not be committed — stale cache suppresses tsc emit on CI/Vercel)
 *.tsbuildinfo
+.env*.local
