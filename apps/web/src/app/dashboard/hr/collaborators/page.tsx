@@ -516,6 +516,7 @@ function pendingToEmployee(p: CreateEmployeePayload, idx: number): Employee {
     children: p.children ?? null,
     socialSecurityNumber: p.socialSecurityNumber ?? null,
     cartePro: p.cartePro ?? null,
+    qualifications: p.qualifications ?? [],
     employeeNumber: p.employeeNumber,
     hireDate: p.hireDate ?? null,
     position: p.position,

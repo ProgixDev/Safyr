@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IbanInput } from "@/components/ui/IbanInput";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Loader2, Save, Trash2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/types";
@@ -25,6 +26,8 @@ import { useShifts } from "@/hooks/shifts";
 import { uploadFile } from "@safyr/api-client";
 import { EMPLOYEE_POSTE_OPTIONS } from "@/lib/hr-options";
 import { EmployeeFicheEmploiCard } from "./EmployeeFicheEmploiCard";
+import { QualificationsPicker } from "./EmployeeCreateDialog";
+import { Badge } from "@/components/ui/badge";
 import { ApiError, type UpdateEmployeePayload } from "@safyr/api-client";
 import { dateVersChamp, formatDateFr } from "@/lib/employee-adapter";
 
@@ -45,6 +48,7 @@ type FormValues = {
   children: number;
   socialSecurityNumber: string;
   cartePro: string;
+  qualifications: string[];
   position: string;
   employeeNumber: string;
   hireDate: string;
@@ -52,6 +56,7 @@ type FormValues = {
   workSchedule: "full-time" | "part-time";
   status: "active" | "inactive" | "suspended" | "terminated";
   role: "owner" | "agent";
+  dressingAllowance: boolean;
   address: {
     street: string;
     city: string;
@@ -331,6 +336,7 @@ export function EmployeeInfoTab({ employee }: Props) {
       children: employee.children ?? 0,
       socialSecurityNumber: employee.socialSecurityNumber,
       cartePro: employee.cartePro ?? "",
+      qualifications: employee.qualifications ?? [],
       position: employee.position,
       employeeNumber: employee.employeeNumber,
       hireDate: toIso(employee.hireDate),
@@ -338,6 +344,7 @@ export function EmployeeInfoTab({ employee }: Props) {
       workSchedule: employee.workSchedule,
       status: employee.status,
       role: employee.role ?? "agent",
+      dressingAllowance: employee.dressingAllowance ?? false,
       address: { ...employee.address },
       bankDetails: { ...employee.bankDetails },
     }),
@@ -361,6 +368,7 @@ export function EmployeeInfoTab({ employee }: Props) {
         children: value.children,
         socialSecurityNumber: value.socialSecurityNumber,
         cartePro: value.cartePro,
+        qualifications: value.qualifications,
         position: value.position,
         employeeNumber: value.employeeNumber,
         hireDate: value.hireDate || undefined,
@@ -368,6 +376,7 @@ export function EmployeeInfoTab({ employee }: Props) {
         workSchedule: value.workSchedule,
         status: value.status,
         role: value.role,
+        dressingAllowance: value.dressingAllowance,
         address: value.address,
         bankDetails: value.bankDetails,
       };
@@ -540,6 +549,85 @@ export function EmployeeInfoTab({ employee }: Props) {
                 </FormFieldRow>
               )}
             </form.Field>
+            <form.Field name="qualifications">
+              {(field) => (
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-base font-medium leading-none">
+                    Qualifications
+                  </Label>
+                  {isEditing ? (
+                    <QualificationsPicker
+                      selected={field.state.value}
+                      onChange={(next) => field.handleChange(next)}
+                    />
+                  ) : field.state.value.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">—</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {field.state.value.map((q) => (
+                        <Badge key={q} variant="secondary">
+                          {q}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </form.Field>
+            <form.Field name="gender">
+              {(field) => (
+                <SelectRow
+                  field={field}
+                  label="Genre"
+                  editing={isEditing}
+                  options={[
+                    { value: "male", label: "Homme" },
+                    { value: "female", label: "Femme" },
+                    { value: "other", label: "Autre" },
+                  ]}
+                />
+              )}
+            </form.Field>
+            <form.Field name="civilStatus">
+              {(field) => (
+                <SelectRow
+                  field={field}
+                  label="Situation familiale"
+                  editing={isEditing}
+                  options={[
+                    { value: "single", label: "Célibataire" },
+                    { value: "married", label: "Marié(e)" },
+                    { value: "divorced", label: "Divorcé(e)" },
+                    { value: "widowed", label: "Veuf/Veuve" },
+                    { value: "civil-union", label: "Union civile" },
+                  ]}
+                />
+              )}
+            </form.Field>
+            <form.Field name="children">
+              {(field) => (
+                <div className="space-y-1.5">
+                  <Label className="text-base font-medium leading-none">
+                    Nombre d&apos;enfants
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    readOnly={!isEditing}
+                    value={field.state.value ?? 0}
+                    onBlur={field.handleBlur}
+                    onChange={(e) =>
+                      field.handleChange(parseInt(e.target.value, 10) || 0)
+                    }
+                    className={cn(
+                      "text-base",
+                      !isEditing &&
+                        "cursor-default border-transparent bg-muted/30 shadow-none focus-visible:ring-0",
+                    )}
+                  />
+                </div>
+              )}
+            </form.Field>
           </div>
         </CardContent>
       </Card>
@@ -628,6 +716,31 @@ export function EmployeeInfoTab({ employee }: Props) {
                     { value: "terminated", label: "Terminé" },
                   ]}
                 />
+              )}
+            </form.Field>
+            <form.Field name="dressingAllowance">
+              {(field) => (
+                <div className="flex items-start gap-2 pt-2 md:col-span-2">
+                  <Checkbox
+                    id="dressingAllowance"
+                    checked={!!field.state.value}
+                    disabled={!isEditing}
+                    onCheckedChange={(v) => field.handleChange(v === true)}
+                  />
+                  <Label
+                    htmlFor="dressingAllowance"
+                    className={cn(
+                      "text-sm font-normal leading-snug",
+                      isEditing && "cursor-pointer",
+                    )}
+                  >
+                    Soumis à l&apos;indemnité d&apos;habillage
+                    <span className="block text-xs text-muted-foreground">
+                      Calculée automatiquement en paie selon le nombre
+                      d&apos;heures.
+                    </span>
+                  </Label>
+                </div>
               )}
             </form.Field>
           </div>

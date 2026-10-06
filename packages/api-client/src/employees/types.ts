@@ -77,6 +77,7 @@ export interface Employee {
   socialSecurityNumber: string | null;
   /** Numéro de carte professionnelle CNAPS. */
   cartePro: string | null;
+  qualifications: string[];
 
   employeeNumber: string | null;
   hireDate: string | null;
@@ -112,6 +113,7 @@ export interface CreateEmployeePayload {
   children?: number;
   socialSecurityNumber?: string;
   cartePro?: string;
+  qualifications?: string[];
   employeeNumber: string;
   hireDate?: string;
   position: string;

@@ -66,6 +66,7 @@ export function toUiEmployee(e: ApiEmployee): UiEmployee {
     },
     socialSecurityNumber: e.socialSecurityNumber ?? "",
     cartePro: e.cartePro ?? "",
+    qualifications: e.qualifications ?? [],
     employeeNumber: e.employeeNumber ?? "",
     hireDate: toDate(e.hireDate),
     position: e.position ?? "",

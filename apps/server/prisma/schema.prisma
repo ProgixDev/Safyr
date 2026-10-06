@@ -163,6 +163,7 @@ model Member {
   socialSecurityNumber String?
   // Numéro de carte professionnelle CNAPS (vérifiable via DRACAR)
   cartePro             String?
+  qualifications       String[] @default([])
 
   // --- Employment ---
   employeeNumber String?

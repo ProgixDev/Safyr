@@ -512,7 +512,7 @@ type FormApi = {
 };
 
 // Multi-sélection des qualifications avec ajout manuel (si absente de la liste).
-function QualificationsPicker({
+export function QualificationsPicker({
   selected,
   onChange,
 }: {

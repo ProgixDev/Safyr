@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -278,6 +279,24 @@ export function CertificationFormDialog({
             )}
           </form.Field>
         </div>
+
+        <form.Field name="verified">
+          {(field: AnyFieldApi) => (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="cert-verified"
+                checked={!!field.state.value}
+                onCheckedChange={(v) => field.handleChange(v === true)}
+              />
+              <Label
+                htmlFor="cert-verified"
+                className="cursor-pointer text-sm font-normal"
+              >
+                Vérifiée (justificatif contrôlé)
+              </Label>
+            </div>
+          )}
+        </form.Field>
 
         <div className="space-y-2">
           <Label>Document (justificatif)</Label>

@@ -385,6 +385,7 @@ export interface Employee {
   socialSecurityNumber: string;
   /** Numéro de carte professionnelle CNAPS. */
   cartePro?: string;
+  qualifications?: string[];
   healthCard?: string; // File path/URL
 
   // Employment
