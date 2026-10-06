@@ -50,6 +50,8 @@ import {
   usePlanningAgents,
   usePlanningTimeOff,
   estEnCongeAujourdHui,
+  usePlanningMissions,
+  estEnMissionMaintenant,
 } from "@/hooks/planning";
 
 export default function PlanningAgentsPage() {
@@ -59,15 +61,21 @@ export default function PlanningAgentsPage() {
   // auparavant d'une liste de démonstration, si bien qu'un salarié créé dans
   // les RH n'apparaissait jamais dans le planning.
   const { agents: agentsFromApi, isLoading } = usePlanningAgents();
-  // Un agent en congé approuvé aujourd'hui (registre RH) passe « Congé » au
-  // lieu de « Disponible » : avant, ce statut n'était jamais calculé.
+  // Un agent en congé approuvé aujourd'hui (registre RH) passe « Congé », un
+  // agent sur une vacation en cours passe « En mission » : avant, aucun des
+  // deux statuts n'était jamais calculé (toujours Disponible/Absent).
   const { timeOffRequests } = usePlanningTimeOff();
-  const agentsAvecConges = agentsFromApi.map((a) =>
-    a.availabilityStatus === "Disponible" &&
-    estEnCongeAujourdHui(a.id, timeOffRequests)
-      ? { ...a, availabilityStatus: "Congé" as const }
-      : a,
-  );
+  const { shiftsToday } = usePlanningMissions();
+  const agentsAvecConges = agentsFromApi.map((a) => {
+    if (a.availabilityStatus !== "Disponible") return a;
+    if (estEnCongeAujourdHui(a.id, timeOffRequests)) {
+      return { ...a, availabilityStatus: "Congé" as const };
+    }
+    if (estEnMissionMaintenant(a.id, shiftsToday)) {
+      return { ...a, availabilityStatus: "En mission" as const };
+    }
+    return a;
+  });
   const [agents, setAgents] = useState<PlanningAgent[]>([]);
   const [syncedIds, setSyncedIds] = useState<string | null>(null);
 
