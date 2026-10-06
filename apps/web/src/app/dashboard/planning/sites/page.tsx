@@ -41,7 +41,6 @@ import {
 } from "lucide-react";
 import type { Site, Poste, SiteFormData } from "@/lib/types";
 import { usePlanningSites } from "@/hooks/planning";
-import { mockSiteStats } from "@/data/sites";
 import { useCreateSite, useUpdateSite, useDeleteSite } from "@/hooks/sites";
 import {
   SITE_COLOR_MAP,
@@ -373,31 +372,37 @@ export default function SitesPage() {
     },
   ];
 
+  // Avant : cartes alimentées par mockSiteStats, des chiffres codés en dur
+  // (7 sites, 85,7 % de couverture…) sans rapport avec les sites réels
+  // affichés juste en dessous. Calculées ici depuis les mêmes données API.
+  const sitesActifs = sites.filter((s) => s.status === "active").length;
+  const postesActifs = postes.filter((p) => p.status === "active").length;
+
   return (
     <div className="space-y-6">
       {/* Stats */}
       <InfoCardContainer>
         <InfoCard
           title="Sites totaux"
-          value={mockSiteStats.total}
+          value={sites.length}
           icon={MapPin}
           color="blue"
         />
         <InfoCard
           title="Sites actifs"
-          value={mockSiteStats.active}
+          value={sitesActifs}
           icon={Building2}
           color="green"
         />
         <InfoCard
           title="Postes créés"
-          value={mockSiteStats.totalPostes}
+          value={postes.length}
           icon={Users}
           color="blue"
         />
         <InfoCard
-          title="Taux de couverture"
-          value={`${mockSiteStats.coverageRate.toFixed(1)}%`}
+          title="Postes actifs"
+          value={postesActifs}
           icon={ShieldCheck}
           color="blue"
         />

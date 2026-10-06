@@ -46,7 +46,11 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { PlanningAgent } from "@/data/planning-agents";
-import { usePlanningAgents } from "@/hooks/planning";
+import {
+  usePlanningAgents,
+  usePlanningTimeOff,
+  estEnCongeAujourdHui,
+} from "@/hooks/planning";
 
 export default function PlanningAgentsPage() {
   const searchParams = useSearchParams();
@@ -55,13 +59,24 @@ export default function PlanningAgentsPage() {
   // auparavant d'une liste de démonstration, si bien qu'un salarié créé dans
   // les RH n'apparaissait jamais dans le planning.
   const { agents: agentsFromApi, isLoading } = usePlanningAgents();
+  // Un agent en congé approuvé aujourd'hui (registre RH) passe « Congé » au
+  // lieu de « Disponible » : avant, ce statut n'était jamais calculé.
+  const { timeOffRequests } = usePlanningTimeOff();
+  const agentsAvecConges = agentsFromApi.map((a) =>
+    a.availabilityStatus === "Disponible" &&
+    estEnCongeAujourdHui(a.id, timeOffRequests)
+      ? { ...a, availabilityStatus: "Congé" as const }
+      : a,
+  );
   const [agents, setAgents] = useState<PlanningAgent[]>([]);
   const [syncedIds, setSyncedIds] = useState<string | null>(null);
 
-  const apiIds = agentsFromApi.map((a) => a.id).join(",");
+  const apiIds = agentsAvecConges
+    .map((a) => `${a.id}:${a.availabilityStatus}`)
+    .join(",");
   if (apiIds !== syncedIds) {
     setSyncedIds(apiIds);
-    setAgents(agentsFromApi);
+    setAgents(agentsAvecConges);
   }
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const showCreateFromUrl = searchParams.get("create") === "true";

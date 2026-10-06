@@ -61,8 +61,11 @@ import {
   mockSiteAgentAssignments,
   mockAgentShifts,
 } from "@/data/site-shifts";
-import { mockTimeOffRequests } from "@/data/time-off";
-import { usePlanningAgents, usePlanningSites } from "@/hooks/planning";
+import {
+  usePlanningAgents,
+  usePlanningSites,
+  usePlanningTimeOff,
+} from "@/hooks/planning";
 import { useShifts, useCreateShift, useDeleteShift } from "@/hooks/shifts";
 import { useShiftTemplates, useCreateShiftTemplate } from "@/hooks/contracts";
 import type { Shift as ApiShift } from "@safyr/api-client";
@@ -101,14 +104,15 @@ export function ScheduleView({
   forceSimulation?: boolean;
 }) {
   const { settings } = usePlanningSettingsStore();
-  // Agents, sites et postes viennent des modules RH et Entreprise : le
-  // planning n'a plus de données propres.
+  // Agents, sites, postes et congés viennent des modules RH et Entreprise :
+  // le planning n'a plus de données propres.
   const { agents: planningAgents } = usePlanningAgents();
   const {
     sites: mockSites,
     postes: mockPostes,
     clients: mockClients,
   } = usePlanningSites();
+  const { timeOffRequests } = usePlanningTimeOff();
   const idCounterRef = React.useRef(0);
   const generateShiftId = () => {
     idCounterRef.current += 1;
@@ -682,7 +686,7 @@ export function ScheduleView({
 
   const hasTimeOff = (agentId: string, date: string): boolean => {
     const dateObj = new Date(date);
-    return mockTimeOffRequests.some((req) => {
+    return timeOffRequests.some((req) => {
       if (req.employeeId !== agentId || req.status !== "approved") return false;
       const start = new Date(req.startDate);
       const end = new Date(req.endDate);
@@ -717,7 +721,7 @@ export function ScheduleView({
       };
     }
     if (hasTimeOff(agentId, date)) {
-      const timeOff = mockTimeOffRequests.find((req) => {
+      const timeOff = timeOffRequests.find((req) => {
         if (req.employeeId !== agentId || req.status !== "approved")
           return false;
         const dateObj = new Date(date);
@@ -2033,7 +2037,7 @@ export function ScheduleView({
           )}
           displayDates={displayDates}
           isPublicHoliday={isPublicHoliday}
-          timeOffRequests={mockTimeOffRequests}
+          timeOffRequests={timeOffRequests}
           settings={settings}
         />
 
